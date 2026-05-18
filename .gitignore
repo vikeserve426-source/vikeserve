@@ -1,0 +1,11 @@
+# Backend (not needed for Netlify)
+server/
+node_modules/
+.env
+index.js
+package.json
+package-lock.json
+
+# Firebase debug logs
+firebase-debug.log
+firestore-debug.log
