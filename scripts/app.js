@@ -1,3 +1,49 @@
+// ========== IMMEDIATE GLOBAL EXPOSURE FOR APK WEBVIEW ==========
+// This ensures quick-actions.js can call these functions even if app.js hasn't fully loaded
+(function() {
+    // Create placeholder functions
+    window.switchTab = function(tabId) {
+        if (window.app && typeof window.app.switchTab === 'function') {
+            window.app.switchTab(tabId);
+        } else {
+            window._pendingTabSwitch = tabId;
+        }
+    };
+    
+    window.openMoreMenu = function() {
+        if (window.app && typeof window.app.openMoreMenu === 'function') {
+            window.app.openMoreMenu();
+        } else {
+            window._pendingMoreMenu = true;
+        }
+    };
+    
+    window.closeMoreMenu = function() {
+        if (window.app && typeof window.app.closeMoreMenu === 'function') {
+            window.app.closeMoreMenu();
+        } else {
+            window._pendingCloseMoreMenu = true;
+        }
+    };
+    
+    window.getCurrentLocation = function() {
+        if (window.app && typeof window.app.getCurrentLocation === 'function') {
+            return window.app.getCurrentLocation();
+        }
+        return { country: '', state: '', city: '', fullAddress: '' };
+    };
+    
+    window.showToast = window.showToast || function(msg, type) {
+        console.log(`${type}: ${msg}`);
+        // Try to use the real toast if available
+        setTimeout(() => {
+            if (typeof window._realShowToast === 'function') {
+                window._realShowToast(msg, type);
+            }
+        }, 100);
+    };
+})();
+
 class VikeServeApp {
     constructor() {
         this.currentUser = null;
