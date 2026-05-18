@@ -1,4 +1,4 @@
-// scripts/quick-actions.js - UPDATED VERSION (Gas & Water go to Marketplace)
+// scripts/quick-actions.js - COMPLETE FIXED VERSION (Works in APK WebView)
 
 class QuickActionsManager {
     constructor() {
@@ -10,13 +10,11 @@ class QuickActionsManager {
 
     init() {
         this.setupEventListeners();
-        console.log('Quick Actions Manager initialized - Corrected routing');
     }
 
     setupEventListeners() {
         const setup = () => {
             const quickActions = document.querySelectorAll('.quick-action');
-            console.log('Found quick actions:', quickActions.length);
             
             quickActions.forEach(action => {
                 const newAction = action.cloneNode(true);
@@ -26,7 +24,6 @@ class QuickActionsManager {
                 newAction.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Quick action clicked:', actionType);
                     this.handleQuickAction(actionType);
                 });
             });
@@ -39,9 +36,29 @@ class QuickActionsManager {
         }
     }
 
+    // Helper function to switch tabs (works in APK WebView)
+    switchToTab(tabId) {
+        if (typeof window.switchTab === 'function') {
+            window.switchTab(tabId);
+        } else if (window.app && typeof window.app.switchTab === 'function') {
+            window.app.switchTab(tabId);
+        } else {
+            // Fallback for APK - directly manipulate DOM
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) targetTab.classList.add('active');
+            
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const activeNav = document.querySelector(`.bottom-nav .nav-item[data-tab="${tabId}"]`);
+            if (activeNav) activeNav.classList.add('active');
+        }
+    }
+
     handleQuickAction(actionType) {
-        console.log('Quick action triggered:', actionType);
-        
         // Services actions - go to Services tab
         const servicesActions = ['boda', 'construction', 'daily', 'farm', 'electricity', 'house', 'phone'];
         
@@ -55,25 +72,17 @@ class QuickActionsManager {
         const alertsActions = ['alerts', 'report', 'community-alerts'];
         
         if (servicesActions.includes(actionType)) {
-            // Switch to services tab
-            if (typeof window.switchTab === 'function') {
-                window.switchTab('services-tab');
-            }
+            this.switchToTab('services-tab');
             if (typeof window.showToast === 'function') {
                 window.showToast(`Opening ${this.getServiceTitle(actionType)}`, 'info');
             }
             
         } else if (marketplaceActions.includes(actionType)) {
-            // Switch to marketplace tab
-            if (typeof window.switchTab === 'function') {
-                window.switchTab('marketplace-tab');
-            }
+            this.switchToTab('marketplace-tab');
             
-            // Apply category filter for gas and water
             let categoryMessage = 'Opening Marketplace';
             if (actionType === 'gas') {
                 categoryMessage = 'Opening Gas Refill listings';
-                // Apply gas-refill filter after tab loads
                 setTimeout(() => {
                     this.applyMarketplaceFilter('gas-refill');
                 }, 300);
@@ -93,28 +102,23 @@ class QuickActionsManager {
             }
             
         } else if (educationActions.includes(actionType)) {
-            // Open More menu and go to Education tab
             this.openMoreMenuAndSwitchTo('education');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Education Hub', 'info');
             }
             
         } else if (alertsActions.includes(actionType)) {
-            // Open More menu and go to Alerts tab
             this.openMoreMenuAndSwitchTo('alerts');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Community Alerts', 'info');
             }
             
         } else {
-            // Default - open More menu to Education tab
             this.openMoreMenuAndSwitchTo('education');
         }
     }
     
-    // Apply filter to marketplace items
     applyMarketplaceFilter(category) {
-        // Find and click the filter button for the category
         const filterBtns = document.querySelectorAll('.filter-btn');
         let filterApplied = false;
         
@@ -123,35 +127,55 @@ class QuickActionsManager {
             if (btnCategory === category) {
                 btn.click();
                 filterApplied = true;
-                console.log(`Applied marketplace filter: ${category}`);
             }
         });
         
-        if (!filterApplied && category !== 'all') {
-            console.log(`Filter button for ${category} not found, showing all items`);
-        }
-        
-        // Also trigger loadMarketplaceItems if function exists
         if (typeof window.loadMarketplaceItems === 'function') {
             window.loadMarketplaceItems(category);
         }
+        
+        // Fallback for APK - manually filter items
+        if (!filterApplied && category !== 'all') {
+            const itemsContainer = document.getElementById('marketplace-items-container');
+            if (itemsContainer) {
+                const items = itemsContainer.querySelectorAll('.market-item');
+                items.forEach(item => {
+                    const itemCategory = item.getAttribute('data-category');
+                    if (itemCategory === category) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+        }
     }
 
-    // Helper method to open More menu and switch to specific tab
     openMoreMenuAndSwitchTo(tabId) {
         // First open the More menu
         if (typeof window.openMoreMenu === 'function') {
             window.openMoreMenu();
         } else if (window.app && typeof window.app.openMoreMenu === 'function') {
             window.app.openMoreMenu();
+        } else {
+            // Fallback for APK
+            const moreSection = document.getElementById('more-section');
+            const mainNav = document.querySelector('.bottom-nav');
+            const moreBottomNav = document.querySelector('.more-bottom-nav');
+            
+            if (moreSection) {
+                moreSection.style.display = 'block';
+                moreSection.classList.add('active');
+            }
+            if (mainNav) mainNav.style.display = 'none';
+            if (moreBottomNav) moreBottomNav.style.display = 'flex';
         }
         
         // Then switch to the specific tab after a short delay
         setTimeout(() => {
             if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab(tabId);
-            } else if (window.moreMenuManager) {
-                // Fallback: manually trigger tab switch
+            } else {
                 const tabBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
                 if (tabBtn) {
                     tabBtn.click();
@@ -206,8 +230,5 @@ class QuickActionsManager {
     }
 }
 
-// Initialize quick actions manager
 const quickActionsManager = new QuickActionsManager();
 window.quickActionsManager = quickActionsManager;
-
-console.log('✅ Quick Actions Manager loaded - Gas & Water go to Marketplace');
