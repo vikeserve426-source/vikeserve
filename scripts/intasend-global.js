@@ -172,8 +172,8 @@ async showAdPackagesModal(adId = null) {
     
     if (!isLoggedIn) return;
     
-    // Get user's ads
-    const userAds = this.getUserAds();
+    // Get user's ads (await the async function)
+    const userAds = await this.getUserAds();
     
     if (userAds.length === 0) {
         if (typeof window.showToast === 'function') {
@@ -407,12 +407,12 @@ async getUserAds() {
         const adPreview = document.getElementById('promo-ad-preview');
         const step1Next = document.getElementById('promo-step1-next');
         
-        if (adSelect) {
-            adSelect.addEventListener('change', () => {
-                const adId = adSelect.value;
-                if (adId) {
-                    const userAds = this.getUserAds();
-                    selectedAd = userAds.find(ad => ad.id == adId);
+if (adSelect) {
+    adSelect.addEventListener('change', async () => {
+        const adId = adSelect.value;
+        if (adId) {
+            const userAds = await this.getUserAds();
+            selectedAd = userAds.find(ad => ad.id == adId);
                     if (selectedAd && adPreview) {
                         adPreview.style.display = 'block';
                         adPreview.innerHTML = `
@@ -434,10 +434,12 @@ async getUserAds() {
                 }
             });
             
-            if (selectedAdId && adSelect) {
-                adSelect.value = selectedAdId;
-                adSelect.dispatchEvent(new Event('change'));
-            }
+if (selectedAdId && adSelect) {
+    adSelect.value = selectedAdId;
+    setTimeout(() => {
+        adSelect.dispatchEvent(new Event('change'));
+    }, 100);
+}
         }
         
         if (step1Next) {

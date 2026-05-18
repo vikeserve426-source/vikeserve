@@ -225,12 +225,12 @@ async loadUserAdsFromFirebase(userId) {
                 });
             });
             
-            document.querySelectorAll('.delete-ad-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const adId = btn.getAttribute('data-id');
-                    if (confirm('Are you sure you want to delete this ad?')) {
-    try {
-        await firebase.firestore().collection('marketplace_items').doc(adId).delete();
+document.querySelectorAll('.delete-ad-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const adId = btn.getAttribute('data-id');
+        if (confirm('Are you sure you want to delete this ad?')) {
+            try {
+                await firebase.firestore().collection('marketplace_items').doc(adId).delete();
         this.showToast('Ad deleted successfully', 'success');
         if (typeof window.closeModal === 'function') window.closeModal('my-ads-modal');
         this.showMyAds();
