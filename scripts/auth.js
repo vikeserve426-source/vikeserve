@@ -141,32 +141,48 @@ class AuthManager {
         this.showToast('Profile', 'info');
     }
 
-    showMyAds() {
-        if (typeof window.switchTab === 'function') {
-            window.switchTab('marketplace-tab');
-        }
-        
-        const currentUser = this.currentUser;
-        if (currentUser) {
-            const items = JSON.parse(localStorage.getItem('vikeserve_marketplace_items') || '[]');
-            const userItems = items.filter(item => item.userId === currentUser.uid);
-            
-            if (userItems.length === 0) {
-                this.showToast('You have not posted any ads yet', 'info');
-                setTimeout(() => {
-                    if (typeof showMarketplacePostModal === 'function') {
-                        showMarketplacePostModal();
-                    }
-                }, 1000);
-            } else {
-                this.showToast(`You have ${userItems.length} active ad(s)`, 'success');
-                this.showMyAdsModal(userItems);
-            }
-        } else {
-            this.showToast('Please sign in to view your ads', 'warning');
-            if (typeof showAuthModal === 'function') showAuthModal();
-        }
+showMyAds() {
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('marketplace-tab');
     }
+    
+    const currentUser = this.currentUser;
+    if (currentUser) {
+        // Load from Firebase instead of localStorage
+        this.loadUserAdsFromFirebase(currentUser.uid);
+    } else {
+        this.showToast('Please sign in to view your ads', 'warning');
+        if (typeof showAuthModal === 'function') showAuthModal();
+    }
+}
+
+async loadUserAdsFromFirebase(userId) {
+    try {
+        const snapshot = await firebase.firestore()
+            .collection('marketplace_items')
+            .where('userId', '==', userId)
+            .where('status', '==', 'active')
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const userItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (userItems.length === 0) {
+            this.showToast('You have not posted any ads yet', 'info');
+            setTimeout(() => {
+                if (typeof showMarketplacePostModal === 'function') {
+                    showMarketplacePostModal();
+                }
+            }, 1000);
+        } else {
+            this.showToast(`You have ${userItems.length} active ad(s)`, 'success');
+            this.showMyAdsModal(userItems);
+        }
+    } catch (error) {
+        console.error('Error loading user ads from Firebase:', error);
+        this.showToast('Error loading your ads', 'error');
+    }
+}
 
     showMyAdsModal(ads) {
         const modalContent = `
@@ -213,13 +229,16 @@ class AuthManager {
                 btn.addEventListener('click', () => {
                     const adId = btn.getAttribute('data-id');
                     if (confirm('Are you sure you want to delete this ad?')) {
-                        const items = JSON.parse(localStorage.getItem('vikeserve_marketplace_items') || '[]');
-                        const filtered = items.filter(item => item.id != adId && item.adId != adId);
-                        localStorage.setItem('vikeserve_marketplace_items', JSON.stringify(filtered));
-                        this.showToast('Ad deleted successfully', 'success');
-                        if (typeof window.closeModal === 'function') window.closeModal('my-ads-modal');
-                        this.showMyAds();
-                    }
+    try {
+        await firebase.firestore().collection('marketplace_items').doc(adId).delete();
+        this.showToast('Ad deleted successfully', 'success');
+        if (typeof window.closeModal === 'function') window.closeModal('my-ads-modal');
+        this.showMyAds();
+    } catch (error) {
+        console.error('Error deleting ad:', error);
+        this.showToast('Error deleting ad', 'error');
+    }
+}
                 });
             });
             

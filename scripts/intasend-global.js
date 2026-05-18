@@ -17,7 +17,7 @@ class VikeServeGlobalPayments {
         this.userEmail = null;
         this.userPhone = null;
         this.pendingVerifications = new Map();
-        this.useFallbackMode = true; // Using fallback mode for demo
+        this.useFallbackMode = false;
         this.init();
     }
 
@@ -214,11 +214,19 @@ async showAdPackagesModal(adId = null) {
     }, 100);
 }
 
-    getUserAds() {
-        const marketplaceItems = JSON.parse(localStorage.getItem('vikeserve_marketplace_items') || '[]');
-        return marketplaceItems.filter(item => item.userId === this.userId);
+async getUserAds() {
+    try {
+        const snapshot = await firebase.firestore()
+            .collection('marketplace_items')
+            .where('userId', '==', this.userId)
+            .where('status', '==', 'active')
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error('Error loading user ads from Firebase:', error);
+        return [];
     }
-
+}
     createFullAdPromotionModal(userAds, selectedAdId = null) {
         const packages = [
             { id: 'basic', name: 'Basic Boost', price: 100, duration: 3, color: '#27ae60', tag: 'POPULAR' },
