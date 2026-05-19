@@ -1,20 +1,37 @@
-// reviews.js - Review management system for VikeServe
+// ========== REVIEWS MANAGER - COMPLETE FIXED VERSION ==========
+// Uses Firestore collections pattern (collections.reviews(), collections.users())
 
 class ReviewsManager {
     constructor() {
-        // OLD: this.reviews = this.loadReviews();
-        // NEW: Use Firebase collections
+        // FIXED: Use collections pattern (not firebaseCollections)
         this.db = db;
-        this.reviewsCollection = firebaseCollections.reviews();
-        this.usersCollection = firebaseCollections.users();
+        this.reviewsCollection = collections.reviews();
+        this.usersCollection = collections.users();
+        this.bookingsCollection = collections.bookings();
     }
 
-    // Add a new review
+    // Add a new review with validation
     async addReview(reviewData) {
         try {
             const user = auth.currentUser;
             if (!user) {
                 return { success: false, error: 'User must be logged in to add a review' };
+            }
+
+            // Validate rating range (1-5)
+            if (!reviewData.rating || reviewData.rating < 1 || reviewData.rating > 5) {
+                return { success: false, error: 'Rating must be between 1 and 5' };
+            }
+
+            // Check for duplicate review (same user, same reviewed user, same context)
+            const existingReview = await this.reviewsCollection
+                .where('authorId', '==', user.uid)
+                .where('reviewedUserId', '==', reviewData.reviewedUserId)
+                .where('context', '==', reviewData.context || 'general')
+                .get();
+
+            if (!existingReview.empty) {
+                return { success: false, error: 'You have already reviewed this user/service' };
             }
 
             const review = {
@@ -26,12 +43,10 @@ class ReviewsManager {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // OLD: this.reviews.push(review);
-            // NEW: Add to Firebase
             const docRef = await this.reviewsCollection.add(review);
             
             // Update user's average rating
-            await this.updateUserRating(review.reviewedUserId);
+            await this.updateUserRating(reviewData.reviewedUserId);
             
             return { success: true, id: docRef.id };
         } catch (error) {
@@ -40,52 +55,68 @@ class ReviewsManager {
         }
     }
 
-    // Get reviews for a specific user
-    async getUserReviews(userId) {
+    // Get reviews for a specific user with pagination
+    async getUserReviews(userId, limit = 10, startAfter = null) {
         try {
-            // OLD: return this.reviews.filter(review => review.reviewedUserId === userId);
-            // NEW:
-            const snapshot = await this.reviewsCollection
+            let query = this.reviewsCollection
                 .where('reviewedUserId', '==', userId)
                 .where('status', '==', 'published')
                 .orderBy('createdAt', 'desc')
-                .get();
+                .limit(limit);
 
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+
+            const snapshot = await query.get();
+            const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            
+            return {
+                reviews: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                lastVisible: lastVisible || null
+            };
         } catch (error) {
             console.error('Error getting user reviews:', error);
-            return [];
+            return { reviews: [], lastVisible: null };
         }
     }
 
-    // Get reviews written by a specific user
-    async getReviewsByUser(userId) {
+    // Get reviews written by a specific user with pagination
+    async getReviewsByUser(userId, limit = 10, startAfter = null) {
         try {
-            // OLD: return this.reviews.filter(review => review.authorId === userId);
-            // NEW:
-            const snapshot = await this.reviewsCollection
+            let query = this.reviewsCollection
                 .where('authorId', '==', userId)
                 .orderBy('createdAt', 'desc')
-                .get();
+                .limit(limit);
 
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+
+            const snapshot = await query.get();
+            const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            
+            return {
+                reviews: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                lastVisible: lastVisible || null
+            };
         } catch (error) {
             console.error('Error getting reviews by user:', error);
-            return [];
+            return { reviews: [], lastVisible: null };
         }
     }
 
-    // Calculate average rating for a user
+    // Calculate average rating for a user (returns number)
     async getUserAverageRating(userId) {
         try {
-            // OLD: const userReviews = this.getUserReviews(userId);
-            // NEW:
-            const userReviews = await this.getUserReviews(userId);
+            const result = await this.getUserReviews(userId, 100); // Get up to 100 reviews
+            const userReviews = result.reviews;
             
             if (userReviews.length === 0) return 0;
 
-            const totalRating = userReviews.reduce((sum, review) => sum + review.rating, 0);
-            return (totalRating / userReviews.length).toFixed(1);
+            const totalRating = userReviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+            // Return as number, not string
+            return parseFloat((totalRating / userReviews.length).toFixed(1));
         } catch (error) {
             console.error('Error calculating average rating:', error);
             return 0;
@@ -95,14 +126,13 @@ class ReviewsManager {
     // Get review statistics for dashboard
     async getReviewStats(userId) {
         try {
-            // OLD: const userReviews = this.getUserReviews(userId);
-            // OLD: const reviewsByUser = this.getReviewsByUser(userId);
-            // NEW:
-            const [userReviews, reviewsByUser] = await Promise.all([
-                this.getUserReviews(userId),
-                this.getReviewsByUser(userId)
+            const [userReviewsResult, reviewsByUserResult] = await Promise.all([
+                this.getUserReviews(userId, 100),
+                this.getReviewsByUser(userId, 100)
             ]);
 
+            const userReviews = userReviewsResult.reviews;
+            const reviewsByUser = reviewsByUserResult.reviews;
             const averageRating = await this.getUserAverageRating(userId);
 
             return {
@@ -126,133 +156,39 @@ class ReviewsManager {
     getRatingBreakdown(reviews) {
         const breakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
         reviews.forEach(review => {
-            breakdown[review.rating]++;
+            if (review.rating && breakdown[review.rating] !== undefined) {
+                breakdown[review.rating]++;
+            }
         });
         return breakdown;
     }
 
-    // Update user's average rating in Firebase
+    // Update user's average rating in Firebase (using merge to avoid overwrite)
     async updateUserRating(userId) {
         try {
-            const userReviews = await this.getUserReviews(userId);
-            
-            if (userReviews.length === 0) {
-                // OLD: Update localStorage
-                // NEW: Update Firebase user document
-                await this.usersCollection.doc(userId).update({
-                    averageRating: 0,
-                    totalReviews: 0,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                return;
-            }
+            const averageRating = await this.getUserAverageRating(userId);
+            const userReviewsResult = await this.getUserReviews(userId, 100);
+            const reviewCount = userReviewsResult.reviews.length;
 
-            const totalRating = userReviews.reduce((sum, review) => sum + review.rating, 0);
-            const averageRating = totalRating / userReviews.length;
-
-            // OLD: Update localStorage
-            // NEW: Update Firebase user document
-            await this.usersCollection.doc(userId).update({
+            // FIXED: Use set with merge instead of update (prevents errors if doc doesn't exist)
+            await this.usersCollection.doc(userId).set({
                 averageRating: averageRating,
-                totalReviews: userReviews.length,
+                totalReviews: reviewCount,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            }, { merge: true });
+            
+            console.log(`Updated rating for user ${userId}: ${averageRating} (${reviewCount} reviews)`);
         } catch (error) {
             console.error('Error updating user rating:', error);
         }
     }
 
-    // Update review stats in UI
-    async updateReviewStats() {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-
-        try {
-            const stats = await this.getReviewStats(currentUser.uid);
-            
-            // Update the review count in profile
-            const reviewCountElement = document.querySelector('.profile-stat-value');
-            if (reviewCountElement) {
-                reviewCountElement.textContent = stats.totalReceived;
-            }
-
-            // Update rating display if exists
-            const ratingElement = document.querySelector('.rating span');
-            if (ratingElement) {
-                ratingElement.textContent = stats.averageRating;
-            }
-
-            // Update star rating display
-            const starRatingElement = document.querySelector('.star-rating');
-            if (starRatingElement) {
-                starRatingElement.innerHTML = this.renderStars(parseFloat(stats.averageRating));
-            }
-        } catch (error) {
-            console.error('Error updating review stats:', error);
-        }
-    }
-
-    // Render reviews in a container
-    async renderReviews(containerId, userId = null, type = 'received') {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        try {
-            let reviews = [];
-            if (type === 'received' && userId) {
-                reviews = await this.getUserReviews(userId);
-            } else if (type === 'given' && userId) {
-                reviews = await this.getReviewsByUser(userId);
-            } else {
-                // Get current user's reviews
-                const currentUser = auth.currentUser;
-                if (currentUser) {
-                    reviews = type === 'given' 
-                        ? await this.getReviewsByUser(currentUser.uid)
-                        : await this.getUserReviews(currentUser.uid);
-                }
-            }
-
-            if (reviews.length === 0) {
-                container.innerHTML = `
-                    <div class="no-reviews">
-                        <i class="fas fa-comment-slash"></i>
-                        <p>No reviews yet.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = reviews.map(review => `
-                <div class="review-item">
-                    <div class="review-header">
-                        <div class="review-author-info">
-                            <div class="review-author">${review.authorName}</div>
-                            <div class="review-context">${review.context || 'General'}</div>
-                        </div>
-                        <div class="review-rating">
-                            ${this.renderStars(review.rating)}
-                            <span class="review-date">${review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Recent'}</span>
-                        </div>
-                    </div>
-                    <div class="review-content">${review.comment}</div>
-                    ${review.response ? `
-                        <div class="review-response">
-                            <strong>Response from ${review.reviewedUserName}:</strong>
-                            <p>${review.response}</p>
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('Error rendering reviews:', error);
-            container.innerHTML = '<p>Error loading reviews.</p>';
-        }
-    }
-
-    // Render star rating
+    // Render stars (handles invalid ratings)
     renderStars(rating) {
-        const numericRating = typeof rating === 'string' ? parseFloat(rating) : rating;
+        // Handle invalid input
+        let numericRating = typeof rating === 'string' ? parseFloat(rating) : rating;
+        if (isNaN(numericRating)) numericRating = 0;
+        
         let stars = '';
         for (let i = 1; i <= 5; i++) {
             if (i <= numericRating) {
@@ -266,128 +202,165 @@ class ReviewsManager {
         return stars;
     }
 
-    // Show review modal for writing a review
-    showReviewModal(reviewedUserId, reviewedUserName, context = 'service') {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-            showToast('Please sign in to leave a review', 'warning');
-            return;
-        }
+    // Render reviews in a container with pagination
+    async renderReviews(containerId, userId = null, type = 'received', limit = 10, loadMore = false) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-        const modalContent = `
-            <div class="review-modal-content">
-                <div class="modal-header">
-                    <h3>Review ${reviewedUserName}</h3>
-                    <button class="close-modal" onclick="closeModal()">&times;</button>
-                </div>
-                <form id="review-form">
-                    <div class="form-group">
-                        <label>Rating</label>
-                        <div class="star-rating-input">
-                            ${[1,2,3,4,5].map(i => `
-                                <i class="far fa-star" data-rating="${i}" onmouseover="reviews.hoverRating(${i})" 
-                                   onmouseout="reviews.resetRating()" onclick="reviews.setRating(${i})"></i>
-                            `).join('')}
+        try {
+            let result;
+            if (type === 'received' && userId) {
+                result = await this.getUserReviews(userId, limit, loadMore ? window.lastReviewDoc : null);
+            } else if (type === 'given' && userId) {
+                result = await this.getReviewsByUser(userId, limit, loadMore ? window.lastReviewDoc : null);
+            } else {
+                const currentUser = auth.currentUser;
+                if (!currentUser) {
+                    container.innerHTML = '<div class="no-reviews">Sign in to see your reviews</div>';
+                    return;
+                }
+                result = type === 'given' 
+                    ? await this.getReviewsByUser(currentUser.uid, limit, loadMore ? window.lastReviewDoc : null)
+                    : await this.getUserReviews(currentUser.uid, limit, loadMore ? window.lastReviewDoc : null);
+            }
+
+            const reviews = result.reviews;
+            window.lastReviewDoc = result.lastVisible;
+
+            if (!loadMore) {
+                if (reviews.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-reviews">
+                            <i class="fas fa-comment-slash"></i>
+                            <p>No reviews yet.</p>
                         </div>
-                        <input type="hidden" id="review-rating" value="0" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="review-comment">Your Review</label>
-                        <textarea id="review-comment" class="form-input" placeholder="Share your experience..." rows="4" required></textarea>
-                    </div>
-                    <input type="hidden" id="reviewed-user-id" value="${reviewedUserId}">
-                    <input type="hidden" id="reviewed-user-name" value="${reviewedUserName}">
-                    <input type="hidden" id="review-context" value="${context}">
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Submit Review</button>
-                    </div>
-                </form>
-            </div>
-        `;
-
-        showModal('Write a Review', modalContent);
-        this.setupReviewForm();
-    }
-
-    // Hover effect for star rating
-    hoverRating(rating) {
-        const stars = document.querySelectorAll('.star-rating-input i');
-        stars.forEach((star, index) => {
-            if (index < rating) {
-                star.className = 'fas fa-star';
-            } else {
-                star.className = 'far fa-star';
-            }
-        });
-    }
-
-    // Reset star rating to selected value
-    resetRating() {
-        const currentRating = parseInt(document.getElementById('review-rating').value) || 0;
-        this.setRating(currentRating);
-    }
-
-    // Set rating in review form
-    setRating(rating) {
-        const stars = document.querySelectorAll('.star-rating-input i');
-        stars.forEach((star, index) => {
-            if (index < rating) {
-                star.className = 'fas fa-star';
-            } else {
-                star.className = 'far fa-star';
-            }
-        });
-        document.getElementById('review-rating').value = rating;
-    }
-
-    // Setup review form submission
-    setupReviewForm() {
-        const form = document.getElementById('review-form');
-        if (!form) return;
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const rating = parseInt(document.getElementById('review-rating').value);
-            const comment = document.getElementById('review-comment').value;
-            const reviewedUserId = document.getElementById('reviewed-user-id').value;
-            const reviewedUserName = document.getElementById('reviewed-user-name').value;
-            const context = document.getElementById('review-context').value;
-
-            if (rating === 0) {
-                showToast('Please select a rating', 'error');
-                return;
+                    `;
+                    return;
+                }
+                container.innerHTML = '';
             }
 
-            if (!comment.trim()) {
-                showToast('Please write a review comment', 'error');
-                return;
-            }
-
-            const result = await this.addReview({
-                reviewedUserId: reviewedUserId,
-                reviewedUserName: reviewedUserName,
-                rating: rating,
-                comment: comment.trim(),
-                context: context
+            reviews.forEach(review => {
+                const reviewElement = this.createReviewElement(review, type);
+                container.appendChild(reviewElement);
             });
 
-            if (result.success) {
-                showToast('Review submitted successfully!', 'success');
-                closeModal();
-                
-                // Refresh reviews if on a profile page
-                if (document.getElementById('user-reviews-container')) {
-                    this.renderReviews('user-reviews-container', reviewedUserId, 'received');
+            // Add "Load More" button if there are more reviews
+            if (result.lastVisible) {
+                let loadMoreBtn = document.getElementById(`load-more-${containerId}`);
+                if (!loadMoreBtn) {
+                    loadMoreBtn = document.createElement('button');
+                    loadMoreBtn.id = `load-more-${containerId}`;
+                    loadMoreBtn.className = 'btn btn-outline';
+                    loadMoreBtn.style.margin = '20px auto';
+                    loadMoreBtn.style.display = 'block';
+                    loadMoreBtn.innerHTML = '<i class="fas fa-arrow-down"></i> Load More Reviews';
+                    loadMoreBtn.addEventListener('click', () => {
+                        this.renderReviews(containerId, userId, type, limit, true);
+                    });
+                    container.appendChild(loadMoreBtn);
                 }
-                
-                // Update stats
-                this.updateReviewStats();
             } else {
-                showToast('Error submitting review: ' + result.error, 'error');
+                const loadMoreBtn = document.getElementById(`load-more-${containerId}`);
+                if (loadMoreBtn) loadMoreBtn.remove();
             }
-        });
+        } catch (error) {
+            console.error('Error rendering reviews:', error);
+            container.innerHTML = '<p>Error loading reviews.</p>';
+        }
+    }
+
+    // Create individual review element
+    createReviewElement(review, type) {
+        const div = document.createElement('div');
+        div.className = 'review-item';
+        div.innerHTML = `
+            <div class="review-header">
+                <div class="review-author-info">
+                    <div class="review-author">${this.escapeHtml(review.authorName || 'Anonymous')}</div>
+                    <div class="review-context">${this.escapeHtml(review.context || 'General')}</div>
+                </div>
+                <div class="review-rating">
+                    ${this.renderStars(review.rating)}
+                    <span class="review-date">${this.formatDate(review.createdAt)}</span>
+                </div>
+            </div>
+            <div class="review-content">${this.escapeHtml(review.comment || 'No comment provided.')}</div>
+            ${review.response ? `
+                <div class="review-response">
+                    <strong>Response:</strong>
+                    <p>${this.escapeHtml(review.response)}</p>
+                </div>
+            ` : ''}
+            ${type === 'received' && !review.response ? `
+                <div class="review-actions">
+                    <button class="btn btn-sm btn-outline respond-review-btn" data-review-id="${review.id}">Respond</button>
+                </div>
+            ` : ''}
+        `;
+
+        const respondBtn = div.querySelector('.respond-review-btn');
+        if (respondBtn) {
+            respondBtn.addEventListener('click', () => {
+                this.showRespondModal(review.id, review.authorName);
+            });
+        }
+
+        return div;
+    }
+
+    // Show respond modal
+    showRespondModal(reviewId, authorName) {
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <div class="modal-title">Respond to ${this.escapeHtml(authorName)}</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Your Response</label>
+                        <textarea id="response-text" class="form-input" rows="4" placeholder="Thank you for your feedback..."></textarea>
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-response-btn">Submit Response</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('respond-modal', modalContent);
+        }
+        
+        setTimeout(() => {
+            const submitBtn = document.getElementById('submit-response-btn');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async () => {
+                    const response = document.getElementById('response-text')?.value;
+                    if (!response) {
+                        this.showToast('Please enter a response', 'error');
+                        return;
+                    }
+                    const result = await this.addReviewResponse(reviewId, response);
+                    if (result.success) {
+                        this.showToast('Response added!', 'success');
+                        if (typeof window.closeModal === 'function') {
+                            window.closeModal('respond-modal');
+                        }
+                        // Refresh reviews display
+                        const containerId = 'user-reviews-container';
+                        const currentUser = auth.currentUser;
+                        if (currentUser) {
+                            this.renderReviews(containerId, currentUser.uid, 'received', 10);
+                        }
+                    } else {
+                        this.showToast('Error: ' + result.error, 'error');
+                    }
+                });
+            }
+        }, 100);
     }
 
     // Add response to a review
@@ -398,8 +371,6 @@ class ReviewsManager {
                 return { success: false, error: 'User must be logged in to respond to reviews' };
             }
 
-            // OLD: Update localStorage
-            // NEW: Update Firebase review document
             await this.reviewsCollection.doc(reviewId).update({
                 response: response,
                 respondedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -413,11 +384,170 @@ class ReviewsManager {
         }
     }
 
+    // Show review modal for writing a review (with pre-submission check)
+    async showReviewModal(reviewedUserId, reviewedUserName, context = 'service', bookingId = null) {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            this.showToast('Please sign in to leave a review', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+
+        // Check if user can review (pre-submission check)
+        const canReview = await this.canUserReview(reviewedUserId, context, bookingId);
+        if (!canReview) {
+            this.showToast('You have already reviewed this user/service', 'warning');
+            return;
+        }
+
+        const modalContent = `
+            <div class="review-modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Review ${this.escapeHtml(reviewedUserName)}</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label>Rating</label>
+                        <div class="star-rating-input">
+                            ${[1,2,3,4,5].map(i => `
+                                <i class="far fa-star" data-rating="${i}" style="font-size: 1.5rem; cursor: pointer; color: var(--warning);"></i>
+                            `).join('')}
+                        </div>
+                        <input type="hidden" id="review-rating" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="review-comment">Your Review</label>
+                        <textarea id="review-comment" class="form-input" placeholder="Share your experience..." rows="4" required></textarea>
+                    </div>
+                    <input type="hidden" id="reviewed-user-id" value="${reviewedUserId}">
+                    <input type="hidden" id="reviewed-user-name" value="${reviewedUserName}">
+                    <input type="hidden" id="review-context" value="${context}">
+                    ${bookingId ? `<input type="hidden" id="review-booking-id" value="${bookingId}">` : ''}
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-review-btn">Submit Review</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('review-modal', modalContent);
+        }
+
+        // Setup star rating
+        let selectedRating = 0;
+        const stars = document.querySelectorAll('#review-modal .star-rating-input i');
+        
+        stars.forEach(star => {
+            star.addEventListener('mouseenter', () => {
+                const rating = parseInt(star.getAttribute('data-rating'));
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.className = 'fas fa-star';
+                    } else {
+                        s.className = 'far fa-star';
+                    }
+                });
+            });
+            
+            star.addEventListener('mouseleave', () => {
+                stars.forEach((s, index) => {
+                    if (index < selectedRating) {
+                        s.className = 'fas fa-star';
+                    } else {
+                        s.className = 'far fa-star';
+                    }
+                });
+            });
+            
+            star.addEventListener('click', () => {
+                selectedRating = parseInt(star.getAttribute('data-rating'));
+                stars.forEach((s, index) => {
+                    if (index < selectedRating) {
+                        s.className = 'fas fa-star';
+                    } else {
+                        s.className = 'far fa-star';
+                    }
+                });
+                document.getElementById('review-rating').value = selectedRating;
+            });
+        });
+
+        // Setup form submission
+        const submitBtn = document.getElementById('submit-review-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const rating = parseInt(document.getElementById('review-rating').value);
+                const comment = document.getElementById('review-comment').value;
+                
+                if (!rating || rating === 0) {
+                    this.showToast('Please select a rating', 'error');
+                    return;
+                }
+                if (!comment.trim()) {
+                    this.showToast('Please write a review comment', 'error');
+                    return;
+                }
+
+                const result = await this.addReview({
+                    reviewedUserId: reviewedUserId,
+                    reviewedUserName: reviewedUserName,
+                    rating: rating,
+                    comment: comment.trim(),
+                    context: context,
+                    bookingId: bookingId
+                });
+
+                if (result.success) {
+                    this.showToast('Review submitted successfully!', 'success');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('review-modal');
+                    }
+                    
+                    // Refresh reviews display
+                    const container = document.getElementById('user-reviews-container');
+                    if (container && reviewedUserId === auth.currentUser?.uid) {
+                        this.renderReviews('user-reviews-container', reviewedUserId, 'received', 10);
+                    }
+                    
+                    // Update stats
+                    this.updateReviewStats();
+                } else {
+                    this.showToast('Error: ' + result.error, 'error');
+                }
+            });
+        }
+    }
+
+    // Check if user can review (hasn't reviewed before for same context)
+    async canUserReview(reviewedUserId, context = 'service', bookingId = null) {
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) return false;
+
+            let query = this.reviewsCollection
+                .where('authorId', '==', currentUser.uid)
+                .where('reviewedUserId', '==', reviewedUserId)
+                .where('context', '==', context);
+
+            // If bookingId is provided, use it for more specific check
+            if (bookingId) {
+                query = query.where('bookingId', '==', bookingId);
+            }
+
+            const snapshot = await query.get();
+            return snapshot.empty;
+        } catch (error) {
+            console.error('Error checking if user can review:', error);
+            return false;
+        }
+    }
+
     // Get recent reviews for dashboard
     async getRecentReviews(limit = 10) {
         try {
-            // OLD: return this.reviews.slice(0, limit);
-            // NEW:
             const snapshot = await this.reviewsCollection
                 .where('status', '==', 'published')
                 .orderBy('createdAt', 'desc')
@@ -431,27 +561,6 @@ class ReviewsManager {
         }
     }
 
-    // Check if user can review (hasn't reviewed before for same context)
-    async canUserReview(reviewedUserId, context = 'service') {
-        try {
-            const currentUser = auth.currentUser;
-            if (!currentUser) return false;
-
-            // OLD: Check localStorage
-            // NEW: Check Firebase
-            const snapshot = await this.reviewsCollection
-                .where('authorId', '==', currentUser.uid)
-                .where('reviewedUserId', '==', reviewedUserId)
-                .where('context', '==', context)
-                .get();
-
-            return snapshot.empty;
-        } catch (error) {
-            console.error('Error checking if user can review:', error);
-            return false;
-        }
-    }
-
     // Delete a review (author only)
     async deleteReview(reviewId) {
         try {
@@ -460,7 +569,6 @@ class ReviewsManager {
                 return { success: false, error: 'User must be logged in to delete reviews' };
             }
 
-            // Check if user owns the review
             const reviewDoc = await this.reviewsCollection.doc(reviewId).get();
             if (!reviewDoc.exists) {
                 return { success: false, error: 'Review not found' };
@@ -470,8 +578,6 @@ class ReviewsManager {
                 return { success: false, error: 'You can only delete your own reviews' };
             }
 
-            // OLD: Remove from localStorage
-            // NEW: Delete from Firebase
             await this.reviewsCollection.doc(reviewId).delete();
             
             // Update the reviewed user's rating
@@ -483,36 +589,100 @@ class ReviewsManager {
             return { success: false, error: error.message };
         }
     }
+
+    // Update review stats in UI
+    async updateReviewStats() {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        try {
+            const stats = await this.getReviewStats(currentUser.uid);
+            
+            // Update review count in profile
+            const reviewCountElements = document.querySelectorAll('.profile-stat-value');
+            if (reviewCountElements.length >= 3) {
+                reviewCountElements[2].textContent = stats.totalReceived;
+            }
+
+            // Update rating display
+            const ratingElement = document.querySelector('.profile-rating-value');
+            if (ratingElement) {
+                ratingElement.textContent = stats.averageRating.toFixed(1);
+            }
+
+            // Update star rating display
+            const starRatingElement = document.querySelector('.profile-star-rating');
+            if (starRatingElement) {
+                starRatingElement.innerHTML = this.renderStars(stats.averageRating);
+            }
+        } catch (error) {
+            console.error('Error updating review stats:', error);
+        }
+    }
+
+    // Helper: Escape HTML
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Helper: Format date
+    formatDate(timestamp) {
+        if (!timestamp) return 'Recently';
+        try {
+            let date;
+            if (timestamp && timestamp.toDate) {
+                date = timestamp.toDate();
+            } else if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            } else if (timestamp instanceof Date) {
+                date = timestamp;
+            } else {
+                return 'Recently';
+            }
+            
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+            return date.toLocaleDateString();
+        } catch {
+            return 'Recently';
+        }
+    }
+
+    // Helper: Show toast
+    showToast(message, type) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
+        } else {
+            console.log(`${type}: ${message}`);
+        }
+    }
 }
 
-// Initialize reviews system
+// ========== GLOBAL FUNCTIONS ==========
 const reviewsManager = new ReviewsManager();
 
-// Make it available globally
+// Make available globally
 window.reviewsManager = reviewsManager;
 window.reviews = reviewsManager; // Backward compatibility
 
 // Global functions for UI interactions
-window.showReviewModal = function(reviewedUserId, reviewedUserName, context = 'service') {
-    reviewsManager.showReviewModal(reviewedUserId, reviewedUserName, context);
-};
-
-window.setRating = function(rating) {
-    reviewsManager.setRating(rating);
-};
-
-window.hoverRating = function(rating) {
-    reviewsManager.hoverRating(rating);
-};
-
-window.resetRating = function() {
-    reviewsManager.resetRating();
+window.showReviewModal = function(reviewedUserId, reviewedUserName, context = 'service', bookingId = null) {
+    reviewsManager.showReviewModal(reviewedUserId, reviewedUserName, context, bookingId);
 };
 
 // Initialize when auth state changes
 auth.onAuthStateChanged(user => {
     if (user) {
-        // Load reviews for current user
         reviewsManager.updateReviewStats();
     }
 });
+
+console.log('✅ Reviews.js fully loaded with all fixes');

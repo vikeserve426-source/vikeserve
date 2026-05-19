@@ -1,33 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Users collection - users can read/write their own data only
+    // Users – can read/write own profile only
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Marketplace items - public read, authenticated write
-    match /marketplace_items/{itemId} {
+    // Marketplace – anyone can read, only authenticated can write
+    match /marketplace_items/{item} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // Services collection
-    match /services/{serviceId} {
+    // Reviews – anyone can read, only authenticated can write (once)
+    match /reviews/{review} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+        !exists(/databases/$(database)/documents/reviews/$(review));
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
     
-    // Bookings collection
-    match /bookings/{bookingId} {
+    // Bookings – only participants can read/write
+    match /bookings/{booking} {
       allow read: if request.auth != null && 
         (request.auth.uid == resource.data.customerId || 
          request.auth.uid == resource.data.providerId);
@@ -37,64 +33,7 @@ service cloud.firestore {
          request.auth.uid == resource.data.providerId);
     }
     
-    // Reviews collection
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
-    }
-    
-    // Housing collection
-    match /housing/{listingId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-    
-    // Community alerts
-    match /community_alerts/{alertId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder', 'moderator']);
-    }
-    
-    // Chats and messages
-    match /chats/{chatId} {
-      allow read: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
-    }
-    
-    match /chats/{chatId}/messages/{messageId} {
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
-      allow create: if request.auth != null;
-    }
-    
-    // Promoted ads
-    match /promoted_ads/{adId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // Admin access for founders and admins
-    match /admins/{document} {
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder'];
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'founder';
-    }
-    
-    // Default deny for any other collections
+    // Default deny all others
     match /{document=**} {
       allow read, write: if false;
     }

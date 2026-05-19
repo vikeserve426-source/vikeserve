@@ -1,3 +1,7 @@
+// ========== AUTHENTICATION MANAGER ==========
+// Note: User document creation is handled by firebase.js ensureUserProfile()
+// This file only handles authentication UI and actions
+
 class AuthManager {
     constructor() {
         this.auth = auth;
@@ -8,15 +12,30 @@ class AuthManager {
     }
 
     async init() {
+        // Set session persistence to LOCAL (keeps user logged in)
+        if (this.auth && this.auth.setPersistence) {
+            try {
+                await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                console.log('✅ Auth persistence set to LOCAL');
+            } catch (error) {
+                console.error('Error setting persistence:', error);
+            }
+        }
+
         this.auth.onAuthStateChanged(async (user) => {
             this.currentUser = user;
             if (user) {
                 await this.loadUserData(user.uid);
                 this.updateUIForAuthenticatedUser(user);
-                window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { user: user, isLoggedIn: true } }));
+                window.dispatchEvent(new CustomEvent('authStateChanged', { 
+                    detail: { user: user, isLoggedIn: true } 
+                }));
             } else {
+                this.userData = null;
                 this.updateUIForGuest();
-                window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { user: null, isLoggedIn: false } }));
+                window.dispatchEvent(new CustomEvent('authStateChanged', { 
+                    detail: { user: null, isLoggedIn: false } 
+                }));
             }
         });
 
@@ -31,41 +50,13 @@ class AuthManager {
                 this.userData = userDoc.data();
                 return this.userData;
             } else {
-                await this.createUserDocument(userId);
+                // User document will be created by firebase.js ensureUserProfile
+                console.log('User profile will be created by firebase.js');
                 return null;
             }
         } catch (error) {
+            console.error('Error loading user data:', error);
             return null;
-        }
-    }
-
-    async createUserDocument(userId) {
-        try {
-            const userData = {
-                uid: userId,
-                email: this.currentUser.email,
-                displayName: this.currentUser.displayName || this.currentUser.email.split('@')[0],
-                photoURL: this.currentUser.photoURL || '',
-                role: 'general-user',
-                phoneNumber: null,
-                location: null,
-                bio: null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                stats: {
-                    adsPosted: 0,
-                    bookingsMade: 0,
-                    servicesOffered: 0,
-                    reviewsReceived: 0,
-                    rating: 0
-                }
-            };
-
-            await this.db.collection('users').doc(userId).set(userData);
-            this.userData = userData;
-            return userData;
-        } catch (error) {
-            throw error;
         }
     }
 
@@ -141,48 +132,48 @@ class AuthManager {
         this.showToast('Profile', 'info');
     }
 
-showMyAds() {
-    if (typeof window.switchTab === 'function') {
-        window.switchTab('marketplace-tab');
-    }
-    
-    const currentUser = this.currentUser;
-    if (currentUser) {
-        // Load from Firebase instead of localStorage
-        this.loadUserAdsFromFirebase(currentUser.uid);
-    } else {
-        this.showToast('Please sign in to view your ads', 'warning');
-        if (typeof showAuthModal === 'function') showAuthModal();
-    }
-}
-
-async loadUserAdsFromFirebase(userId) {
-    try {
-        const snapshot = await firebase.firestore()
-            .collection('marketplace_items')
-            .where('userId', '==', userId)
-            .where('status', '==', 'active')
-            .orderBy('createdAt', 'desc')
-            .get();
-        
-        const userItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        if (userItems.length === 0) {
-            this.showToast('You have not posted any ads yet', 'info');
-            setTimeout(() => {
-                if (typeof showMarketplacePostModal === 'function') {
-                    showMarketplacePostModal();
-                }
-            }, 1000);
-        } else {
-            this.showToast(`You have ${userItems.length} active ad(s)`, 'success');
-            this.showMyAdsModal(userItems);
+    showMyAds() {
+        if (typeof window.switchTab === 'function') {
+            window.switchTab('marketplace-tab');
         }
-    } catch (error) {
-        console.error('Error loading user ads from Firebase:', error);
-        this.showToast('Error loading your ads', 'error');
+        
+        const currentUser = this.currentUser;
+        if (currentUser) {
+            // Load from Firebase instead of localStorage
+            this.loadUserAdsFromFirebase(currentUser.uid);
+        } else {
+            this.showToast('Please sign in to view your ads', 'warning');
+            if (typeof showAuthModal === 'function') showAuthModal();
+        }
     }
-}
+
+    async loadUserAdsFromFirebase(userId) {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('marketplace_items')
+                .where('userId', '==', userId)
+                .where('status', '==', 'active')
+                .orderBy('createdAt', 'desc')
+                .get();
+            
+            const userItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (userItems.length === 0) {
+                this.showToast('You have not posted any ads yet', 'info');
+                setTimeout(() => {
+                    if (typeof showMarketplacePostModal === 'function') {
+                        showMarketplacePostModal();
+                    }
+                }, 1000);
+            } else {
+                this.showToast(`You have ${userItems.length} active ad(s)`, 'success');
+                this.showMyAdsModal(userItems);
+            }
+        } catch (error) {
+            console.error('Error loading user ads from Firebase:', error);
+            this.showToast('Error loading your ads', 'error');
+        }
+    }
 
     showMyAdsModal(ads) {
         const modalContent = `
@@ -196,7 +187,7 @@ async loadUserAdsFromFirebase(userId) {
                         <div style="background: var(--light); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
                             <div style="font-weight: 600;">${this.escapeHtml(ad.title)}</div>
                             <div style="font-size: 0.8rem; color: var(--primary);">${ad.price ? `KES ${ad.price}` : 'Price not set'}</div>
-                            <div style="font-size: 0.7rem; color: #666;">Posted: ${new Date(ad.timestamp).toLocaleDateString()}</div>
+                            <div style="font-size: 0.7rem; color: #666;">Posted: ${ad.createdAt?.toDate ? ad.createdAt.toDate().toLocaleDateString() : 'Recently'}</div>
                             <div style="margin-top: 8px;">
                                 <button class="btn btn-sm btn-outline view-ad-btn" data-id="${ad.id}" style="margin-right: 5px;">View</button>
                                 <button class="btn btn-sm btn-danger delete-ad-btn" data-id="${ad.id}">Delete</button>
@@ -225,20 +216,20 @@ async loadUserAdsFromFirebase(userId) {
                 });
             });
             
-document.querySelectorAll('.delete-ad-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const adId = btn.getAttribute('data-id');
-        if (confirm('Are you sure you want to delete this ad?')) {
-            try {
-                await firebase.firestore().collection('marketplace_items').doc(adId).delete();
-        this.showToast('Ad deleted successfully', 'success');
-        if (typeof window.closeModal === 'function') window.closeModal('my-ads-modal');
-        this.showMyAds();
-    } catch (error) {
-        console.error('Error deleting ad:', error);
-        this.showToast('Error deleting ad', 'error');
-    }
-}
+            document.querySelectorAll('.delete-ad-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const adId = btn.getAttribute('data-id');
+                    if (confirm('Are you sure you want to delete this ad?')) {
+                        try {
+                            await firebase.firestore().collection('marketplace_items').doc(adId).delete();
+                            this.showToast('Ad deleted successfully', 'success');
+                            if (typeof window.closeModal === 'function') window.closeModal('my-ads-modal');
+                            this.showMyAds();
+                        } catch (error) {
+                            console.error('Error deleting ad:', error);
+                            this.showToast('Error deleting ad', 'error');
+                        }
+                    }
                 });
             });
             
@@ -261,19 +252,38 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
         }, 100);
     }
 
-    showMyBookings() {
+    // FIXED: Load bookings from Firestore, not localStorage
+    async showMyBookings() {
         if (typeof window.switchTab === 'function') {
             window.switchTab('services-tab');
         }
         
-        const bookings = JSON.parse(localStorage.getItem('vikeserve_bookings') || '[]');
-        const userBookings = bookings.filter(b => b.userId === this.currentUser?.uid);
+        const currentUser = this.currentUser;
+        if (!currentUser) {
+            this.showToast('Please sign in to view your bookings', 'warning');
+            if (typeof showAuthModal === 'function') showAuthModal();
+            return;
+        }
         
-        if (userBookings.length === 0) {
-            this.showToast('You have no bookings yet', 'info');
-        } else {
-            this.showToast(`You have ${userBookings.length} booking(s)`, 'success');
-            this.showMyBookingsModal(userBookings);
+        try {
+            // Load bookings from Firestore
+            const snapshot = await firebase.firestore()
+                .collection('bookings')
+                .where('customerId', '==', currentUser.uid)
+                .orderBy('createdAt', 'desc')
+                .get();
+            
+            const userBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (userBookings.length === 0) {
+                this.showToast('You have no bookings yet', 'info');
+            } else {
+                this.showToast(`You have ${userBookings.length} booking(s)`, 'success');
+                this.showMyBookingsModal(userBookings);
+            }
+        } catch (error) {
+            console.error('Error loading bookings from Firestore:', error);
+            this.showToast('Error loading bookings', 'error');
         }
     }
 
@@ -290,7 +300,7 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
                             <div style="font-weight: 600;">${this.escapeHtml(booking.serviceName || 'Service')}</div>
                             <div style="font-size: 0.8rem;">Date: ${booking.date || 'Not specified'}</div>
                             <div style="font-size: 0.8rem;">Status: <span style="color: ${booking.status === 'confirmed' ? '#27ae60' : '#f39c12'}">${booking.status || 'pending'}</span></div>
-                            <div style="font-size: 0.7rem; color: #666;">Booked: ${new Date(booking.timestamp).toLocaleDateString()}</div>
+                            <div style="font-size: 0.7rem; color: #666;">Booked: ${booking.createdAt?.toDate ? booking.createdAt.toDate().toLocaleDateString() : 'Recently'}</div>
                         </div>
                     `).join('')}
                 </div>
@@ -359,6 +369,8 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
                     errorMessage = 'Incorrect password';
                 } else if (errorMessage.includes('invalid-email')) {
                     errorMessage = 'Please enter a valid email address';
+                } else if (errorMessage.includes('email-not-verified')) {
+                    errorMessage = 'Please verify your email before signing in. Check your inbox!';
                 }
                 this.showToast('Login failed: ' + errorMessage, 'error');
             }
@@ -401,7 +413,7 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
             const result = await this.registerWithEmail(email, password, displayName, role || 'general-user');
             
             if (result.success) {
-                this.showToast(`🎉 Welcome to VikeServe, ${displayName}!`, 'success');
+                this.showToast(`🎉 Welcome to VikeServe, ${displayName}! Please verify your email.`, 'success');
                 this.forceCloseAllOverlays();
                 this.closeAuthModal();
             } else {
@@ -424,27 +436,15 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
     async registerWithEmail(email, password, displayName, role) {
         try {
             const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
+            
+            // Send email verification
+            await userCredential.user.sendEmailVerification();
+            this.showToast('Verification email sent! Please check your inbox.', 'success');
+            
             await userCredential.user.updateProfile({ displayName: displayName });
             
-            await this.db.collection('users').doc(userCredential.user.uid).set({
-                uid: userCredential.user.uid,
-                email: email,
-                displayName: displayName,
-                role: role,
-                photoURL: null,
-                phoneNumber: null,
-                location: null,
-                bio: null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                stats: {
-                    adsPosted: 0,
-                    bookingsMade: 0,
-                    servicesOffered: 0,
-                    reviewsReceived: 0,
-                    rating: 0
-                }
-            });
+            // Note: User document will be created by firebase.js ensureUserProfile
+            // This prevents duplicate document creation
             
             return { success: true, user: userCredential.user };
         } catch (error) {
@@ -455,9 +455,18 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
     async signInWithEmail(email, password) {
         try {
             const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
+            
+            // Check if email is verified
+            if (!userCredential.user.emailVerified) {
+                await this.auth.signOut();
+                return { success: false, error: 'email-not-verified' };
+            }
+            
+            // Update last login in Firestore
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
+            
             return { success: true, user: userCredential.user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -476,19 +485,10 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
             const provider = new firebase.auth.GoogleAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
             
-            const userDoc = await this.db.collection('users').doc(userCredential.user.uid).get();
-            if (!userDoc.exists) {
-                await this.db.collection('users').doc(userCredential.user.uid).set({
-                    uid: userCredential.user.uid,
-                    email: userCredential.user.email,
-                    displayName: userCredential.user.displayName,
-                    photoURL: userCredential.user.photoURL,
-                    role: 'general-user',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                    stats: { adsPosted: 0, bookingsMade: 0, servicesOffered: 0, reviewsReceived: 0, rating: 0 }
-                });
-            }
+            // Update last login for existing users (or create profile via firebase.js)
+            await this.db.collection('users').doc(userCredential.user.uid).update({
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(() => {});
             
             this.showToast('✅ Signed in with Google!', 'success');
             this.closeAuthModal();
@@ -512,19 +512,10 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
             const provider = new firebase.auth.FacebookAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
             
-            const userDoc = await this.db.collection('users').doc(userCredential.user.uid).get();
-            if (!userDoc.exists) {
-                await this.db.collection('users').doc(userCredential.user.uid).set({
-                    uid: userCredential.user.uid,
-                    email: userCredential.user.email,
-                    displayName: userCredential.user.displayName,
-                    photoURL: userCredential.user.photoURL,
-                    role: 'general-user',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                    stats: { adsPosted: 0, bookingsMade: 0, servicesOffered: 0, reviewsReceived: 0, rating: 0 }
-                });
-            }
+            // Update last login for existing users
+            await this.db.collection('users').doc(userCredential.user.uid).update({
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(() => {});
             
             this.showToast('✅ Signed in with Facebook!', 'success');
             this.closeAuthModal();
@@ -538,6 +529,11 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
 
     async signOut() {
         try {
+            // Clear any cached data
+            if (typeof window.clearUserCache === 'function') {
+                window.clearUserCache();
+            }
+            
             await this.auth.signOut();
             this.currentUser = null;
             this.userData = null;
@@ -555,14 +551,88 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
         }
     }
 
+    // FIXED: Password reset with custom modal (no prompt)
+    async showForgotPasswordModal() {
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-key"></i> Reset Password</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" id="reset-email" class="form-input" placeholder="your@email.com">
+                        <div class="form-hint">We'll send a password reset link to this email</div>
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="send-reset-btn">Send Reset Link</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('reset-password-modal', modalContent);
+        }
+        
+        setTimeout(() => {
+            const sendBtn = document.getElementById('send-reset-btn');
+            if (sendBtn) {
+                sendBtn.addEventListener('click', async () => {
+                    const email = document.getElementById('reset-email')?.value;
+                    if (!email) {
+                        this.showToast('Please enter your email address', 'error');
+                        return;
+                    }
+                    const result = await this.resetPassword(email);
+                    if (result.success) {
+                        if (typeof window.closeModal === 'function') {
+                            window.closeModal('reset-password-modal');
+                        }
+                    }
+                });
+            }
+            
+            const closeBtn = document.querySelector('#reset-password-modal .close-modal-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('reset-password-modal');
+                    }
+                });
+            }
+        }, 100);
+    }
+
     async resetPassword(email) {
         try {
             await this.auth.sendPasswordResetEmail(email);
             this.showToast('Password reset email sent! Check your inbox.', 'success');
             return { success: true };
         } catch (error) {
+            let errorMessage = error.message;
+            if (errorMessage.includes('user-not-found')) {
+                errorMessage = 'No account found with this email';
+            }
+            this.showToast('Error: ' + errorMessage, 'error');
+            return { success: false, error: errorMessage };
+        }
+    }
+
+    async resendVerificationEmail() {
+        const user = this.auth.currentUser;
+        if (!user) {
+            this.showToast('Please sign in first', 'error');
+            return;
+        }
+        
+        try {
+            await user.sendEmailVerification();
+            this.showToast('Verification email sent! Check your inbox.', 'success');
+        } catch (error) {
             this.showToast('Error: ' + error.message, 'error');
-            return { success: false, error: error.message };
         }
     }
 
@@ -709,6 +779,8 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
     showToast(message, type = 'info') {
         if (typeof window.showToast === 'function') {
             window.showToast(message, type);
+        } else {
+            console.log(`${type}: ${message}`);
         }
     }
 
@@ -721,6 +793,7 @@ document.querySelectorAll('.delete-ad-btn').forEach(btn => {
     }
 }
 
+// ========== GLOBAL FUNCTIONS ==========
 let authManager = null;
 
 function showAuthModal() {
@@ -778,9 +851,8 @@ function toggleAuthForm() {
 }
 
 function showForgotPassword() {
-    const email = prompt('Enter your email address to reset password:');
-    if (email && authManager) {
-        authManager.resetPassword(email);
+    if (authManager) {
+        authManager.showForgotPasswordModal();
     }
 }
 
@@ -794,6 +866,7 @@ async function logout() {
     }
 }
 
+// ========== EXPOSE GLOBALLY ==========
 window.showAuthModal = showAuthModal;
 window.closeAuthModal = closeAuthModal;
 window.signInWithGoogle = signInWithGoogle;
@@ -802,15 +875,18 @@ window.toggleAuthForm = toggleAuthForm;
 window.showForgotPassword = showForgotPassword;
 window.logout = logout;
 
+// ========== INITIALIZE ==========
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (typeof auth !== 'undefined' && auth) {
             authManager = new AuthManager();
             window.authManager = authManager;
+            console.log('✅ AuthManager initialized');
         }
     }, 500);
 });
 
+// Setup auth modal buttons
 function setupAuthModalButtons() {
     const attachClick = (selector, handler, name) => {
         const element = document.querySelector(selector);
@@ -912,16 +988,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 });
 
-document.addEventListener('click', function(e) {
-    const userMenu = document.getElementById('user-menu');
-    const userProfile = document.getElementById('user-profile');
-    
-    if (userMenu && userMenu.classList.contains('show')) {
-        const clickedInsideMenu = userMenu.contains(e.target);
-        const clickedProfile = userProfile && userProfile.contains(e.target);
-        
-        if (!clickedInsideMenu && !clickedProfile) {
-            userMenu.classList.remove('show');
-        }
-    }
-});
+console.log('✅ Auth.js fully loaded with all fixes');

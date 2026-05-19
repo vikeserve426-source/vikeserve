@@ -1,4 +1,5 @@
-// services.js - Complete Services and Jobs Management (FIXED - Working Modal Buttons)
+// ========== SERVICES MANAGER - COMPLETE FIXED VERSION ==========
+// Handles services and jobs posting, loading, and management
 
 class ServicesManager {
     constructor() {
@@ -11,21 +12,37 @@ class ServicesManager {
         this.ratingsCollection = collections.ratings();
     }
 
-    async getServicesByCategory(category, limit = 20) {
+    async getServicesByCategory(category, limit = 20, startAfter = null) {
         try {
-            let query = this.servicesCollection.where('category', '==', category).where('status', '==', 'active').orderBy('createdAt', 'desc');
+            let query = this.servicesCollection
+                .where('category', '==', category)
+                .where('status', '==', 'active')
+                .orderBy('createdAt', 'desc');
+            
             if (limit) query = query.limit(limit);
+            if (startAfter) query = query.startAfter(startAfter);
+            
             const snapshot = await query.get();
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            
+            return {
+                services: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                lastVisible
+            };
         } catch (error) {
             console.error('Error getting services:', error);
-            return [];
+            return { services: [], lastVisible: null };
         }
     }
 
     async getUrgentJobs(limit = 10) {
         try {
-            const snapshot = await this.servicesCollection.where('urgent', '==', true).where('status', '==', 'active').orderBy('createdAt', 'desc').limit(limit).get();
+            const snapshot = await this.servicesCollection
+                .where('urgent', '==', true)
+                .where('status', '==', 'active')
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }));
         } catch (error) {
             console.error('Error getting urgent jobs:', error);
@@ -33,39 +50,88 @@ class ServicesManager {
         }
     }
 
-    async createService(serviceData) {
-    try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('User must be logged in');
-        const serviceWithMetadata = {
-            ...serviceData, userId: user.uid, status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            rating: 0, ratingCount: 0, viewCount: 0, isJob: false
-        };
-        const docRef = await this.servicesCollection.add(serviceWithMetadata);
-        return { success: true, id: docRef.id };
-    } catch (error) {
-        console.error('Error creating service:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-    async createJob(jobData) {
+    async createService(serviceData, imageFiles = []) {
         try {
             const user = auth.currentUser;
             if (!user) throw new Error('User must be logged in');
-            const jobWithMetadata = {
-                ...jobData, userId: user.uid, userName: user.displayName || user.email,
-                status: 'active', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                viewCount: 0, applicants: 0, isJob: true, rating: 0, ratingCount: 0
+
+            // Upload images if any
+            let imageUrls = [];
+            if (imageFiles.length > 0) {
+                imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
+            }
+
+            const serviceWithMetadata = {
+                ...serviceData,
+                userId: user.uid,
+                userName: user.displayName || user.email,
+                status: 'active',
+                images: imageUrls,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                rating: 0,
+                ratingCount: 0,
+                viewCount: 0,
+                isJob: false
             };
+            
+            const docRef = await this.servicesCollection.add(serviceWithMetadata);
+            return { success: true, id: docRef.id, imageUrls };
+        } catch (error) {
+            console.error('Error creating service:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async createJob(jobData, imageFiles = []) {
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error('User must be logged in');
+
+            // Upload images if any
+            let imageUrls = [];
+            if (imageFiles.length > 0) {
+                imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
+            }
+
+            const jobWithMetadata = {
+                ...jobData,
+                userId: user.uid,
+                userName: user.displayName || user.email,
+                images: imageUrls,
+                status: 'active',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                viewCount: 0,
+                applicants: 0,
+                isJob: true,
+                rating: 0,
+                ratingCount: 0
+            };
+            
             const docRef = await this.servicesCollection.add(jobWithMetadata);
             return { success: true, id: docRef.id };
         } catch (error) {
             console.error('Error creating job:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    async uploadServiceImages(files, serviceId) {
+        const imageUrls = [];
+        for (const file of files) {
+            try {
+                const fileExtension = file.name.split('.').pop();
+                const filename = `services/${serviceId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+                const storageRef = this.storage.ref(filename);
+                const snapshot = await storageRef.put(file);
+                const downloadURL = await snapshot.ref.getDownloadURL();
+                imageUrls.push(downloadURL);
+            } catch (error) {
+                console.error('Error uploading service image:', error);
+            }
+        }
+        return imageUrls;
     }
 
     async getServiceById(serviceId) {
@@ -84,21 +150,18 @@ class ServicesManager {
 
     async incrementViewCount(serviceId) {
         try {
-            await this.servicesCollection.doc(serviceId).update({ viewCount: firebase.firestore.FieldValue.increment(1) });
-        } catch (error) { console.error('Error incrementing view count:', error); }
-    }
-
-    setupServicesListener(category, callback) {
-        if (this.currentListeners[category]) this.currentListeners[category]();
-        const unsubscribe = this.servicesCollection.where('category', '==', category).where('status', '==', 'active').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
-            callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, error => console.error('Services listener error:', error));
-        this.currentListeners[category] = unsubscribe;
-        return unsubscribe;
+            await this.servicesCollection.doc(serviceId).update({ 
+                viewCount: firebase.firestore.FieldValue.increment(1) 
+            });
+        } catch (error) { 
+            console.error('Error incrementing view count:', error); 
+        }
     }
 
     removeAllListeners() {
-        Object.values(this.currentListeners).forEach(unsubscribe => { if (typeof unsubscribe === 'function') unsubscribe(); });
+        Object.values(this.currentListeners).forEach(unsubscribe => { 
+            if (typeof unsubscribe === 'function') unsubscribe(); 
+        });
         this.currentListeners = {};
     }
 }
@@ -124,18 +187,26 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function showToast(message, type) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        console.log(`${type}: ${message}`);
+    }
+}
+
 // ========== LOAD URGENT JOBS ==========
 async function loadUrgentJobs(limit = 5) {
     const container = document.getElementById('urgent-jobs-container');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner">Loading jobs...</div>';
+    container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading jobs...</div>';
     
     try {
         const jobs = await servicesManager.getUrgentJobs(limit);
         
         if (jobs.length === 0) {
-            container.innerHTML = '<div class="no-jobs">No urgent jobs available at the moment</div>';
+            container.innerHTML = '<div class="no-jobs" style="text-align: center; padding: 20px;">No urgent jobs available at the moment</div>';
             return;
         }
         
@@ -158,7 +229,7 @@ function createJobElement(job) {
     
     div.innerHTML = `
         <div class="job-title"><i class="fas fa-briefcase"></i> ${escapeHtml(job.title)}</div>
-        <div class="job-poster"><div class="job-poster-img">${job.postedBy?.charAt(0) || job.userName?.charAt(0) || 'U'}</div><span>Posted by: ${job.postedBy || job.userName || 'Unknown'}</span></div>
+        <div class="job-poster"><div class="job-poster-img">${(job.postedBy || job.userName || 'U').charAt(0)}</div><span>Posted by: ${job.postedBy || job.userName || 'Unknown'}</span></div>
         <div class="job-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(job.location || 'Nairobi')}</div>
         <div class="job-detail"><i class="fas fa-money-bill-wave"></i> ${job.price ? `KES ${job.price}` : 'Price negotiable'}</div>
         ${job.rating > 0 ? `<div class="job-detail"><i class="fas fa-star"></i> ${job.rating.toFixed(1)} (${job.ratingCount} reviews)</div>` : ''}
@@ -174,23 +245,34 @@ function createJobElement(job) {
     return div;
 }
 
-// ========== LOAD SERVICES ==========
+// ========== LOAD SERVICES (USING SERVICESMANAGER) ==========
 async function loadServices(category = null, limit = 20) {
     const container = document.getElementById('services-list-container');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner">Loading services...</div>';
+    container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading services...</div>';
     
     try {
-        let query = collections.services().where('status', '==', 'active');
-        if (category) query = query.where('category', '==', category);
-        query = query.orderBy('createdAt', 'desc').limit(limit);
+        let result;
+        if (category) {
+            result = await servicesManager.getServicesByCategory(category, limit);
+        } else {
+            // Load all active services
+            const snapshot = await collections.services()
+                .where('status', '==', 'active')
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
+            result = {
+                services: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                lastVisible: snapshot.docs[snapshot.docs.length - 1]
+            };
+        }
         
-        const snapshot = await query.get();
-        const services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const services = result.services;
         
         if (services.length === 0) {
-            container.innerHTML = '<div class="no-services">No services available</div>';
+            container.innerHTML = '<div class="no-services" style="text-align: center; padding: 40px;">No services available</div>';
             return;
         }
         
@@ -209,8 +291,8 @@ function createServiceElement(service) {
     div.className = 'service-card';
     div.innerHTML = `
         <div class="service-header"><div class="service-title">${escapeHtml(service.title)}</div><div class="service-price">KES ${service.price}</div></div>
-        <div class="service-provider"><div class="provider-avatar">${service.providerName?.charAt(0) || 'P'}</div><div class="provider-info"><div class="provider-name">${escapeHtml(service.providerName || 'Service Provider')}</div><div class="provider-rating">${generateStarRating(service.rating || 0)}<span>(${service.ratingCount || 0})</span></div></div></div>
-        <div class="service-description">${escapeHtml(service.description || 'No description available')}</div>
+        <div class="service-provider"><div class="provider-avatar">${(service.providerName || service.userName || 'P').charAt(0)}</div><div class="provider-info"><div class="provider-name">${escapeHtml(service.providerName || service.userName || 'Service Provider')}</div><div class="provider-rating">${generateStarRating(service.rating || 0)}<span>(${service.ratingCount || 0})</span></div></div></div>
+        <div class="service-description">${escapeHtml((service.description || 'No description available').substring(0, 100))}...</div>
         <div class="service-meta"><span class="service-category">${escapeHtml(service.category)}</span><span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span></div>
         <button class="btn-promote promote-service-btn" data-service-id="${service.id}"><i class="fas fa-rocket"></i> Promote</button>
     `;
@@ -232,8 +314,8 @@ async function viewJobDetails(serviceId) {
         const result = await servicesManager.getServiceById(serviceId);
         if (result.success) {
             showServiceDetailsModal(result.data);
-        } else if (typeof window.showToast === 'function') {
-            window.showToast('Error loading service details', 'error');
+        } else if (typeof showToast === 'function') {
+            showToast('Error loading service details', 'error');
         }
     } catch (error) {
         console.error('Error viewing job details:', error);
@@ -248,6 +330,11 @@ function showServiceDetailsModal(service) {
                 <button class="close-modal-btn">&times;</button>
             </div>
             <div style="padding: 15px;">
+                ${service.images && service.images.length > 0 ? `
+                    <div style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
+                        ${service.images.map(img => `<img src="${img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('')}
+                    </div>
+                ` : ''}
                 <div class="service-price" style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">KES ${service.price}</div>
                 <div class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location || 'Nairobi')}</div>
                 <div class="service-description" style="margin: 15px 0;"><strong>Description:</strong><br>${escapeHtml(service.description)}</div>
@@ -265,74 +352,86 @@ function showServiceDetailsModal(service) {
     }
     
     setTimeout(() => {
-        const closeBtn = document.querySelector('#service-details-modal .close-modal-btn');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-            if (typeof window.closeModal === 'function') window.closeModal('service-details-modal');
-        });
-        
         const contactBtn = document.querySelector('#service-details-modal .contact-service-btn');
         if (contactBtn) {
             contactBtn.addEventListener('click', () => {
                 const phone = contactBtn.getAttribute('data-phone');
                 if (phone) window.location.href = `tel:${phone}`;
-                else if (typeof window.showToast === 'function') window.showToast('Contact info coming soon', 'info');
+                else showToast('Contact info coming soon', 'info');
             });
         }
         
         const bookBtn = document.querySelector('#service-details-modal .book-service-btn');
         if (bookBtn) {
             bookBtn.addEventListener('click', () => {
-                if (typeof window.showToast === 'function') window.showToast('Booking feature coming soon', 'info');
+                showToast('Booking feature coming soon', 'info');
             });
         }
     }, 100);
 }
 
-function showServiceList(serviceType) {
-    if (typeof window.showToast === 'function') window.showToast(`Loading ${serviceType} services...`, 'info');
-}
-
+// ========== PROMOTE SERVICE (USES MARKETPLACE PROMOTION) ==========
 function promoteService(serviceId) {
-    if (typeof window.showAdPackagesModal === 'function') {
-        window.showAdPackagesModal(serviceId);
-    } else if (typeof window.showToast === 'function') {
-        window.showToast('Promote service coming soon', 'info');
+    // Services need to be in marketplace_items to be promoted
+    // Show option to convert service to marketplace item or use service promotion
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title">Promote Service</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p>To promote your service, it needs to be listed in the Marketplace.</p>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="convert-and-promote-btn">Convert to Marketplace & Promote</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('promote-service-modal', modalContent);
     }
-}
-
-// ========== LOCATION FUNCTIONS ==========
-function fillServiceLocationFromProfile() {
-    if (typeof window.getCurrentLocation === 'function') {
-        const location = window.getCurrentLocation();
-        const locationInput = document.getElementById('service-location');
-        
-        if (locationInput && location.fullAddress) {
-            locationInput.value = location.fullAddress;
-        } else if (locationInput && location.country) {
-            let locationText = '';
-            if (location.city) locationText += location.city;
-            if (location.state) locationText += locationText ? `, ${location.state}` : location.state;
-            if (location.country) locationText += locationText ? `, ${location.country}` : location.country;
-            locationInput.value = locationText || location.country;
+    
+    setTimeout(() => {
+        const convertBtn = document.getElementById('convert-and-promote-btn');
+        if (convertBtn) {
+            convertBtn.addEventListener('click', async () => {
+                // Get service data
+                const result = await servicesManager.getServiceById(serviceId);
+                if (result.success) {
+                    const service = result.data;
+                    // Copy to marketplace_items
+                    const marketplaceData = {
+                        category: 'services',
+                        title: service.title,
+                        description: service.description,
+                        price: service.price,
+                        location: service.location,
+                        phone: service.phone,
+                        images: service.images || [],
+                        status: 'active',
+                        promoted: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        userId: service.userId,
+                        userName: service.userName,
+                        userEmail: service.userEmail,
+                        originalServiceId: serviceId
+                    };
+                    
+                    const docRef = await firebase.firestore().collection('marketplace_items').add(marketplaceData);
+                    showToast('Service copied to Marketplace! Now you can promote it.', 'success');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('promote-service-modal');
+                    }
+                    if (typeof window.showAdPackagesModal === 'function') {
+                        window.showAdPackagesModal(docRef.id);
+                    }
+                }
+            });
         }
-    }
-}
-
-function fillJobLocationFromProfile() {
-    if (typeof window.getCurrentLocation === 'function') {
-        const location = window.getCurrentLocation();
-        const locationInput = document.getElementById('job-location');
-        
-        if (locationInput && location.fullAddress) {
-            locationInput.value = location.fullAddress;
-        } else if (locationInput && location.country) {
-            let locationText = '';
-            if (location.city) locationText += location.city;
-            if (location.state) locationText += locationText ? `, ${location.state}` : location.state;
-            if (location.country) locationText += locationText ? `, ${location.country}` : location.country;
-            locationInput.value = locationText || location.country;
-        }
-    }
+    }, 100);
 }
 
 // ========== SERVICE POST MODAL FUNCTIONS ==========
@@ -348,32 +447,25 @@ function showServicePostModal() {
         console.log('Service modal opened');
     } else {
         console.error('service-post-modal not found');
-        if (typeof window.showToast === 'function') {
-            window.showToast('Service form not available', 'error');
-        }
+        showToast('Service form not available', 'error');
     }
 }
 
-// Setup service modal close handlers (call this once on load)
 function setupServiceModalHandlers() {
     const modal = document.getElementById('service-post-modal');
     if (!modal) return;
     
-    // Handle close button
     const closeBtn = modal.querySelector('.close-modal-btn');
     if (closeBtn) {
-        // Remove existing listeners by cloning
         const newCloseBtn = closeBtn.cloneNode(true);
         closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
         newCloseBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             modal.style.display = 'none';
-            console.log('Service modal closed');
         });
     }
     
-    // Handle cancel button
     const cancelBtn = modal.querySelector('.btn-outline');
     if (cancelBtn && cancelBtn.textContent.includes('Cancel')) {
         const newCancelBtn = cancelBtn.cloneNode(true);
@@ -382,11 +474,9 @@ function setupServiceModalHandlers() {
             e.preventDefault();
             e.stopPropagation();
             modal.style.display = 'none';
-            console.log('Service modal cancelled');
         });
     }
     
-    // Handle submit button
     const submitBtn = document.getElementById('submit-service-btn');
     if (submitBtn) {
         const newSubmitBtn = submitBtn.cloneNode(true);
@@ -407,6 +497,10 @@ function resetServicePostForm() {
     });
     const specificFields = document.getElementById('service-specific-fields');
     if (specificFields) specificFields.innerHTML = '';
+    const imageInput = document.getElementById('service-images');
+    if (imageInput) imageInput.value = '';
+    const previewContainer = document.getElementById('service-image-preview');
+    if (previewContainer) previewContainer.innerHTML = '';
 }
 
 function updateServiceForm() {
@@ -417,61 +511,93 @@ function updateServiceForm() {
     let additionalFields = '';
     switch(serviceType) {
         case 'vehicle-hire':
-            additionalFields = `<div class="form-group"><label class="form-label">Vehicle Type</label><select class="form-input" id="service-vehicle-type"><option value="car">Car</option><option value="truck">Truck</option><option value="van">Van</option></select></div><div class="form-group"><label class="form-label">Capacity</label><input type="text" class="form-input" id="service-capacity" placeholder="e.g., 7-seater"></div>`;
+            additionalFields = `<div class="form-group"><label class="form-label">Vehicle Type</label><select id="service-vehicle-type" class="form-input"><option value="car">Car</option><option value="truck">Truck</option><option value="van">Van</option></select></div><div class="form-group"><label class="form-label">Capacity</label><input type="text" id="service-capacity" class="form-input" placeholder="e.g., 7-seater"></div>`;
             break;
         case 'boda':
-            additionalFields = `<div class="form-group"><label class="form-label">Boda Type</label><select class="form-input" id="service-boda-type"><option value="motorcycle">Motorcycle</option><option value="tuk-tuk">Tuk Tuk</option></select></div>`;
+            additionalFields = `<div class="form-group"><label class="form-label">Boda Type</label><select id="service-boda-type" class="form-input"><option value="motorcycle">Motorcycle</option><option value="tuk-tuk">Tuk Tuk</option></select></div>`;
             break;
         case 'construction':
-            additionalFields = `<div class="form-group"><label class="form-label">Skill Type</label><select class="form-input" id="service-skill-type"><option value="laborer">General Laborer</option><option value="mason">Mason</option><option value="carpenter">Carpenter</option></select></div><div class="form-group"><label class="form-label">Experience</label><input type="text" class="form-input" id="service-experience" placeholder="e.g., 5 years"></div>`;
-            break;
-        case 'tools':
-            additionalFields = `<div class="form-group"><label class="form-label">Tool Type</label><input type="text" class="form-input" id="service-tool-type" placeholder="e.g., Power drill"></div><div class="form-group"><label class="form-label">Rental Period</label><select class="form-input" id="service-rental-period"><option value="hourly">Hourly</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>`;
-            break;
-        case 'cleaning':
-            additionalFields = `<div class="form-group"><label class="form-label">Cleaning Type</label><select class="form-input" id="service-cleaning-type"><option value="home">Home Cleaning</option><option value="office">Office Cleaning</option><option value="commercial">Commercial Cleaning</option></select></div>`;
-            break;
-        case 'fundis':
-            additionalFields = `<div class="form-group"><label class="form-label">Specialization</label><select class="form-input" id="service-specialization"><option value="plumber">Plumber</option><option value="electrician">Electrician</option><option value="carpenter">Carpenter</option><option value="mason">Mason</option><option value="painter">Painter</option></select></div><div class="form-group"><label class="form-label">Experience Level</label><select class="form-input" id="service-experience-level"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="expert">Expert</option></select></div>`;
+            additionalFields = `<div class="form-group"><label class="form-label">Skill Type</label><select id="service-skill-type" class="form-input"><option value="laborer">General Laborer</option><option value="mason">Mason</option><option value="carpenter">Carpenter</option></select></div><div class="form-group"><label class="form-label">Experience</label><input type="text" id="service-experience" class="form-input" placeholder="e.g., 5 years"></div>`;
             break;
         default: additionalFields = '';
     }
     specificFields.innerHTML = additionalFields;
 }
 
+// Preview service images
+function previewServiceImages(files) {
+    const container = document.getElementById('service-image-preview');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    for (let i = 0; i < Math.min(files.length, 5); i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'image-preview-item';
+                previewDiv.innerHTML = `
+                    <img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                    <button type="button" class="remove-image-btn" data-index="${i}">&times;</button>
+                `;
+                container.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+}
+
 async function submitService() {
     console.log('submitService called - saving to Firebase');
+    
     const serviceType = document.getElementById('service-type')?.value;
     const title = document.getElementById('service-title')?.value;
     const description = document.getElementById('service-description')?.value;
     const price = document.getElementById('service-price')?.value;
     const location = document.getElementById('service-location')?.value;
     const phone = document.getElementById('service-phone')?.value;
+    const imageInput = document.getElementById('service-images');
+    const imageFiles = imageInput ? Array.from(imageInput.files) : [];
     
-    // Check if user is logged in
     const user = firebase.auth().currentUser;
     if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to post a service', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
+        showToast('Please sign in to post a service', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
     
     if (!serviceType || !title || !description || !price || !location || !phone) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please fill in all required fields', 'error');
-        }
+        showToast('Please fill in all required fields', 'error');
         return;
     }
     
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving service to database...', 'info');
+    // Disable submit button and show loading
+    const submitBtn = document.getElementById('submit-service-btn');
+    const originalText = submitBtn?.textContent;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="spinner"></div> Saving...';
     }
     
-    // Prepare data for Firebase
+    showToast('Saving service to database...', 'info');
+    
+    // Collect category-specific fields
+    const additionalData = {};
+    switch(serviceType) {
+        case 'vehicle-hire':
+            additionalData.vehicleType = document.getElementById('service-vehicle-type')?.value;
+            additionalData.capacity = document.getElementById('service-capacity')?.value;
+            break;
+        case 'boda':
+            additionalData.bodaType = document.getElementById('service-boda-type')?.value;
+            break;
+        case 'construction':
+            additionalData.skillType = document.getElementById('service-skill-type')?.value;
+            additionalData.experience = document.getElementById('service-experience')?.value;
+            break;
+    }
+    
     const serviceData = {
         title: title,
         description: description,
@@ -480,27 +606,27 @@ async function submitService() {
         phone: phone,
         serviceType: serviceType,
         category: serviceType,
-        status: 'active'
+        status: 'active',
+        ...additionalData
     };
     
-    const result = await servicesManager.createService(serviceData);
+    const result = await servicesManager.createService(serviceData, imageFiles);
+    
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
     
     if (result.success) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Service posted successfully to Firebase!', 'success');
-        }
+        showToast('✅ Service posted successfully!', 'success');
         
         const modal = document.getElementById('service-post-modal');
         if (modal) modal.style.display = 'none';
         
         resetServicePostForm();
-        
-        // Refresh services list
         setTimeout(() => loadServices(), 500);
     } else {
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${result.error}`, 'error');
-        }
+        showToast(`Error: ${result.error}`, 'error');
     }
 }
 
@@ -517,18 +643,14 @@ function showJobPostModal() {
         console.log('Job modal opened');
     } else {
         console.error('job-post-modal not found');
-        if (typeof window.showToast === 'function') {
-            window.showToast('Job form not available', 'error');
-        }
+        showToast('Job form not available', 'error');
     }
 }
 
-// Setup job modal close handlers (call this once on load)
 function setupJobModalHandlers() {
     const modal = document.getElementById('job-post-modal');
     if (!modal) return;
     
-    // Handle close button
     const closeBtn = modal.querySelector('.close-modal-btn');
     if (closeBtn) {
         const newCloseBtn = closeBtn.cloneNode(true);
@@ -537,11 +659,9 @@ function setupJobModalHandlers() {
             e.preventDefault();
             e.stopPropagation();
             modal.style.display = 'none';
-            console.log('Job modal closed');
         });
     }
     
-    // Handle cancel button
     const cancelBtn = modal.querySelector('.btn-outline');
     if (cancelBtn && cancelBtn.textContent.includes('Cancel')) {
         const newCancelBtn = cancelBtn.cloneNode(true);
@@ -550,11 +670,9 @@ function setupJobModalHandlers() {
             e.preventDefault();
             e.stopPropagation();
             modal.style.display = 'none';
-            console.log('Job modal cancelled');
         });
     }
     
-    // Handle submit button
     const submitBtn = document.getElementById('submit-job-btn');
     if (submitBtn) {
         const newSubmitBtn = submitBtn.cloneNode(true);
@@ -577,10 +695,13 @@ function resetJobPostForm() {
     if (duration) duration.value = 'once';
     const urgent = document.getElementById('job-urgent');
     if (urgent) urgent.value = 'no';
+    const imageInput = document.getElementById('job-images');
+    if (imageInput) imageInput.value = '';
 }
 
 async function submitJob() {
     console.log('submitJob called - saving to Firebase');
+    
     const title = document.getElementById('job-title')?.value;
     const category = document.getElementById('job-category')?.value;
     const description = document.getElementById('job-description')?.value;
@@ -589,31 +710,30 @@ async function submitJob() {
     const duration = document.getElementById('job-duration')?.value;
     const urgent = document.getElementById('job-urgent')?.value;
     const phone = document.getElementById('job-phone')?.value;
+    const imageInput = document.getElementById('job-images');
+    const imageFiles = imageInput ? Array.from(imageInput.files) : [];
     
-    // Check if user is logged in
     const user = firebase.auth().currentUser;
     if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to post a job', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
+        showToast('Please sign in to post a job', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
     
     if (!title || !category || !description || !price || !location || !phone) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please fill in all required fields', 'error');
-        }
+        showToast('Please fill in all required fields', 'error');
         return;
     }
     
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving job to database...', 'info');
+    const submitBtn = document.getElementById('submit-job-btn');
+    const originalText = submitBtn?.textContent;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="spinner"></div> Saving...';
     }
     
-    // Prepare data for Firebase
+    showToast('Saving job to database...', 'info');
+    
     const jobData = {
         title: title,
         category: category,
@@ -626,177 +746,62 @@ async function submitJob() {
         status: 'active'
     };
     
-    const result = await servicesManager.createJob(jobData);
+    const result = await servicesManager.createJob(jobData, imageFiles);
+    
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
     
     if (result.success) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Job posted successfully to Firebase!', 'success');
-        }
+        showToast('✅ Job posted successfully!', 'success');
         
         const modal = document.getElementById('job-post-modal');
         if (modal) modal.style.display = 'none';
         
         resetJobPostForm();
         
-        // Refresh urgent jobs if this was urgent
         if (urgent === 'yes') {
             setTimeout(() => loadUrgentJobs(), 500);
         }
-        
-        // Refresh services list
         setTimeout(() => loadServices(), 500);
     } else {
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${result.error}`, 'error');
+        showToast(`Error: ${result.error}`, 'error');
+    }
+}
+
+// ========== LOCATION FUNCTIONS ==========
+function fillServiceLocationFromProfile() {
+    if (typeof window.getCurrentLocation === 'function') {
+        const location = window.getCurrentLocation();
+        const locationInput = document.getElementById('service-location');
+        if (locationInput && location.fullAddress) {
+            locationInput.value = location.fullAddress;
         }
     }
 }
 
-// ========== SETUP SEE ALL BUTTONS (UPDATED to use app.switchTab) ==========
-function setupSeeAllButtons() {
-    console.log('🔧 Setting up See All buttons');
-    const seeAllButtons = document.querySelectorAll('.see-all');
-    console.log(`Found ${seeAllButtons.length} see-all buttons`);
-    
-    seeAllButtons.forEach((button) => {
-        // Remove any existing listeners by cloning
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        
-        newButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const targetTab = this.getAttribute('data-tab');
-            console.log(`See All clicked - target tab: ${targetTab}`);
-            
-            if (targetTab) {
-                // Use the app's switchTab method if available
-                if (window.app && typeof window.app.switchTab === 'function') {
-                    window.app.switchTab(targetTab);
-                    console.log(`Switched to ${targetTab} via app.switchTab`);
-                } else if (typeof window.switchTab === 'function') {
-                    // Fallback to global switchTab
-                    window.switchTab(targetTab);
-                    console.log(`Switched to ${targetTab} via global switchTab`);
-                } else {
-                    console.error('No tab switching function available');
-                    // Manual fallback
-                    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-                    const target = document.getElementById(targetTab);
-                    if (target) target.classList.add('active');
-                }
-                
-                // Show toast notification if available
-                if (typeof window.showToast === 'function') {
-                    const tabName = targetTab.replace('-tab', '');
-                    window.showToast(`Loading all ${tabName}...`, 'info');
-                }
-            }
-        });
-        
-        // Make it look clickable
-        newButton.style.cursor = 'pointer';
-        newButton.style.display = 'inline-flex';
-        newButton.style.alignItems = 'center';
-        newButton.style.gap = '5px';
-    });
+function fillJobLocationFromProfile() {
+    if (typeof window.getCurrentLocation === 'function') {
+        const location = window.getCurrentLocation();
+        const locationInput = document.getElementById('job-location');
+        if (locationInput && location.fullAddress) {
+            locationInput.value = location.fullAddress;
+        }
+    }
 }
 
-// ========== SETUP QUICK ACTIONS (UPDATED to work with app) ==========
-function setupQuickActions() {
-    const quickActions = document.querySelectorAll('.quick-action');
-    console.log(`Setting up ${quickActions.length} quick actions`);
-    
-    quickActions.forEach(action => {
-        const newAction = action.cloneNode(true);
-        action.parentNode.replaceChild(newAction, action);
-        
-        newAction.addEventListener('click', function(e) {
-            const actionType = this.getAttribute('data-action');
-            console.log('Quick action clicked:', actionType);
-            
-            // Use app's switchTab if available
-            const switchToTab = (tabId) => {
-                if (window.app && typeof window.app.switchTab === 'function') {
-                    window.app.switchTab(tabId);
-                } else if (typeof window.switchTab === 'function') {
-                    window.switchTab(tabId);
-                } else {
-                    // Manual fallback
-                    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-                    const target = document.getElementById(tabId);
-                    if (target) target.classList.add('active');
-                }
-            };
-            
-            const openMoreMenu = () => {
-                if (window.app && typeof window.app.openMoreMenu === 'function') {
-                    window.app.openMoreMenu();
-                } else if (typeof window.openMoreMenu === 'function') {
-                    window.openMoreMenu();
-                }
-            };
-            
-            switch(actionType) {
-                case 'Marketplace':
-                    switchToTab('marketplace-tab');
-                    break;
-                case 'boda':
-                case 'construction':
-                case 'daily':
-                case 'farm':
-                case 'gas':
-                case 'water':
-                case 'electricity':
-                case 'house':
-                case 'phone':
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(`Looking for ${actionType} services...`, 'info');
-                    }
-                    switchToTab('services-tab');
-                    setTimeout(() => {
-                        if (typeof window.showToast === 'function') {
-                            window.showToast(`Click "List Your Service" to offer ${actionType} services`, 'info');
-                        }
-                    }, 500);
-                    break;
-                case 'education':
-                    openMoreMenu();
-                    setTimeout(() => {
-                        const eduTab = document.querySelector('.more-tab-btn[data-more-tab="education"]');
-                        if (eduTab && window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
-                            window.moreMenuManager.switchMoreTab('education');
-                        } else if (eduTab) {
-                            eduTab.click();
-                        }
-                    }, 200);
-                    break;
-                case 'alerts':
-                    openMoreMenu();
-                    setTimeout(() => {
-                        const alertsTab = document.querySelector('.more-tab-btn[data-more-tab="alerts"]');
-                        if (alertsTab && window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
-                            window.moreMenuManager.switchMoreTab('alerts');
-                        } else if (alertsTab) {
-                            alertsTab.click();
-                        }
-                    }, 200);
-                    break;
-                default:
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(`Opening ${actionType}...`, 'info');
-                    }
-            }
-        });
-    });
-}
+// ========== SEE ALL BUTTONS (REMOVED DUPLICATE - handled by app.js) ==========
+// setupSeeAllButtons removed to prevent conflict with app.js
+
+// ========== QUICK ACTIONS (REMOVED DUPLICATE - handled by quick-actions.js) ==========
+// setupQuickActions removed to prevent conflict with quick-actions.js
 
 // ========== EXPORT GLOBALLY ==========
 window.servicesManager = servicesManager;
 window.loadUrgentJobs = loadUrgentJobs;
 window.loadServices = loadServices;
 window.viewJobDetails = viewJobDetails;
-window.showServiceList = showServiceList;
 window.showServicePostModal = showServicePostModal;
 window.showJobPostModal = showJobPostModal;
 window.fillServiceLocationFromProfile = fillServiceLocationFromProfile;
@@ -805,31 +810,21 @@ window.updateServiceForm = updateServiceForm;
 window.submitService = submitService;
 window.submitJob = submitJob;
 window.promoteService = promoteService;
-window.setupSeeAllButtons = setupSeeAllButtons;
-window.setupQuickActions = setupQuickActions;
 window.setupServiceModalHandlers = setupServiceModalHandlers;
 window.setupJobModalHandlers = setupJobModalHandlers;
+window.previewServiceImages = previewServiceImages;
 
 // ========== INITIALIZE ON DOM LOAD ==========
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Services.js DOM loaded - initializing');
     
-    // Wait a bit for app.js to fully initialize
     setTimeout(() => {
-        // Setup See All buttons (this makes "View All" work)
-        setupSeeAllButtons();
-        
-        // Setup Quick Actions
-        setupQuickActions();
-        
         // Setup modal handlers (only once!)
         setupServiceModalHandlers();
         setupJobModalHandlers();
-        
         console.log('Services.js interactive elements initialized');
     }, 300);
     
-    // Load initial data
     setTimeout(loadUrgentJobs, 500);
     setTimeout(() => loadServices(), 1000);
     
@@ -841,10 +836,8 @@ document.addEventListener('DOMContentLoaded', function() {
         newServiceBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Service post button clicked');
             showServicePostModal();
         });
-        console.log('Service post button attached');
     }
     
     // Setup job post button
@@ -855,10 +848,8 @@ document.addEventListener('DOMContentLoaded', function() {
         newJobBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Job post button clicked');
             showJobPostModal();
         });
-        console.log('Job post button attached');
     }
 });
 

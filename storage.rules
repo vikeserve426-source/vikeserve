@@ -2,48 +2,103 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Profile pictures - users can upload their own, anyone can read
+    // Helper function: Check if user is admin
+    function isAdmin() {
+      return request.auth.token.admin == true ||
+             request.auth.token.role == 'admin' ||
+             request.auth.token.role == 'founder';
+    }
+    
+    // Helper function: Check file type is image
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|jpg|png|gif|webp)');
+    }
+    
+    // Helper function: Check file size limit (MB)
+    function isWithinSizeLimit(limitMB) {
+      return request.resource.size < limitMB * 1024 * 1024;
+    }
+    
+    // ========== PROFILE PICTURES ==========
     match /users/{userId}/profile-pictures/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && isImage()
+        && isWithinSizeLimit(2);
+      allow delete: if request.auth != null && (
+        request.auth.uid == userId || isAdmin()
+      );
     }
     
-    // Marketplace item images - public read, authenticated upload
+    // ========== MARKETPLACE ITEMS ==========
     match /marketplace/{itemId}/images/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow write: if request.auth != null
+        && isImage()
+        && isWithinSizeLimit(5);
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        exists(/databases/(default)/documents/marketplace_items/$(itemId)) &&
+        get(/databases/(default)/documents/marketplace_items/$(itemId)).data.userId == request.auth.uid
+      );
     }
     
-    // Property images
+    // ========== HOUSING / PROPERTY ==========
     match /properties/{propertyId}/images/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow write: if request.auth != null
+        && isImage()
+        && isWithinSizeLimit(5);
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        exists(/databases/(default)/documents/property_listings/$(propertyId)) &&
+        get(/databases/(default)/documents/property_listings/$(propertyId)).data.userId == request.auth.uid
+      );
     }
     
-    // Booking attachments
+    // ========== BOOKING ATTACHMENTS ==========
+    // Get booking data from Firestore
+    function isBookingParticipant(bookingId) {
+      let booking = get(/databases/(default)/documents/bookings/$(bookingId)).data;
+      return booking != null && (
+        booking.customerId == request.auth.uid ||
+        booking.providerId == request.auth.uid
+      );
+    }
+    
     match /booking-attachments/{bookingId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow read: if request.auth != null && isBookingParticipant(bookingId);
+      allow write: if request.auth != null 
+        && isBookingParticipant(bookingId)
+        && (isImage() || request.resource.contentType.matches('application/pdf.*'))
+        && isWithinSizeLimit(10);
+      allow delete: if request.auth != null && (
+        isAdmin() || isBookingParticipant(bookingId)
+      );
     }
     
-    // Review photos
-    match /review-photos/{bookingId}/{fileName} {
+    // ========== REVIEW PHOTOS ==========
+    match /review-photos/{reviewId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow write: if request.auth != null
+        && isImage()
+        && isWithinSizeLimit(5);
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        exists(/databases/(default)/documents/reviews/$(reviewId)) &&
+        get(/databases/(default)/documents/reviews/$(reviewId)).data.authorId == request.auth.uid
+      );
     }
     
-    // Public assets (icons, etc.)
-    match /public/{fileName} {
-      allow read: if true;
-      allow write: if false;
+    // ========== TEMP UPLOADS ==========
+    match /temp/{userId}/{fileName} {
+      allow read, write, delete: if request.auth != null && request.auth.uid == userId
+        && isImage()
+        && isWithinSizeLimit(5);
+      // Auto-delete temp files after 24 hours (optional: use Cloud Function)
     }
     
-    // Default deny for all other paths
+    // ========== DENY ALL ELSE ==========
     match /{allPaths=**} {
       allow read, write: if false;
     }

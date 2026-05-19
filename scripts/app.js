@@ -35,7 +35,6 @@
     
     window.showToast = window.showToast || function(msg, type) {
         console.log(`${type}: ${msg}`);
-        // Try to use the real toast if available
         setTimeout(() => {
             if (typeof window._realShowToast === 'function') {
                 window._realShowToast(msg, type);
@@ -54,6 +53,7 @@ class VikeServeApp {
             city: '',
             fullAddress: ''
         };
+        this.timeouts = []; // Track timeouts for cleanup
         this.init();
     }
 
@@ -68,6 +68,24 @@ class VikeServeApp {
         this.loadInitialData();
         this.ensureMoreMenuConnection();
         this.setupAdPromotionButtons();
+        this.handleInitialTabFromURL(); // NEW: Handle URL hash
+    }
+
+    // NEW: Handle URL hash for tab navigation (sharable links)
+    handleInitialTabFromURL() {
+        const hash = window.location.hash.substring(1);
+        if (hash && ['home-tab', 'services-tab', 'marketplace-tab', 'account-tab'].includes(hash)) {
+            setTimeout(() => {
+                this.switchTab(hash);
+            }, 100);
+        }
+    }
+
+    // NEW: Update URL hash when tab changes
+    updateURLHash(tabId) {
+        if (tabId && tabId !== 'more-tab') {
+            window.location.hash = tabId;
+        }
     }
 
     setupNavigation() {
@@ -92,6 +110,7 @@ class VikeServeApp {
                 
                 this.closeMoreMenu();
                 this.switchTab(tabId);
+                this.updateURLHash(tabId); // NEW: Update URL
             });
         });
     }
@@ -134,12 +153,14 @@ class VikeServeApp {
         const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
         if (moreNav) moreNav.classList.add('active');
         
+        // Notify moreMenuManager that menu opened
+        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
+            window.moreMenuManager.onMenuOpen();
+        }
+        
         if (window.moreMenuManager) {
             if (typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab('education');
-            } else {
-                const defaultTab = document.getElementById('education-content');
-                if (defaultTab) defaultTab.classList.add('active');
             }
         } else {
             const defaultTab = document.getElementById('education-content');
@@ -162,26 +183,46 @@ class VikeServeApp {
         }
         if (mainNav) mainNav.style.display = 'flex';
         if (moreBottomNav) moreBottomNav.style.display = 'none';
-    }
-
-    ensureMoreMenuConnection() {
-        if (!window.moreMenuManager) {
-            setTimeout(() => {
-                if (window.moreMenuManager) {
-                    if (this.currentTab === 'more-tab') {
-                        this.openMoreMenu();
-                    }
-                }
-            }, 500);
+        
+        // Notify moreMenuManager that menu closed
+        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
+            window.moreMenuManager.onMenuClose();
         }
     }
 
+    ensureMoreMenuConnection() {
+        const timeoutId = setTimeout(() => {
+            if (window.moreMenuManager) {
+                if (this.currentTab === 'more-tab') {
+                    this.openMoreMenu();
+                }
+            }
+        }, 500);
+        this.timeouts.push(timeoutId);
+    }
+
     applyGlobalFixes() {
+        // Store original modal positions to restore later
+        const modalsToMove = [];
+        
         const fixModals = () => {
             const modals = document.querySelectorAll('.modal');
             modals.forEach(modal => {
                 if (modal.parentElement && modal.parentElement.id === 'more-section') {
+                    // Store reference to restore later
+                    modalsToMove.push({
+                        modal: modal,
+                        originalParent: modal.parentElement
+                    });
                     document.body.appendChild(modal);
+                }
+            });
+        };
+        
+        const restoreModals = () => {
+            modalsToMove.forEach(item => {
+                if (item.originalParent && item.originalParent.contains(item.modal)) {
+                    item.originalParent.appendChild(item.modal);
                 }
             });
         };
@@ -198,13 +239,19 @@ class VikeServeApp {
             }
         };
         
-        setTimeout(fixModals, 100);
-        setTimeout(fixBottomNav, 100);
+        const timeoutId1 = setTimeout(fixModals, 100);
+        const timeoutId2 = setTimeout(fixBottomNav, 100);
+        this.timeouts.push(timeoutId1, timeoutId2);
+        
         window.addEventListener('resize', fixBottomNav);
+        
+        // Store cleanup function
+        this.cleanupModals = restoreModals;
     }
 
     initLocationSystem() {
         this.loadSavedLocation();
+        // Only setup location selector once (removed duplicate from setupEventListeners)
         this.setupLocationSelector();
     }
 
@@ -258,7 +305,10 @@ class VikeServeApp {
     setupLocationSelector() {
         const locationSelector = document.getElementById('location-selector');
         if (locationSelector) {
-            locationSelector.addEventListener('click', () => this.openLocationModal());
+            // Remove existing listener by cloning
+            const newSelector = locationSelector.cloneNode(true);
+            locationSelector.parentNode.replaceChild(newSelector, locationSelector);
+            newSelector.addEventListener('click', () => this.openLocationModal());
         }
     }
 
@@ -293,8 +343,21 @@ class VikeServeApp {
             </div>
         `;
         
+        // Use showModalWithContent or fallback
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('location-modal', modalContent);
+        } else {
+            // Fallback modal creation
+            let modal = document.getElementById('location-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'location-modal';
+                modal.className = 'modal';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = modalContent;
+            modal.style.display = 'flex';
+            modal.style.zIndex = '10001';
         }
         
         setTimeout(() => {
@@ -320,7 +383,12 @@ class VikeServeApp {
                 const newCancelBtn = cancelBtn.cloneNode(true);
                 cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
                 newCancelBtn.addEventListener('click', () => {
-                    if (typeof window.closeModal === 'function') window.closeModal('location-modal');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('location-modal');
+                    } else {
+                        const modal = document.getElementById('location-modal');
+                        if (modal) modal.style.display = 'none';
+                    }
                 });
             }
             
@@ -329,7 +397,12 @@ class VikeServeApp {
                 const newCloseBtn = closeBtn.cloneNode(true);
                 closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
                 newCloseBtn.addEventListener('click', () => {
-                    if (typeof window.closeModal === 'function') window.closeModal('location-modal');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('location-modal');
+                    } else {
+                        const modal = document.getElementById('location-modal');
+                        if (modal) modal.style.display = 'none';
+                    }
                 });
             }
             
@@ -391,6 +464,9 @@ class VikeServeApp {
         
         if (typeof window.closeModal === 'function') {
             window.closeModal('location-modal');
+        } else {
+            const modal = document.getElementById('location-modal');
+            if (modal) modal.style.display = 'none';
         }
         
         const displayText = this.getLocationDisplayText();
@@ -442,13 +518,11 @@ class VikeServeApp {
                 this.updateUIForAuthState();
                 
                 if (user && window.pendingPromotionCallback) {
-                    setTimeout(() => {
-                        const callback = window.pendingPromotionCallback;
-                        window.pendingPromotionCallback = null;
-                        if (typeof callback === 'function') {
-                            callback();
-                        }
-                    }, 500);
+                    const callback = window.pendingPromotionCallback;
+                    window.pendingPromotionCallback = null;
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
                 }
             });
         }
@@ -482,6 +556,8 @@ class VikeServeApp {
     }
 
     loadTabContent(tabId) {
+        const currentLocation = this.getCurrentLocation();
+        
         switch(tabId) {
             case 'home-tab':
                 if (typeof window.loadUrgentJobs === 'function') window.loadUrgentJobs();
@@ -538,17 +614,20 @@ class VikeServeApp {
             });
         }
         
-        const locationSelector = document.getElementById('location-selector');
-        if (locationSelector) {
-            const newLocationSelector = locationSelector.cloneNode(true);
-            locationSelector.parentNode.replaceChild(newLocationSelector, locationSelector);
+        // Close user menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('user-menu');
+            const userProfile = document.getElementById('user-profile');
             
-            newLocationSelector.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.openLocationModal();
-            });
-        }
+            if (userMenu && userMenu.classList.contains('show')) {
+                const clickedInsideMenu = userMenu.contains(e.target);
+                const clickedProfile = userProfile && userProfile.contains(e.target);
+                
+                if (!clickedInsideMenu && !clickedProfile) {
+                    userMenu.classList.remove('show');
+                }
+            }
+        });
         
         const moreCloseBtn = document.querySelector('.more-close');
         if (moreCloseBtn) {
@@ -570,6 +649,43 @@ class VikeServeApp {
     }
 
     setupAdPromotionButtons() {
+        const handlePromotionClick = () => {
+            if (!this.currentUser) {
+                if (typeof window.showAuthModal === 'function') {
+                    window.showAuthModal();
+                    // Store callback to execute after login
+                    window.pendingPromotionCallback = () => {
+                        if (typeof window.showAdPackagesModal === 'function') {
+                            window.showAdPackagesModal();
+                        }
+                    };
+                    // Clear callback after 5 minutes (safety)
+                    setTimeout(() => {
+                        if (window.pendingPromotionCallback) {
+                            window.pendingPromotionCallback = null;
+                        }
+                    }, 300000);
+                } else if (typeof window.openAuthModal === 'function') {
+                    window.openAuthModal();
+                    window.pendingPromotionCallback = () => {
+                        if (typeof window.showAdPackagesModal === 'function') {
+                            window.showAdPackagesModal();
+                        }
+                    };
+                } else {
+                    const authModal = document.getElementById('auth-modal');
+                    if (authModal) authModal.style.display = 'flex';
+                }
+            } else {
+                if (typeof window.showAdPackagesModal === 'function') {
+                    window.showAdPackagesModal();
+                } else if (typeof window.getPaymentSystem === 'function') {
+                    const ps = window.getPaymentSystem();
+                    ps.showAdPackagesModal();
+                }
+            }
+        };
+        
         const viewPackagesBtn = document.getElementById('view-packages-btn');
         if (viewPackagesBtn) {
             const newBtn = viewPackagesBtn.cloneNode(true);
@@ -577,27 +693,7 @@ class VikeServeApp {
             newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                if (!this.currentUser) {
-                    if (typeof window.showAuthModal === 'function') {
-                        window.showAuthModal();
-                        window.pendingPromotionCallback = () => {
-                            if (typeof window.showAdPackagesModal === 'function') {
-                                window.showAdPackagesModal();
-                            }
-                        };
-                    } else {
-                        const authModal = document.getElementById('auth-modal');
-                        if (authModal) authModal.style.display = 'flex';
-                    }
-                } else {
-                    if (typeof window.showAdPackagesModal === 'function') {
-                        window.showAdPackagesModal();
-                    } else if (typeof window.getPaymentSystem === 'function') {
-                        const ps = window.getPaymentSystem();
-                        ps.showAdPackagesModal();
-                    }
-                }
+                handlePromotionClick();
             });
         }
         
@@ -608,37 +704,42 @@ class VikeServeApp {
             newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                if (!this.currentUser) {
-                    if (typeof window.showAuthModal === 'function') {
-                        window.showAuthModal();
-                        window.pendingPromotionCallback = () => {
-                            if (typeof window.showAdPackagesModal === 'function') {
-                                window.showAdPackagesModal();
-                            }
-                        };
-                    } else {
-                        const authModal = document.getElementById('auth-modal');
-                        if (authModal) authModal.style.display = 'flex';
-                    }
-                } else {
-                    if (typeof window.showAdPackagesModal === 'function') {
-                        window.showAdPackagesModal();
-                    } else if (typeof window.getPaymentSystem === 'function') {
-                        const ps = window.getPaymentSystem();
-                        ps.showAdPackagesModal();
-                    }
-                }
+                handlePromotionClick();
             });
         }
     }
+
+    // NEW: Cleanup method to prevent memory leaks
+    destroy() {
+        // Clear all timeouts
+        this.timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+        this.timeouts = [];
+        
+        // Restore modals if needed
+        if (typeof this.cleanupModals === 'function') {
+            this.cleanupModals();
+        }
+        
+        console.log('App destroyed, cleaned up timeouts and listeners');
+    }
 }
 
+// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new VikeServeApp();
     
+    // Expose functions globally
     window.switchTab = (tabId) => window.app?.switchTab(tabId);
     window.openMoreMenu = () => window.app?.openMoreMenu();
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (window.app && typeof window.app.destroy === 'function') {
+            window.app.destroy();
+        }
+    });
 });
+
+console.log('✅ App.js fully loaded with all fixes');

@@ -7,7 +7,13 @@ class AccountManager {
         this.adsCollection = collections.ads();
         this.bookingsCollection = collections.bookings();
         this.reviewsCollection = collections.reviews();
-        this.favoritesCollection = collections.favorites ? collections.favorites() : collections.ads();
+        // FIXED: Proper favorites collection fallback
+        this.favoritesCollection = collections.favorites ? collections.favorites() : null;
+        
+        // Log warning if favorites collection doesn't exist
+        if (!this.favoritesCollection) {
+            console.warn('Favorites collection not found. Favorites feature will be disabled.');
+        }
     }
 
     async getUserProfile(userId) {
@@ -26,26 +32,28 @@ class AccountManager {
     }
 
     async createUserProfile(userId) {
-        try {
-            const user = auth.currentUser;
-            await this.usersCollection.doc(userId).set({
-                displayName: user?.displayName || 'User',
-                email: user?.email || '',
-                profilePicture: null,
-                phoneNumber: null,
-                location: null,
-                bio: null,
-                preferences: {},
-                averageRating: 0,
-                totalReviews: 0,
-                status: 'active',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        } catch (error) {
-            // Silent fail
-        }
+    try {
+        const user = auth.currentUser;
+        await this.usersCollection.doc(userId).set({
+            displayName: user?.displayName || 'User',
+            email: user?.email || '',
+            profilePicture: null,
+            phoneNumber: null,
+            location: null,
+            bio: null,
+            preferences: {},
+            role: 'general-user',
+            averageRating: 0,
+            totalReviews: 0,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('User profile created with role: general-user');
+    } catch (error) {
+        console.error('Error creating user profile:', error);
     }
+}
 
     getDefaultProfile(userId) {
         const user = auth.currentUser;
@@ -80,9 +88,19 @@ class AccountManager {
     }
 
     isValidPhoneNumber(phone) {
-        const phoneRegex = /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*$/;
-        return phoneRegex.test(phone);
-    }
+    if (!phone) return false;
+    // Remove any spaces, dashes, or parentheses
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Kenyan phone number validation
+    // Format: 0712345678 or 254712345678 or +254712345678
+    const kenyanRegex = /^(?:\+254|0|254)([17]\d{8})$/;
+    
+    // International fallback (simple)
+    const internationalRegex = /^\+?[0-9]{8,15}$/;
+    
+    return kenyanRegex.test(cleaned) || internationalRegex.test(cleaned);
+}
 
     async uploadProfilePicture(userId, file) {
         try {
@@ -665,59 +683,112 @@ function updateProfileStatsUI(userStats) {
 }
 
 function showEditProfileForm() {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) {
+        if (typeof showToast === 'function') {
+            showToast('Please sign in to edit profile', 'warning');
+        }
+        return;
+    }
     
     accountManager.getUserProfile(auth.currentUser.uid).then(userProfile => {
         const formContent = `
-            <div class="edit-profile-form">
+            <div class="edit-profile-form" style="padding: 10px;">
                 <div class="form-group">
                     <label for="profile-displayname">Display Name</label>
-                    <input type="text" id="profile-displayname" class="form-input" value="${userProfile.displayName || ''}" placeholder="Your display name">
+                    <input type="text" id="profile-displayname" class="form-input" value="${escapeHtml(userProfile.displayName || '')}" placeholder="Your display name">
                 </div>
                 <div class="form-group">
                     <label for="profile-location">Location</label>
-                    <input type="text" id="profile-location" class="form-input" value="${userProfile.location || ''}" placeholder="Your location">
+                    <input type="text" id="profile-location" class="form-input" value="${escapeHtml(userProfile.location || '')}" placeholder="Your location">
                 </div>
                 <div class="form-group">
                     <label for="profile-bio">Bio</label>
-                    <textarea id="profile-bio" class="form-input" placeholder="Tell us about yourself" rows="3">${userProfile.bio || ''}</textarea>
+                    <textarea id="profile-bio" class="form-input" placeholder="Tell us about yourself" rows="3">${escapeHtml(userProfile.bio || '')}</textarea>
                 </div>
                 <div class="form-group">
                     <label for="profile-picture">Profile Picture</label>
-                    <input type="file" id="profile-picture" class="form-input" accept="image/*">
+                    <input type="file" id="profile-picture" class="form-input" accept="image/jpeg,image/png,image/gif">
+                    <div class="form-hint">Max 2MB. JPG, PNG, or GIF only.</div>
                 </div>
-                <button class="btn btn-primary" onclick="updateProfile()">Save Changes</button>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline" id="cancel-profile-edit">Cancel</button>
+                    <button class="btn btn-primary" id="save-profile-edit">Save Changes</button>
+                </div>
             </div>
         `;
         
-        showModal('Edit Profile', formContent);
+        if (typeof showModalWithContent === 'function') {
+            showModalWithContent('edit-profile-modal', formContent);
+        } else if (typeof showModal === 'function') {
+            showModal('edit-profile-modal');
+            const modal = document.getElementById('edit-profile-modal');
+            if (modal) {
+                const contentDiv = modal.querySelector('.modal-content');
+                if (contentDiv) contentDiv.innerHTML = formContent;
+            }
+        } else {
+            console.error('No modal function available');
+            showToast('Form not available', 'error');
+        }
+        
+        // Attach event listeners after modal is in DOM
+        setTimeout(() => {
+            const saveBtn = document.getElementById('save-profile-edit');
+            if (saveBtn) {
+                const newSaveBtn = saveBtn.cloneNode(true);
+                saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+                newSaveBtn.addEventListener('click', () => {
+                    if (typeof updateProfile === 'function') {
+                        updateProfile();
+                    }
+                });
+            }
+            
+            const cancelBtn = document.getElementById('cancel-profile-edit');
+            if (cancelBtn) {
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                newCancelBtn.addEventListener('click', () => {
+                    if (typeof closeModal === 'function') {
+                        closeModal('edit-profile-modal');
+                    }
+                });
+            }
+        }, 100);
+        
     }).catch(error => {
-        showToast('Error loading profile', 'error');
+        console.error('Error loading profile:', error);
+        if (typeof showToast === 'function') {
+            showToast('Error loading profile data', 'error');
+        }
     });
 }
 
 async function updateProfile() {
     if (!auth.currentUser) return;
     
+    // Check if required functions exist
+    if (typeof showToast !== 'function') {
+        console.error('showToast function not available');
+        alert('Please refresh the page and try again');
+        return;
+    }
+    
     try {
-        const displayName = document.getElementById('profile-displayname').value;
-        const phoneNumber = document.getElementById('profile-phone').value;
-        const location = document.getElementById('profile-location').value;
-        const bio = document.getElementById('profile-bio').value;
-        const profilePicture = document.getElementById('profile-picture').files[0];
+        const displayName = document.getElementById('profile-displayname')?.value;
+        const location = document.getElementById('profile-location')?.value;
+        const bio = document.getElementById('profile-bio')?.value;
+        const profilePicture = document.getElementById('profile-picture')?.files[0];
         
-        const updates = {
-            displayName: displayName || null,
-            phoneNumber: phoneNumber || null,
-            location: location || null,
-            bio: bio || null
-        };
+        const updates = {};
+        if (displayName) updates.displayName = displayName;
+        if (location) updates.location = location;
+        if (bio) updates.bio = bio;
         
-        Object.keys(updates).forEach(key => {
-            if (updates[key] === null) {
-                delete updates[key];
-            }
-        });
+        if (Object.keys(updates).length === 0 && !profilePicture) {
+            showToast('No changes to update', 'info');
+            return;
+        }
         
         const result = await accountManager.updateUserProfile(auth.currentUser.uid, updates);
         
@@ -727,13 +798,18 @@ async function updateProfile() {
             }
             
             showToast('Profile updated successfully', 'success');
-            closeModal();
-            loadUserAccountData();
+            if (typeof closeModal === 'function') {
+                closeModal();
+            }
+            if (typeof loadUserAccountData === 'function') {
+                loadUserAccountData();
+            }
         } else {
             showToast('Error updating profile: ' + result.error, 'error');
         }
     } catch (error) {
-        showToast('Error updating profile', 'error');
+        console.error('Update profile error:', error);
+        showToast('Error updating profile: ' + error.message, 'error');
     }
 }
 
@@ -786,6 +862,14 @@ function viewBooking(bookingId) {
     showToast('View booking functionality coming soon', 'info');
 }
 
+// ========== HELPER: Escape HTML ==========
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+window.escapeHtml = escapeHtml;
 window.accountManager = accountManager;
 window.initAccountManager = initAccountManager;
 window.loadUserAccountData = loadUserAccountData;
@@ -798,12 +882,21 @@ window.viewAd = viewAd;
 window.viewBooking = viewBooking;
 window.generateStarRating = generateStarRating;
 
-auth.onAuthStateChanged(user => {
-    if (user) {
-        initAccountManager();
-        loadUserAccountData();
-    }
-});
+// Single auth state listener - REMOVED DUPLICATE
+// This is now handled by firebase.js and app.js
+// Only initialize if not already initialized
+if (typeof window.accountManager === 'undefined' || !window.accountManager) {
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            if (typeof initAccountManager === 'function') {
+                initAccountManager();
+            }
+            if (typeof loadUserAccountData === 'function') {
+                setTimeout(() => loadUserAccountData(), 500);
+            }
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const editProfileBtn = document.querySelector('[onclick="showEditProfileForm()"]');

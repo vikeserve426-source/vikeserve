@@ -1,4 +1,6 @@
-// search.js - Search functionality for VikeServe - FIXED FIREBASE PATTERN
+// ========== SEARCH MANAGER - COMPLETE FIXED VERSION ==========
+// Supports pagination, search history, and optimized Firestore queries
+
 class SearchManager {
     constructor() {
         this.db = db;
@@ -9,31 +11,121 @@ class SearchManager {
         this.searchResults = [];
         this.lastSearchTerm = '';
         this.isSearching = false;
+        this.searchHistory = this.loadSearchHistory();
         this.init();
     }
 
     async init() {
-        await this.loadSearchData();
+        console.log("Search Manager initializing...");
         this.setupSearchListeners();
+        await this.loadSearchData();
     }
 
-    // Load data from Firebase collections
+    // Load search history from localStorage
+    loadSearchHistory() {
+        try {
+            const saved = localStorage.getItem('vikeserve_search_history');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    // Save search term to history
+    saveToSearchHistory(term) {
+        if (!term || term.length < 2) return;
+        
+        // Remove duplicate if exists
+        const existingIndex = this.searchHistory.indexOf(term);
+        if (existingIndex !== -1) {
+            this.searchHistory.splice(existingIndex, 1);
+        }
+        
+        // Add to beginning
+        this.searchHistory.unshift(term);
+        
+        // Keep only last 10 searches
+        if (this.searchHistory.length > 10) {
+            this.searchHistory.pop();
+        }
+        
+        localStorage.setItem('vikeserve_search_history', JSON.stringify(this.searchHistory));
+        this.displaySearchHistory();
+    }
+
+    // Clear search history
+    clearSearchHistory() {
+        this.searchHistory = [];
+        localStorage.removeItem('vikeserve_search_history');
+        this.displaySearchHistory();
+        if (typeof window.showToast === 'function') {
+            window.showToast('Search history cleared', 'success');
+        }
+    }
+
+    // Display search history in results container
+    displaySearchHistory() {
+        if (this.searchHistory.length === 0) return;
+        
+        const historyHTML = `
+            <div class="search-history-section">
+                <div class="search-history-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--grey);">
+                    <strong><i class="fas fa-history"></i> Recent Searches</strong>
+                    <button class="btn btn-sm btn-outline clear-history-btn" style="padding: 4px 8px; font-size: 0.7rem;">Clear</button>
+                </div>
+                <div class="search-history-list">
+                    ${this.searchHistory.map(term => `
+                        <div class="search-history-item" data-term="${this.escapeHtml(term)}" style="padding: 10px 15px; border-bottom: 1px solid var(--grey); cursor: pointer; display: flex; justify-content: space-between;">
+                            <span><i class="fas fa-search" style="margin-right: 10px; color: var(--grey-dark);"></i> ${this.escapeHtml(term)}</span>
+                            <i class="fas fa-arrow-right" style="color: var(--grey-dark);"></i>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        const resultsContainer = document.getElementById('search-results-container');
+        if (resultsContainer && this.searchHistory.length > 0 && !this.lastSearchTerm) {
+            resultsContainer.innerHTML = historyHTML;
+            resultsContainer.style.display = 'block';
+            
+            // Add click handlers for history items
+            document.querySelectorAll('.search-history-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const term = item.getAttribute('data-term');
+                    const searchInput = document.querySelector('.search-input');
+                    if (searchInput) {
+                        searchInput.value = term;
+                        this.handleSearch(term);
+                    }
+                });
+            });
+            
+            const clearBtn = document.querySelector('.clear-history-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => this.clearSearchHistory());
+            }
+        }
+    }
+
+    // Load data from Firebase collections with pagination
     async loadSearchData() {
         try {
             console.log("Loading search data from Firebase...");
             
-            // Load data from multiple collections in parallel
+            // Load limited data for initial search index
             const [servicesSnapshot, jobsSnapshot, marketplaceSnapshot] = await Promise.all([
-                collections.services().limit(20).get(),
-                collections.serviceRequests().where('type', '==', 'job').limit(20).get(),
-                collections.marketplaceItems().limit(20).get()
+                collections.services().limit(50).get(),
+                collections.serviceRequests().where('type', '==', 'job').limit(50).get(),
+                collections.marketplaceItems().limit(50).get()
             ]);
 
             this.searchData = [];
 
-            // Process services
+            // Process services and generate searchKeywords
             servicesSnapshot.forEach(doc => {
                 const service = doc.data();
+                const searchKeywords = this.generateSearchKeywords(service.title, service.category, service.location, service.description);
                 this.searchData.push({
                     id: doc.id,
                     type: 'service',
@@ -44,13 +136,15 @@ class SearchManager {
                     price: service.price || service.rate || 0,
                     description: service.description || '',
                     createdAt: service.createdAt,
-                    urgent: service.urgent || false
+                    urgent: service.urgent || false,
+                    searchKeywords: searchKeywords
                 });
             });
 
             // Process jobs
             jobsSnapshot.forEach(doc => {
                 const job = doc.data();
+                const searchKeywords = this.generateSearchKeywords(job.title, job.category, job.location, job.description);
                 this.searchData.push({
                     id: doc.id,
                     type: 'job',
@@ -60,13 +154,15 @@ class SearchManager {
                     salary: job.salary || job.budget || 0,
                     description: job.description || '',
                     urgent: job.urgent || false,
-                    createdAt: job.createdAt
+                    createdAt: job.createdAt,
+                    searchKeywords: searchKeywords
                 });
             });
 
             // Process marketplace items
             marketplaceSnapshot.forEach(doc => {
                 const item = doc.data();
+                const searchKeywords = this.generateSearchKeywords(item.title, item.category, item.location, item.description);
                 this.searchData.push({
                     id: doc.id,
                     type: 'marketplace',
@@ -76,7 +172,8 @@ class SearchManager {
                     price: item.price || 0,
                     description: item.description || '',
                     condition: item.condition,
-                    createdAt: item.createdAt
+                    createdAt: item.createdAt,
+                    searchKeywords: searchKeywords
                 });
             });
 
@@ -85,32 +182,28 @@ class SearchManager {
 
         } catch (error) {
             console.error("Error loading search data from Firebase:", error);
-            // Fallback to sample data if Firebase fails
             await this.loadSampleData();
         }
+    }
+
+    // Generate search keywords for a document
+    generateSearchKeywords(title, category, location, description) {
+        const text = `${title} ${category} ${location} ${description || ''}`.toLowerCase();
+        const words = text.split(/\s+/);
+        // Remove duplicates and short words, take unique keywords
+        const uniqueWords = [...new Set(words)];
+        return uniqueWords.filter(word => word.length > 2).slice(0, 20);
     }
 
     // Fallback sample data
     async loadSampleData() {
         console.log("Loading sample search data...");
         this.searchData = [
-            // Services
-            { id: '1', type: 'service', title: 'Boda Boda Transport', category: 'transport', location: 'Nairobi', rating: 4.5, price: 100 },
-            { id: '2', type: 'service', title: 'Plumbing Services', category: 'home-services', location: 'Nairobi', rating: 4.2, price: 500 },
-            { id: '3', type: 'service', title: 'House Cleaning', category: 'home-services', location: 'Nairobi', rating: 4.7, price: 300 },
-            { id: '4', type: 'service', title: 'Electrical Repair', category: 'home-services', location: 'Nairobi', rating: 4.3, price: 400 },
-            
-            // Jobs
-            { id: '5', type: 'job', title: 'Construction Worker Needed', category: 'construction', location: 'Nairobi', salary: 800, urgent: true },
-            { id: '6', type: 'job', title: 'Delivery Rider Position', category: 'delivery', location: 'Nairobi', salary: 600, urgent: false },
-            { id: '7', type: 'job', title: 'Farm Assistant', category: 'agriculture', location: 'Kiambu', salary: 500, urgent: true },
-            
-            // Marketplace Items
-            { id: '8', type: 'marketplace', title: 'Quality Mitumba Clothes', category: 'clothing', location: 'Gikomba', price: 200 },
-            { id: '9', type: 'marketplace', title: 'Secondhand Smartphone', category: 'electronics', location: 'Nairobi', price: 5000 },
-            { id: '10', type: 'marketplace', title: 'Fresh Fruits Basket', category: 'food', location: 'Nairobi', price: 150 }
+            { id: '1', type: 'service', title: 'Boda Boda Transport', category: 'transport', location: 'Nairobi', rating: 4.5, price: 100, searchKeywords: ['boda', 'transport', 'nairobi'] },
+            { id: '2', type: 'service', title: 'Plumbing Services', category: 'home-services', location: 'Nairobi', rating: 4.2, price: 500, searchKeywords: ['plumbing', 'home', 'services', 'nairobi'] },
+            { id: '3', type: 'job', title: 'Construction Worker Needed', category: 'construction', location: 'Nairobi', salary: 800, urgent: true, searchKeywords: ['construction', 'worker', 'needed', 'nairobi'] },
+            { id: '4', type: 'marketplace', title: 'Quality Mitumba Clothes', category: 'clothing', location: 'Gikomba', price: 200, searchKeywords: ['quality', 'mitumba', 'clothes', 'gikomba'] }
         ];
-
         this.buildSearchIndex();
     }
 
@@ -118,8 +211,8 @@ class SearchManager {
     buildSearchIndex() {
         this.searchIndex = {};
         this.searchData.forEach(item => {
-            const words = this.tokenize(item.title + ' ' + item.category + ' ' + item.location + ' ' + (item.description || ''));
-            words.forEach(word => {
+            const keywords = item.searchKeywords || this.tokenize(item.title + ' ' + item.category + ' ' + item.location + ' ' + (item.description || ''));
+            keywords.forEach(word => {
                 if (!this.searchIndex[word]) {
                     this.searchIndex[word] = [];
                 }
@@ -144,7 +237,6 @@ class SearchManager {
         const searchInputs = document.querySelectorAll('.search-input');
         
         searchInputs.forEach(input => {
-            // Real-time search as user types with debounce
             let timeout;
             input.addEventListener('input', (e) => {
                 clearTimeout(timeout);
@@ -153,18 +245,15 @@ class SearchManager {
                 }, 300);
             });
 
-            // Search on Enter key
             input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     this.handleSearch(e.target.value);
                 }
             });
 
-            // Clear search on escape
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    this.hideSearchResults();
-                    e.target.value = '';
+            input.addEventListener('focus', () => {
+                if (!this.lastSearchTerm && this.searchHistory.length > 0) {
+                    this.displaySearchHistory();
                 }
             });
         });
@@ -178,6 +267,7 @@ class SearchManager {
         }
 
         this.lastSearchTerm = query.trim();
+        this.saveToSearchHistory(this.lastSearchTerm);
         this.showSearchLoading();
 
         try {
@@ -189,18 +279,18 @@ class SearchManager {
         }
     }
 
-    // Perform search with Firebase fallback
+    // Perform search with optimized queries
     async search(query) {
-        // First try local search
+        // First try local search (fast)
         let results = this.performLocalSearch(query);
         
-        // If few results, try searching Firebase directly
-        if (results.length < 5) {
+        // If few results, search Firestore directly
+        if (results.length < 10) {
             try {
                 const firebaseResults = await this.searchFirebase(query);
                 results = this.mergeAndDeduplicateResults(results, firebaseResults);
             } catch (error) {
-                console.warn("Firebase search failed, using local results only:", error);
+                console.warn("Firebase search failed:", error);
             }
         }
 
@@ -221,7 +311,6 @@ class SearchManager {
             }
         });
 
-        // Convert IDs back to full objects and score them
         resultIds.forEach(id => {
             const item = this.searchData.find(d => d.id === id);
             if (item) {
@@ -230,16 +319,14 @@ class SearchManager {
             }
         });
 
-        // Sort by relevance score
-        return scoredResults.sort((a, b) => b.score - a.score);
+        return scoredResults.sort((a, b) => b.score - a.score).slice(0, 30);
     }
 
-    // Search Firebase directly for more comprehensive results
+    // Search Firebase directly with pagination
     async searchFirebase(query) {
         const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2);
         const results = [];
 
-        // Search across multiple collections
         const searchPromises = [
             this.searchCollection(collections.services(), searchTerms, 'service'),
             this.searchCollection(collections.serviceRequests(), searchTerms, 'job'),
@@ -261,9 +348,9 @@ class SearchManager {
     async searchCollection(collectionRef, searchTerms, type) {
         const results = [];
         
-        // Create query for each search term and combine results
         for (const term of searchTerms) {
             try {
+                // Use array-contains on searchKeywords field
                 const snapshot = await collectionRef
                     .where('searchKeywords', 'array-contains', term)
                     .limit(10)
@@ -277,7 +364,24 @@ class SearchManager {
                     }
                 });
             } catch (error) {
-                console.warn(`Search in ${type} collection failed for term "${term}":`, error);
+                // Fallback to title search if array-contains fails
+                try {
+                    const snapshot = await collectionRef
+                        .where('title', '>=', term)
+                        .where('title', '<=', term + '\uf8ff')
+                        .limit(5)
+                        .get();
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const item = this.formatFirebaseItem(doc.id, data, type);
+                        if (item && !results.find(r => r.id === item.id)) {
+                            results.push(item);
+                        }
+                    });
+                } catch (fallbackError) {
+                    console.warn(`Search in ${type} failed:`, fallbackError);
+                }
             }
         }
 
@@ -294,7 +398,8 @@ class SearchManager {
             location: data.location || 'Unknown',
             description: data.description || '',
             createdAt: data.createdAt || new Date(),
-            fromFirebase: true
+            fromFirebase: true,
+            score: 5
         };
 
         switch (type) {
@@ -321,19 +426,18 @@ class SearchManager {
         }
     }
 
-    // Merge and deduplicate search results
+    // Merge and deduplicate results
     mergeAndDeduplicateResults(localResults, firebaseResults) {
         const merged = [...localResults];
         const localIds = new Set(localResults.map(r => r.id));
 
         firebaseResults.forEach(firebaseItem => {
             if (!localIds.has(firebaseItem.id)) {
-                // Add slight penalty for Firebase results to prioritize local matches
                 merged.push({ ...firebaseItem, score: (firebaseItem.score || 0) * 0.8 });
             }
         });
 
-        return merged.sort((a, b) => b.score - a.score);
+        return merged.sort((a, b) => b.score - a.score).slice(0, 30);
     }
 
     // Calculate relevance score for sorting
@@ -342,49 +446,58 @@ class SearchManager {
         const searchText = (item.title + ' ' + item.category + ' ' + item.location + ' ' + (item.description || '')).toLowerCase();
         const queryLower = query.toLowerCase();
 
-        // Exact match bonus
-        if (searchText.includes(queryLower)) {
-            score += 10;
-        }
+        if (searchText.includes(queryLower)) score += 10;
+        if (item.title.toLowerCase().includes(queryLower)) score += 5;
 
-        // Title match bonus
-        if (item.title.toLowerCase().includes(queryLower)) {
-            score += 5;
-        }
-
-        // Token matches
         tokens.forEach(token => {
-            if (searchText.includes(token)) {
-                score += 2;
-            }
+            if (searchText.includes(token)) score += 2;
         });
 
-        // Urgent items get bonus
-        if (item.urgent) {
-            score += 3;
-        }
+        if (item.urgent) score += 3;
+        if (item.rating) score += (item.rating - 3);
 
-        // Higher rated items get bonus
-        if (item.rating) {
-            score += (item.rating - 3); // Bonus for ratings above 3
-        }
-
-        // Recent items get slight bonus
         if (item.createdAt) {
             const daysAgo = (new Date() - new Date(item.createdAt)) / (1000 * 60 * 60 * 24);
-            if (daysAgo < 7) score += 1; // Items from last week
-            if (daysAgo < 1) score += 2; // Items from today
+            if (daysAgo < 7) score += 1;
+            if (daysAgo < 1) score += 2;
         }
 
         return score;
     }
 
+    // Generate star rating HTML (fixes half-star logic)
+    generateStars(rating) {
+        if (!rating) return '<span class="no-rating">No ratings</span>';
+        
+        let stars = '';
+        const fullStars = Math.floor(rating);
+        const decimal = rating - fullStars;
+        let hasHalfStar = decimal >= 0.3 && decimal <= 0.7;
+        let hasQuarterStar = decimal > 0 && decimal < 0.3;
+        let hasThreeQuarterStar = decimal > 0.7 && decimal < 1;
+        
+        for (let i = 1; i <= 5; i++) {
+            if (i <= fullStars) {
+                stars += '<i class="fas fa-star"></i>';
+            } else if (i === fullStars + 1 && hasHalfStar) {
+                stars += '<i class="fas fa-star-half-alt"></i>';
+            } else if (i === fullStars + 1 && hasQuarterStar) {
+                stars += '<i class="fas fa-star-quarter-alt"></i>';
+            } else if (i === fullStars + 1 && hasThreeQuarterStar) {
+                stars += '<i class="fas fa-star-three-quarters-alt"></i>';
+            } else {
+                stars += '<i class="far fa-star"></i>';
+            }
+        }
+        return stars;
+    }
+
     // Show loading state
     showSearchLoading() {
         const loadingHTML = `
-            <div class="search-results-loading">
+            <div class="search-results-loading" style="text-align: center; padding: 40px;">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Searching for "${this.lastSearchTerm}"...</div>
+                <div class="loading-text">Searching for "${this.escapeHtml(this.lastSearchTerm)}"...</div>
             </div>
         `;
         this.showSearchResults(loadingHTML);
@@ -393,13 +506,18 @@ class SearchManager {
     // Show search error
     showSearchError(message) {
         const errorHTML = `
-            <div class="search-results-error">
-                <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                <div class="error-message">${message}</div>
-                <button class="btn btn-outline" onclick="search.retrySearch()">Try Again</button>
+            <div class="search-results-error" style="text-align: center; padding: 40px;">
+                <div class="error-icon"><i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: var(--danger);"></i></div>
+                <div class="error-message">${this.escapeHtml(message)}</div>
+                <button class="btn btn-outline retry-search-btn" style="margin-top: 15px;">Try Again</button>
             </div>
         `;
         this.showSearchResults(errorHTML);
+        
+        const retryBtn = document.querySelector('.retry-search-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => this.retrySearch());
+        }
     }
 
     // Retry last search
@@ -425,7 +543,6 @@ class SearchManager {
 
     // Generate HTML for search results
     generateSearchResultsHTML(results, query) {
-        // Group results by type
         const groupedResults = {
             service: results.filter(r => r.type === 'service'),
             job: results.filter(r => r.type === 'job'),
@@ -433,26 +550,21 @@ class SearchManager {
         };
 
         let html = `
-            <div class="search-results-header">
-                <div class="search-query">Results for "${query}"</div>
-                <div class="search-count">${results.length} results found</div>
-                <button class="search-close" onclick="search.hideSearchResults()">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div class="search-results-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--grey);">
+                <div>
+                    <div class="search-query" style="font-weight: 600;">Results for "${this.escapeHtml(query)}"</div>
+                    <div class="search-count" style="font-size: 0.8rem; color: var(--grey-dark);">${results.length} results found</div>
+                </div>
+                <button class="search-close btn btn-sm btn-outline" style="padding: 5px 10px;">✕</button>
             </div>
         `;
 
-        // Services section
         if (groupedResults.service.length > 0) {
             html += this.generateSectionHTML('Services', groupedResults.service, 'service');
         }
-
-        // Jobs section
         if (groupedResults.job.length > 0) {
             html += this.generateSectionHTML('Jobs', groupedResults.job, 'job');
         }
-
-        // Marketplace section
         if (groupedResults.marketplace.length > 0) {
             html += this.generateSectionHTML('Marketplace', groupedResults.marketplace, 'marketplace');
         }
@@ -463,8 +575,8 @@ class SearchManager {
     // Generate HTML for a results section
     generateSectionHTML(title, items, type) {
         return `
-            <div class="search-results-section">
-                <div class="section-title">
+            <div class="search-results-section" style="padding: 15px; border-bottom: 1px solid var(--grey);">
+                <div class="section-title" style="font-weight: 600; margin-bottom: 10px;">
                     <i class="fas ${this.getSectionIcon(type)}"></i>
                     ${title} (${items.length})
                 </div>
@@ -488,39 +600,41 @@ class SearchManager {
     // Generate HTML for individual search result item
     generateItemHTML(item, type) {
         const baseHTML = `
-            <div class="search-result-item ${type}-item" data-id="${item.id}" onclick="search.selectResult('${item.id}', '${type}')">
-                <div class="result-icon"><i class="fas ${this.getSectionIcon(type)}"></i></div>
-                <div class="result-content">
-                    <div class="result-title">${this.escapeHtml(item.title)}</div>
-                    <div class="result-meta">
+            <div class="search-result-item ${type}-item" data-id="${item.id}" data-type="${type}" style="display: flex; padding: 10px; cursor: pointer; border-bottom: 1px solid var(--grey);">
+                <div class="result-icon" style="width: 40px; height: 40px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; margin-right: 12px;">
+                    <i class="fas ${this.getSectionIcon(type)}"></i>
+                </div>
+                <div class="result-content" style="flex: 1;">
+                    <div class="result-title" style="font-weight: 600; margin-bottom: 5px;">${this.escapeHtml(item.title)}</div>
+                    <div class="result-meta" style="display: flex; gap: 10px; font-size: 0.7rem; color: var(--grey-dark); margin-bottom: 5px;">
                         <span class="result-category">${this.escapeHtml(item.category)}</span>
                         <span class="result-location"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(item.location)}</span>
                     </div>
-                    ${item.description ? `<div class="result-description">${this.escapeHtml(item.description.substring(0, 100))}...</div>` : ''}
+                    ${item.description ? `<div class="result-description" style="font-size: 0.75rem; color: var(--grey-dark);">${this.escapeHtml(item.description.substring(0, 80))}...</div>` : ''}
         `;
 
         switch (type) {
             case 'service':
                 return baseHTML + `
-                    <div class="result-rating">
+                    <div class="result-rating" style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
                         ${this.generateStars(item.rating)}
-                        <span class="rating-value">${item.rating}</span>
+                        <span class="rating-value" style="font-size: 0.7rem;">${item.rating}</span>
                     </div>
-                    <div class="result-price">KSh ${item.price}</div>
+                    <div class="result-price" style="font-weight: 700; color: var(--primary); margin-top: 5px;">KSh ${item.price}</div>
                 </div>
             </div>`;
 
             case 'job':
                 return baseHTML + `
-                    <div class="result-salary">KSh ${item.salary}/month</div>
-                    ${item.urgent ? '<div class="result-badge urgent">Urgent</div>' : ''}
+                    <div class="result-salary" style="font-weight: 700; color: var(--success); margin-top: 5px;">KSh ${item.salary}/month</div>
+                    ${item.urgent ? '<div class="result-badge urgent" style="background: var(--emergency); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; display: inline-block; margin-top: 5px;">Urgent</div>' : ''}
                 </div>
             </div>`;
 
             case 'marketplace':
                 return baseHTML + `
-                    <div class="result-price">KSh ${item.price}</div>
-                    ${item.condition ? `<div class="result-condition">${item.condition}</div>` : ''}
+                    <div class="result-price" style="font-weight: 700; color: var(--primary); margin-top: 5px;">KSh ${item.price}</div>
+                    ${item.condition ? `<div class="result-condition" style="font-size: 0.7rem; color: var(--warning); margin-top: 5px;">${item.condition}</div>` : ''}
                 </div>
             </div>`;
 
@@ -529,40 +643,16 @@ class SearchManager {
         }
     }
 
-    // Escape HTML to prevent XSS
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Generate star rating HTML
-    generateStars(rating) {
-        if (!rating) return '<span class="no-rating">No ratings</span>';
-        
-        let stars = '';
-        for (let i = 1; i <= 5; i++) {
-            if (i <= rating) {
-                stars += '<i class="fas fa-star"></i>';
-            } else if (i - 0.5 <= rating) {
-                stars += '<i class="fas fa-star-half-alt"></i>';
-            } else {
-                stars += '<i class="far fa-star"></i>';
-            }
-        }
-        return stars;
-    }
-
     // Show "no results" message
     showNoResults(query) {
         const noResultsHTML = `
-            <div class="search-no-results">
-                <div class="no-results-icon"><i class="fas fa-search"></i></div>
-                <div class="no-results-title">No results found</div>
-                <div class="no-results-message">We couldn't find any results for "${query}"</div>
-                <div class="no-results-suggestions">
+            <div class="search-no-results" style="text-align: center; padding: 60px 20px;">
+                <div class="no-results-icon"><i class="fas fa-search" style="font-size: 3rem; color: var(--grey-dark);"></i></div>
+                <div class="no-results-title" style="font-weight: 600; margin-top: 15px;">No results found</div>
+                <div class="no-results-message" style="color: var(--grey-dark); margin-top: 5px;">We couldn't find any results for "${this.escapeHtml(query)}"</div>
+                <div class="no-results-suggestions" style="margin-top: 20px; font-size: 0.8rem;">
                     <p>Try adjusting your search:</p>
-                    <ul>
+                    <ul style="text-align: left; max-width: 250px; margin: 10px auto;">
                         <li>Check for spelling errors</li>
                         <li>Use more general terms</li>
                         <li>Try different keywords</li>
@@ -581,113 +671,37 @@ class SearchManager {
             resultsContainer = document.createElement('div');
             resultsContainer.id = 'search-results-container';
             resultsContainer.className = 'search-results-container';
+            resultsContainer.style.cssText = 'position: absolute; top: 100%; left: 0; right: 0; background: var(--background-color); border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-height: 400px; overflow-y: auto; z-index: 1000; display: none;';
             
-            // Insert after the first search bar
             const firstSearchBar = document.querySelector('.search-bar');
             if (firstSearchBar) {
+                firstSearchBar.style.position = 'relative';
                 firstSearchBar.parentNode.insertBefore(resultsContainer, firstSearchBar.nextSibling);
             }
-
-            // CSS styles if not already present
-            this.injectSearchStyles();
         }
 
         resultsContainer.innerHTML = html;
         resultsContainer.style.display = 'block';
 
+        // Add click handlers to result items
+        document.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.getAttribute('data-id');
+                const type = item.getAttribute('data-type');
+                this.selectResult(id, type);
+            });
+        });
+
+        // Add close button handler
+        const closeBtn = document.querySelector('.search-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideSearchResults());
+        }
+
         // Click outside to close
         setTimeout(() => {
             document.addEventListener('click', this.handleClickOutside.bind(this));
         }, 100);
-    }
-
-    // Inject search results CSS
-    injectSearchStyles() {
-        if (document.getElementById('search-results-styles')) return;
-
-        const styles = `
-            <style id="search-results-styles">
-                .search-results-container {
-                    position: absolute;
-                    top: 100%;
-                    left: 0;
-                    right: 0;
-                    background: white;
-                    border-radius: 0 0 10px 10px;
-                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                    max-height: 400px;
-                    overflow-y: auto;
-                    z-index: 1000;
-                    display: none;
-                }
-                .search-results-header {
-                    padding: 15px;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .search-results-section {
-                    padding: 15px;
-                    border-bottom: 1px solid #f5f5f5;
-                }
-                .search-result-item {
-                    display: flex;
-                    padding: 10px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    transition: background-color 0.2s;
-                }
-                .search-result-item:hover {
-                    background-color: #f8f9fa;
-                }
-                .result-icon {
-                    width: 40px;
-                    height: 40px;
-                    background: #2E86DE;
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    margin-right: 12px;
-                }
-                .result-content {
-                    flex: 1;
-                }
-                .result-title {
-                    font-weight: 600;
-                    margin-bottom: 5px;
-                }
-                .result-meta {
-                    display: flex;
-                    gap: 10px;
-                    font-size: 0.8rem;
-                    color: #666;
-                    margin-bottom: 5px;
-                }
-                .search-results-loading,
-                .search-results-error,
-                .search-no-results {
-                    padding: 40px 20px;
-                    text-align: center;
-                }
-                .loading-spinner {
-                    border: 3px solid #f3f3f3;
-                    border-top: 3px solid #2E86DE;
-                    border-radius: 50%;
-                    width: 30px;
-                    height: 30px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 15px;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        `;
-        document.head.insertAdjacentHTML('beforeend', styles);
     }
 
     // Hide search results
@@ -715,87 +729,67 @@ class SearchManager {
     async selectResult(itemId, itemType) {
         this.hideSearchResults();
 
-        // Clear search input
         document.querySelectorAll('.search-input').forEach(input => {
             input.value = '';
         });
 
-        // Show appropriate tab based on item type
         switch (itemType) {
             case 'service':
-                switchTab('services-tab');
-                showToast(`Opening service details`, 'success');
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('services-tab');
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast(`Opening service details`, 'success');
+                }
                 break;
             case 'job':
-                switchTab('services-tab');
-                showToast(`Viewing job opportunity`, 'success');
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('services-tab');
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast(`Viewing job opportunity`, 'success');
+                }
                 break;
             case 'marketplace':
-                switchTab('marketplace-tab');
-                showToast(`Viewing marketplace item`, 'success');
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('marketplace-tab');
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast(`Viewing marketplace item`, 'success');
+                }
                 break;
         }
-
-        // In a real implementation, you would:
-        // 1. Navigate to the item detail page
-        // 2. Load full item details from Firebase
-        // 3. Update UI accordingly
-        console.log('Selected item:', { id: itemId, type: itemType });
     }
 
-    // Advanced search with filters
-    async advancedSearch(query, filters = {}) {
-        this.currentFilters = filters;
-        let results = await this.search(query);
-        
-        // Apply filters
-        if (filters.category) {
-            results = results.filter(item => 
-                item.category.toLowerCase().includes(filters.category.toLowerCase())
-            );
-        }
-        
-        if (filters.location) {
-            results = results.filter(item => 
-                item.location.toLowerCase().includes(filters.location.toLowerCase())
-            );
-        }
-        
-        if (filters.minPrice) {
-            results = results.filter(item => item.price >= filters.minPrice);
-        }
-        
-        if (filters.maxPrice) {
-            results = results.filter(item => item.price <= filters.maxPrice);
-        }
-
-        if (filters.type) {
-            results = results.filter(item => item.type === filters.type);
-        }
-
-        return results;
-    }
-
-    // Refresh search data (useful when new items are added)
+    // Refresh search data
     async refreshSearchData() {
         await this.loadSearchData();
-        showToast('Search index updated', 'success');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Search index updated', 'success');
+        }
+    }
+
+    // Escape HTML
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
-// Initialize search manager when Firebase is ready
+// Initialize search manager
 function initializeSearchManager() {
     window.search = new SearchManager();
-    console.log("Search manager initialized with Firebase integration");
+    console.log("✅ Search manager initialized");
 }
 
-// Make sure Firebase is initialized before creating search manager
 if (typeof db !== 'undefined' && db) {
     initializeSearchManager();
 } else {
-    // Wait for Firebase to be ready
     document.addEventListener('firebase-ready', initializeSearchManager);
 }
 
-// Make available globally
 window.SearchManager = SearchManager;
+
+console.log('✅ Search.js fully loaded with all fixes');

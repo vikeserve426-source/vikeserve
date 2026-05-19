@@ -1,4 +1,26 @@
-// marketplace.js - Complete Marketplace with all service functions (FIXED - Firebase Saving)
+// ========== MARKETPLACE MANAGER - COMPLETE FIXED VERSION ==========
+// Saves images to Firebase Storage, uses Firestore for all data
+
+if (typeof window.showToast !== 'function') {
+    window.showToast = console.log;
+}
+if (typeof window.showModalWithContent !== 'function') {
+    window.showModalWithContent = function(id, content) {
+        const modal = document.createElement('div');
+        modal.id = id;
+        modal.className = 'modal';
+        modal.innerHTML = content;
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+        
+        const closeBtn = modal.querySelector('.close-modal-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+        }
+    };
+}
 
 // ========== HELPER FUNCTIONS ==========
 function escapeHtml(text) {
@@ -16,7 +38,7 @@ function getCategoryIcon(category) {
         'hotel': 'fas fa-hotel', 'gas-refill': 'fas fa-fire', 'water-delivery': 'fas fa-tint',
         'land': 'fas fa-vector-square', 'rooms': 'fas fa-door-open', 'bedsitters': 'fas fa-bed',
         'apartments': 'fas fa-building', 'houses': 'fas fa-home', 'short-stays': 'fas fa-hotel',
-        'default': 'fas fa-box'
+        'home-appliances': 'fas fa-blender', 'default': 'fas fa-box'
     };
     return icons[category] || icons.default;
 }
@@ -33,48 +55,73 @@ function formatPrice(item) {
     }
 }
 
-// ========== MARKETPLACE ITEM DISPLAY ==========
+// ========== UPLOAD IMAGES TO FIREBASE STORAGE ==========
+async function uploadMarketplaceImages(files, itemId) {
+    const imageUrls = [];
+    
+    for (const file of files) {
+        try {
+            const fileExtension = file.name.split('.').pop();
+            const filename = `marketplace/${itemId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+            const storageRef = storage.ref(filename);
+            const snapshot = await storageRef.put(file);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+            imageUrls.push(downloadURL);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            if (typeof window.showToast === 'function') {
+                window.showToast('Error uploading image: ' + error.message, 'error');
+            }
+        }
+    }
+    
+    return imageUrls;
+}
+
+// ========== CHECK IF AD IS PROMOTED (FROM FIRESTORE) ==========
+async function isAdPromoted(adId) {
+    try {
+        const doc = await firebase.firestore().collection('marketplace_items').doc(adId).get();
+        if (!doc.exists) return false;
+        
+        const data = doc.data();
+        if (data.promoted === true && data.promotionExpiresAt) {
+            const expiresAt = data.promotionExpiresAt.toDate ? data.promotionExpiresAt.toDate() : new Date(data.promotionExpiresAt);
+            return expiresAt > new Date();
+        }
+        return false;
+    } catch (error) {
+        console.error('Error checking promotion:', error);
+        return false;
+    }
+}
+
+// ========== CREATE MARKETPLACE ITEM ELEMENT ==========
 function createMarketplaceItemElement(item) {
     const div = document.createElement('div');
     div.className = 'market-item';
-    div.setAttribute('data-ad-id', item.id || item.adId);
+    div.setAttribute('data-ad-id', item.id);
+    div.setAttribute('data-category', item.category); // For filtering
     
-    let isPromoted = false;
+    let isPromoted = item.promoted === true;
     let daysLeft = 0;
     
-    const promotedAds = JSON.parse(localStorage.getItem('vikeserve_promoted_ads') || '[]');
-    const now = new Date();
-    const promotion = promotedAds.find(ad => (ad.adId == item.id || ad.adId == item.adId) && ad.status === 'active' && new Date(ad.expiresAt) > now);
-    
-    if (promotion) {
-        isPromoted = true;
-        daysLeft = Math.ceil((new Date(promotion.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
-    }
-    
-    if (!isPromoted && typeof getPaymentSystem === 'function') {
-        try {
-            const payments = getPaymentSystem();
-            isPromoted = payments.isAdPromoted(item.id || item.adId);
-        } catch(e) {}
+    if (isPromoted && item.promotionExpiresAt) {
+        const expiresAt = item.promotionExpiresAt.toDate ? item.promotionExpiresAt.toDate() : new Date(item.promotionExpiresAt);
+        daysLeft = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysLeft <= 0) isPromoted = false;
     }
     
     if (isPromoted) div.classList.add('promoted-ad');
     
     div.onclick = (e) => {
         if (e.target.closest('.market-item-actions')) return;
-        if (isPromoted && typeof getPaymentSystem === 'function') {
-            try {
-                const payments = getPaymentSystem();
-                payments.handleAdClick(item.id || item.adId);
-                return;
-            } catch(e) {}
-        }
         viewListingDetails(item.id);
     };
     
     const icon = getCategoryIcon(item.category);
     const priceText = formatPrice(item);
-    const daysLeftHtml = isPromoted ? `<div class="promoted-badge" style="margin-top: 4px;"><i class="fas fa-crown"></i> PROMOTED (${daysLeft}d left)</div>` : '';
+    const daysLeftHtml = isPromoted && daysLeft > 0 ? `<div class="promoted-badge" style="margin-top: 4px;"><i class="fas fa-crown"></i> PROMOTED (${daysLeft}d left)</div>` : '';
     
     div.innerHTML = `
         <div class="market-item-img">
@@ -113,25 +160,44 @@ function createMarketplaceItemElement(item) {
 }
 
 // ========== LOAD MARKETPLACE ITEMS FROM FIRESTORE ==========
-async function loadMarketplaceItems(category = 'all', filters = {}) {
+let lastVisibleItem = null;
+let isLoadingMore = false;
+let currentCategory = 'all';
+
+async function loadMarketplaceItems(category = 'all', loadMore = false) {
     const container = document.getElementById('marketplace-items-container');
     if (!container) return;
     
-    container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading items...</div>';
+    if (!loadMore) {
+        container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading items...</div>';
+        lastVisibleItem = null;
+        currentCategory = category;
+    } else if (isLoadingMore) return;
+    
+    isLoadingMore = true;
     
     try {
-        let query = firebase.firestore().collection('marketplace_items').where('status', '==', 'active');
+        let query = firebase.firestore().collection('marketplace_items')
+            .where('status', '==', 'active')
+            .orderBy('createdAt', 'desc')
+            .limit(20);
         
         if (category && category !== 'all') {
             query = query.where('category', '==', category);
         }
         
-        query = query.orderBy('createdAt', 'desc');
+        if (loadMore && lastVisibleItem) {
+            query = query.startAfter(lastVisibleItem);
+        }
         
         const snapshot = await query.get();
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        if (items.length === 0) {
+        if (snapshot.docs.length > 0) {
+            lastVisibleItem = snapshot.docs[snapshot.docs.length - 1];
+        }
+        
+        if (items.length === 0 && !loadMore) {
             container.innerHTML = `
                 <div class="empty-marketplace" style="text-align: center; padding: 60px 20px; grid-column: span 2;">
                     <i class="fas fa-store-slash" style="font-size: 3rem; color: var(--grey-dark); margin-bottom: 15px;"></i>
@@ -147,16 +213,44 @@ async function loadMarketplaceItems(category = 'all', filters = {}) {
             if (postBtn) {
                 postBtn.addEventListener('click', () => showMarketplacePostModal());
             }
+            isLoadingMore = false;
             return;
         }
         
-        container.innerHTML = '';
+        if (!loadMore) {
+            container.innerHTML = '';
+        }
+        
         items.forEach(item => {
             container.appendChild(createMarketplaceItemElement(item));
         });
+        
+        // Add "Load More" button if there are more items
+        if (snapshot.docs.length === 20) {
+            let loadMoreBtn = document.getElementById('load-more-marketplace-btn');
+            if (!loadMoreBtn) {
+                loadMoreBtn = document.createElement('button');
+                loadMoreBtn.id = 'load-more-marketplace-btn';
+                loadMoreBtn.className = 'btn btn-outline';
+                loadMoreBtn.style.margin = '20px auto';
+                loadMoreBtn.style.display = 'block';
+                loadMoreBtn.style.width = 'auto';
+                loadMoreBtn.innerHTML = '<i class="fas fa-arrow-down"></i> Load More';
+                loadMoreBtn.addEventListener('click', () => loadMarketplaceItems(currentCategory, true));
+                container.appendChild(loadMoreBtn);
+            }
+        } else {
+            const loadMoreBtn = document.getElementById('load-more-marketplace-btn');
+            if (loadMoreBtn) loadMoreBtn.remove();
+        }
+        
     } catch (error) {
         console.error('Error loading marketplace items:', error);
-        container.innerHTML = '<div class="error-message">Failed to load items. Please refresh.</div>';
+        if (!loadMore) {
+            container.innerHTML = '<div class="error-message">Failed to load items. Please refresh.</div>';
+        }
+    } finally {
+        isLoadingMore = false;
     }
 }
 
@@ -171,13 +265,13 @@ async function viewListingDetails(itemId) {
         
         const item = { id: doc.id, ...doc.data() };
         
-        let isPromoted = false;
+        let isPromoted = item.promoted === true;
         let daysLeft = 0;
-        const promotedAds = JSON.parse(localStorage.getItem('vikeserve_promoted_ads') || '[]');
-        const promotion = promotedAds.find(ad => ad.adId == itemId && ad.status === 'active' && new Date(ad.expiresAt) > new Date());
-        if (promotion) {
-            isPromoted = true;
-            daysLeft = Math.ceil((new Date(promotion.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+        
+        if (isPromoted && item.promotionExpiresAt) {
+            const expiresAt = item.promotionExpiresAt.toDate ? item.promotionExpiresAt.toDate() : new Date(item.promotionExpiresAt);
+            daysLeft = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
+            if (daysLeft <= 0) isPromoted = false;
         }
         
         const modalContent = `
@@ -190,6 +284,11 @@ async function viewListingDetails(itemId) {
                     <button class="close-modal-btn">&times;</button>
                 </div>
                 <div style="padding: 10px 0;">
+                    ${item.images && item.images.length > 0 ? `
+                        <div style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
+                            ${item.images.map(img => `<img src="${img}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('')}
+                        </div>
+                    ` : ''}
                     <div style="background: var(--light); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
                         <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${formatPrice(item)}</div>
                         <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
@@ -205,6 +304,12 @@ async function viewListingDetails(itemId) {
                         <button class="btn btn-primary call-seller-btn" data-phone="${item.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call Seller</button>
                         <button class="btn btn-outline whatsapp-seller-btn" data-phone="${item.whatsapp || item.phone}" style="flex: 1;"><i class="fab fa-whatsapp"></i> WhatsApp</button>
                     </div>
+                    ${item.userId === firebase.auth().currentUser?.uid ? `
+                        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn btn-outline edit-item-btn" data-id="${item.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger delete-item-btn" data-id="${item.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -214,13 +319,6 @@ async function viewListingDetails(itemId) {
         }
         
         setTimeout(() => {
-            const closeBtn = document.querySelector('#item-details-modal .close-modal-btn');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    if (typeof window.closeModal === 'function') window.closeModal('item-details-modal');
-                });
-            }
-            
             const callBtn = document.querySelector('#item-details-modal .call-seller-btn');
             if (callBtn) {
                 callBtn.addEventListener('click', () => contactSeller(callBtn.getAttribute('data-phone')));
@@ -229,6 +327,16 @@ async function viewListingDetails(itemId) {
             const whatsappBtn = document.querySelector('#item-details-modal .whatsapp-seller-btn');
             if (whatsappBtn) {
                 whatsappBtn.addEventListener('click', () => whatsappSeller(whatsappBtn.getAttribute('data-phone')));
+            }
+            
+            const editBtn = document.querySelector('#item-details-modal .edit-item-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => editMarketplaceItem(editBtn.getAttribute('data-id')));
+            }
+            
+            const deleteBtn = document.querySelector('#item-details-modal .delete-item-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteMarketplaceItem(deleteBtn.getAttribute('data-id')));
             }
         }, 100);
     } catch (error) {
@@ -246,80 +354,43 @@ function whatsappSeller(phone) {
     window.open(`https://wa.me/${formattedPhone}`, '_blank');
 }
 
-// ========== GENERAL MARKETPLACE FORM FUNCTIONS ==========
-function updateMarketplaceForm() {
-    const category = document.getElementById('market-category')?.value;
-    const categoryFields = document.getElementById('category-specific-fields');
-    if (!categoryFields) return;
-    
-    document.querySelectorAll('.category-fields').forEach(field => field.style.display = 'none');
-    
-    if (!category || category === '') {
-        categoryFields.style.display = 'none';
-        return;
-    }
-    
-    categoryFields.style.display = 'block';
-    switch(category) {
-        case 'electronics': 
-            const electronicsFields = document.getElementById('electronics-fields');
-            if (electronicsFields) electronicsFields.style.display = 'block';
-            break;
-        case 'phones': 
-            const phonesFields = document.getElementById('phones-fields');
-            if (phonesFields) phonesFields.style.display = 'block';
-            break;
-        case 'furniture': 
-            const furnitureFields = document.getElementById('furniture-fields');
-            if (furnitureFields) furnitureFields.style.display = 'block';
-            break;
-        case 'mitumba': case 'clothing': 
-            const clothingFields = document.getElementById('clothing-fields');
-            if (clothingFields) clothingFields.style.display = 'block';
-            break;
-        case 'vehicles': 
-            const vehiclesFields = document.getElementById('vehicles-fields');
-            if (vehiclesFields) vehiclesFields.style.display = 'block';
-            break;
-        default: categoryFields.style.display = 'none';
-    }
-}
-
-function previewMarketplaceImages(files) {
-    const container = document.getElementById('image-preview-container');
-    if (!container) return;
-    container.innerHTML = '';
-    const maxFiles = Math.min(files.length, 5);
-    for (let i = 0; i < maxFiles; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewDiv = document.createElement('div');
-                previewDiv.className = 'image-preview-item';
-                previewDiv.style.position = 'relative';
-                previewDiv.style.display = 'inline-block';
-                previewDiv.style.margin = '5px';
-                previewDiv.innerHTML = `
-                    <img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
-                    <button type="button" class="remove-image-btn">&times;</button>
-                `;
-                
-                const removeBtn = previewDiv.querySelector('.remove-image-btn');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => previewDiv.remove());
-                }
-                
-                container.appendChild(previewDiv);
-            };
-            reader.readAsDataURL(file);
+// ========== EDIT AND DELETE FUNCTIONS ==========
+async function editMarketplaceItem(itemId) {
+    try {
+        const doc = await firebase.firestore().collection('marketplace_items').doc(itemId).get();
+        if (!doc.exists) {
+            showToast('Item not found', 'error');
+            return;
         }
+        
+        const item = doc.data();
+        showToast('Edit functionality coming soon', 'info');
+    } catch (error) {
+        console.error('Error editing item:', error);
+        showToast('Error loading item for edit', 'error');
     }
 }
 
-// ========== SUBMIT FUNCTIONS WITH FIREBASE SAVING ==========
+async function deleteMarketplaceItem(itemId) {
+    if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) return;
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').doc(itemId).delete();
+        showToast('Item deleted successfully', 'success');
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('item-details-modal');
+        }
+        loadMarketplaceItems(currentCategory);
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        showToast('Error deleting item: ' + error.message, 'error');
+    }
+}
+
+// ========== SUBMIT MARKETPLACE ITEM (WITH IMAGE UPLOAD) ==========
 async function submitMarketplaceItem() {
-    console.log('submitMarketplaceItem called - saving to Firebase');
+    console.log('submitMarketplaceItem called - saving to Firebase Storage');
+    
     const category = document.getElementById('market-category')?.value;
     const title = document.getElementById('market-title')?.value.trim();
     const description = document.getElementById('market-description')?.value.trim();
@@ -348,8 +419,10 @@ async function submitMarketplaceItem() {
     }
     
     if (typeof window.showToast === 'function') {
-        window.showToast('Saving item to database...', 'info');
+        window.showToast('Saving item...', 'info');
     }
+    
+    const itemId = firebase.firestore().collection('marketplace_items').doc().id;
     
     const itemData = {
         category: category,
@@ -364,60 +437,27 @@ async function submitMarketplaceItem() {
         delivery: delivery,
         status: 'active',
         promoted: false,
+        images: [],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         userId: user.uid,
         userName: user.displayName || user.email || 'User',
         userEmail: user.email
     };
     
-     // Add category-specific fields (only if they exist and have values)
-    switch(category) {
-        case 'electronics':
-            const elecBrand = document.getElementById('elec-brand')?.value;
-            const elecModel = document.getElementById('elec-model')?.value;
-            const elecYear = document.getElementById('elec-year')?.value;
-            if (elecBrand) itemData.brand = elecBrand;
-            if (elecModel) itemData.model = elecModel;
-            if (elecYear) itemData.year = elecYear;
-            break;
-        case 'phones':
-            const phoneBrand = document.getElementById('phone-brand')?.value;
-            const phoneModel = document.getElementById('phone-model')?.value;
-            const phoneStorage = document.getElementById('phone-storage')?.value;
-            const phoneRam = document.getElementById('phone-ram')?.value;
-            if (phoneBrand) itemData.brand = phoneBrand;
-            if (phoneModel) itemData.model = phoneModel;
-            if (phoneStorage) itemData.storage = phoneStorage;
-            if (phoneRam) itemData.ram = phoneRam;
-            break;
-        case 'furniture':
-            const furnitureType = document.getElementById('furniture-type')?.value;
-            const furnitureMaterial = document.getElementById('furniture-material')?.value;
-            if (furnitureType) itemData.furnitureType = furnitureType;
-            if (furnitureMaterial) itemData.material = furnitureMaterial;
-            break;
-        case 'mitumba':
-            const clothingType = document.getElementById('clothing-type')?.value;
-            const clothingSize = document.getElementById('clothing-size')?.value;
-            if (clothingType) itemData.clothingType = clothingType;
-            if (clothingSize) itemData.size = clothingSize;
-            break;
-        case 'vehicles':
-            const vehicleMake = document.getElementById('vehicle-make')?.value;
-            const vehicleModel = document.getElementById('vehicle-model')?.value;
-            const vehicleYear = document.getElementById('vehicle-year')?.value;
-            if (vehicleMake) itemData.make = vehicleMake;
-            if (vehicleModel) itemData.model = vehicleModel;
-            if (vehicleYear) itemData.year = vehicleYear;
-            break;
-    }
-    
     try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(itemData);
-        console.log('Item saved to Firebase with ID:', docRef.id);
+        // Upload images if any
+        const imageInput = document.getElementById('market-images');
+        if (imageInput && imageInput.files.length > 0) {
+            const imageFiles = Array.from(imageInput.files);
+            const uploadedUrls = await uploadMarketplaceImages(imageFiles, itemId);
+            itemData.images = uploadedUrls;
+        }
+        
+        await firebase.firestore().collection('marketplace_items').doc(itemId).set(itemData);
+        console.log('Item saved to Firebase with ID:', itemId);
         
         if (typeof window.showToast === 'function') {
-            window.showToast('✅ Item listed successfully on Firebase!', 'success');
+            window.showToast('✅ Item listed successfully!', 'success');
         }
         
         const modal = document.getElementById('marketplace-post-modal');
@@ -443,14 +483,10 @@ function resetMarketplaceForm() {
     checkboxes.forEach(id => { const cb = document.getElementById(id); if (cb) cb.checked = false; });
     const previewContainer = document.getElementById('image-preview-container');
     if (previewContainer) previewContainer.innerHTML = '';
-    const categoryFields = document.getElementById('category-specific-fields');
-    if (categoryFields) categoryFields.style.display = 'none';
-    document.querySelectorAll('.category-fields input, .category-fields select').forEach(field => field.value = '');
-    
-    fillLocationFromProfile('market');
+    const imageInput = document.getElementById('market-images');
+    if (imageInput) imageInput.value = '';
 }
 
-// ========== MODAL SHOW FUNCTIONS ==========
 function showMarketplacePostModal() {
     console.log('showMarketplacePostModal called');
     resetMarketplaceForm();
@@ -458,975 +494,10 @@ function showMarketplacePostModal() {
     if (modal) {
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
-        console.log('Marketplace modal opened');
     } else {
         console.error('marketplace-post-modal not found');
         if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
     }
-}
-
-// Setup marketplace modal handlers (call once on load)
-function setupMarketplaceModalHandlers() {
-    const modal = document.getElementById('marketplace-post-modal');
-    if (!modal) return;
-    
-    // Handle close button
-    const closeBtn = modal.querySelector('.close-modal-btn');
-    if (closeBtn) {
-        const newCloseBtn = closeBtn.cloneNode(true);
-        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-        newCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            modal.style.display = 'none';
-            console.log('Marketplace modal closed');
-        });
-    }
-    
-    // Handle cancel button
-    const cancelBtn = modal.querySelector('.btn-outline');
-    if (cancelBtn && cancelBtn.textContent.includes('Cancel')) {
-        const newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-        newCancelBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            modal.style.display = 'none';
-            console.log('Marketplace modal cancelled');
-        });
-    }
-    
-    // Handle submit button
-    const submitBtn = document.getElementById('submit-marketplace-btn');
-    if (submitBtn) {
-        const newSubmitBtn = submitBtn.cloneNode(true);
-        submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-        newSubmitBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            submitMarketplaceItem();
-        });
-        console.log('✅ Marketplace submit button attached');
-    }
-}
-
-// ========== GAS REFILL FUNCTIONS ==========
-function resetGasRefillForm() {
-    const fields = ['gas-title', 'gas-type', 'gas-cylinder-size', 'gas-price', 'gas-brand', 'gas-location', 'gas-description', 'gas-phone', 'gas-hours'];
-    fields.forEach(id => {
-        const field = document.getElementById(id);
-        if (field) field.value = '';
-    });
-    const checkboxes = document.querySelectorAll('input[name="gas-features"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    const defaultChecked = document.querySelector('input[name="gas-features"][value="delivery"]');
-    if (defaultChecked) defaultChecked.checked = true;
-    
-    fillLocationFromProfile('gas');
-}
-
-function showGasRefillPostModal() {
-    console.log('showGasRefillPostModal called');
-    resetGasRefillForm();
-    const modal = document.getElementById('gas-refill-post-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.style.zIndex = '10001';
-        
-        const closeBtn = modal.querySelector('.close-modal-btn');
-        if (closeBtn) {
-            const newCloseBtn = closeBtn.cloneNode(true);
-            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-            newCloseBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const cancelBtn = modal.querySelector('.btn-outline');
-        if (cancelBtn) {
-            const newCancelBtn = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-            newCancelBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const submitBtn = document.getElementById('submit-gas-btn');
-        if (submitBtn) {
-            const newSubmitBtn = submitBtn.cloneNode(true);
-            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-            newSubmitBtn.addEventListener('click', submitGasRefillListing);
-        }
-    } else {
-        console.error('gas-refill-post-modal not found');
-        if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
-    }
-}
-
-async function submitGasRefillListing() {
-    console.log('submitGasRefillListing called - saving to Firebase');
-    const title = document.getElementById('gas-title')?.value.trim();
-    const gasType = document.getElementById('gas-type')?.value;
-    const cylinderSize = document.getElementById('gas-cylinder-size')?.value;
-    const price = document.getElementById('gas-price')?.value;
-    const brand = document.getElementById('gas-brand')?.value;
-    const location = document.getElementById('gas-location')?.value.trim();
-    const description = document.getElementById('gas-description')?.value.trim();
-    const phone = document.getElementById('gas-phone')?.value.trim();
-    const hours = document.getElementById('gas-hours')?.value.trim();
-    
-    const features = [];
-    document.querySelectorAll('input[name="gas-features"]:checked').forEach(cb => features.push(cb.value));
-    
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list a service', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
-    }
-    
-    if (!title || !gasType || !cylinderSize || !price || !location || !description || !phone) {
-        if (typeof window.showToast === 'function') window.showToast('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving gas service to database...', 'info');
-    }
-    
-    const gasData = {
-        category: 'gas-refill',
-        title: title,
-        gasType: gasType,
-        cylinderSize: cylinderSize,
-        price: parseInt(price),
-        brand: brand || 'Not specified',
-        location: location,
-        description: description,
-        phone: phone,
-        hours: hours || '24/7',
-        features: features,
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(gasData);
-        console.log('Gas service saved to Firebase with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Gas refill service listed successfully on Firebase!', 'success');
-        }
-        
-        const modal = document.getElementById('gas-refill-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        resetGasRefillForm();
-        setTimeout(() => loadMarketplaceItems('gas-refill'), 500);
-    } catch (error) {
-        console.error('Error saving gas service:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// ========== WATER DELIVERY FUNCTIONS ==========
-function resetWaterDeliveryForm() {
-    const fields = ['water-title', 'water-type', 'water-container-size', 'water-price', 'water-min-order', 'water-location', 'water-description', 'water-phone', 'water-areas'];
-    fields.forEach(id => {
-        const field = document.getElementById(id);
-        if (field) field.value = '';
-    });
-    const checkboxes = document.querySelectorAll('input[name="water-features"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    const defaultChecked = document.querySelector('input[name="water-features"][value="delivery"]');
-    if (defaultChecked) defaultChecked.checked = true;
-    
-    fillLocationFromProfile('water');
-}
-
-function showWaterDeliveryPostModal() {
-    console.log('showWaterDeliveryPostModal called');
-    resetWaterDeliveryForm();
-    const modal = document.getElementById('water-delivery-post-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.style.zIndex = '10001';
-        
-        const closeBtn = modal.querySelector('.close-modal-btn');
-        if (closeBtn) {
-            const newCloseBtn = closeBtn.cloneNode(true);
-            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-            newCloseBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const cancelBtn = modal.querySelector('.btn-outline');
-        if (cancelBtn) {
-            const newCancelBtn = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-            newCancelBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const submitBtn = document.getElementById('submit-water-btn');
-        if (submitBtn) {
-            const newSubmitBtn = submitBtn.cloneNode(true);
-            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-            newSubmitBtn.addEventListener('click', submitWaterDeliveryListing);
-        }
-    } else {
-        console.error('water-delivery-post-modal not found');
-        if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
-    }
-}
-
-async function submitWaterDeliveryListing() {
-    console.log('submitWaterDeliveryListing called - saving to Firebase');
-    const title = document.getElementById('water-title')?.value.trim();
-    const waterType = document.getElementById('water-type')?.value;
-    const containerSize = document.getElementById('water-container-size')?.value;
-    const price = document.getElementById('water-price')?.value;
-    const minOrder = document.getElementById('water-min-order')?.value;
-    const location = document.getElementById('water-location')?.value.trim();
-    const description = document.getElementById('water-description')?.value.trim();
-    const phone = document.getElementById('water-phone')?.value.trim();
-    const areas = document.getElementById('water-areas')?.value.trim();
-    
-    const features = [];
-    document.querySelectorAll('input[name="water-features"]:checked').forEach(cb => features.push(cb.value));
-    
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list a service', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
-    }
-    
-    if (!title || !waterType || !containerSize || !price || !location || !description || !phone) {
-        if (typeof window.showToast === 'function') window.showToast('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving water service to database...', 'info');
-    }
-    
-    const waterData = {
-        category: 'water-delivery',
-        title: title,
-        waterType: waterType,
-        containerSize: containerSize,
-        price: parseInt(price),
-        minOrder: minOrder ? parseInt(minOrder) : 1,
-        location: location,
-        description: description,
-        phone: phone,
-        deliveryAreas: areas || location,
-        features: features,
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(waterData);
-        console.log('Water service saved to Firebase with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Water delivery service listed successfully on Firebase!', 'success');
-        }
-        
-        const modal = document.getElementById('water-delivery-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        resetWaterDeliveryForm();
-        setTimeout(() => loadMarketplaceItems('water-delivery'), 500);
-    } catch (error) {
-        console.error('Error saving water service:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// ========== HOTEL FUNCTIONS ==========
-let hotelImageUrls = [];
-
-function resetHotelForm() {
-    const fields = ['hotel-name', 'hotel-type', 'hotel-price', 'hotel-rooms', 'hotel-rating', 'hotel-location', 'hotel-description', 'hotel-phone'];
-    fields.forEach(id => {
-        const field = document.getElementById(id);
-        if (field) field.value = '';
-    });
-    const checkboxes = document.querySelectorAll('input[name="features"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    const previewContainer = document.getElementById('hotel-image-preview-container');
-    if (previewContainer) previewContainer.innerHTML = '';
-    
-    fillLocationFromProfile('hotel');
-}
-
-function showHotelPostModal() {
-    console.log('showHotelPostModal called');
-    resetHotelForm();
-    hotelImageUrls = [];
-    const modal = document.getElementById('hotel-post-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.style.zIndex = '10001';
-        
-        const closeBtn = modal.querySelector('.close-modal-btn');
-        if (closeBtn) {
-            const newCloseBtn = closeBtn.cloneNode(true);
-            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-            newCloseBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const cancelBtn = modal.querySelector('.btn-outline');
-        if (cancelBtn) {
-            const newCancelBtn = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-            newCancelBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const submitBtn = document.getElementById('submit-hotel-btn');
-        if (submitBtn) {
-            const newSubmitBtn = submitBtn.cloneNode(true);
-            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-            newSubmitBtn.addEventListener('click', submitHotelListing);
-        }
-    } else {
-        console.error('hotel-post-modal not found');
-        if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
-    }
-}
-
-function triggerImageUpload(type) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
-    input.onchange = (e) => handleImageSelection(e.target.files, type);
-    input.click();
-}
-
-function handleImageSelection(files, type) {
-    const container = document.getElementById(`${type}-image-preview-container`);
-    if (!container) return;
-    
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewDiv = document.createElement('div');
-                previewDiv.className = 'image-preview-item';
-                previewDiv.innerHTML = `
-                    <img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
-                    <button type="button" class="remove-image-btn">&times;</button>
-                `;
-                
-                const removeBtn = previewDiv.querySelector('.remove-image-btn');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => {
-                        previewDiv.remove();
-                        const index = hotelImageUrls.indexOf(e.target.result);
-                        if (index > -1) hotelImageUrls.splice(index, 1);
-                    });
-                }
-                
-                container.appendChild(previewDiv);
-                if (type === 'hotel') hotelImageUrls.push(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-}
-
-async function submitHotelListing() {
-    console.log('submitHotelListing called - saving to Firebase');
-    const name = document.getElementById('hotel-name')?.value.trim();
-    const hotelType = document.getElementById('hotel-type')?.value;
-    const price = document.getElementById('hotel-price')?.value;
-    const rooms = document.getElementById('hotel-rooms')?.value;
-    const rating = document.getElementById('hotel-rating')?.value;
-    const location = document.getElementById('hotel-location')?.value.trim();
-    const description = document.getElementById('hotel-description')?.value.trim();
-    const phone = document.getElementById('hotel-phone')?.value.trim();
-    
-    const features = [];
-    document.querySelectorAll('input[name="features"]:checked').forEach(cb => features.push(cb.value));
-    
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list a hotel', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
-    }
-    
-    if (!name || !hotelType || !price || !rooms || !location || !description || !phone) {
-        if (typeof window.showToast === 'function') window.showToast('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving hotel to database...', 'info');
-    }
-    
-    const hotelData = {
-        category: 'hotel',
-        title: name,
-        hotelType: hotelType,
-        price: parseInt(price),
-        rooms: parseInt(rooms),
-        rating: rating ? parseInt(rating) : 3,
-        location: location,
-        description: description,
-        phone: phone,
-        features: features,
-        images: hotelImageUrls,
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(hotelData);
-        console.log('Hotel saved to Firebase with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Hotel listed successfully on Firebase!', 'success');
-        }
-        
-        const modal = document.getElementById('hotel-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        resetHotelForm();
-        hotelImageUrls = [];
-        setTimeout(() => loadMarketplaceItems('hotel'), 500);
-    } catch (error) {
-        console.error('Error saving hotel:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// ========== PROPERTY FUNCTIONS (FIXED) ==========
-let propertyImageUrls = [];
-
-function resetPropertyForm() {
-    console.log('Resetting property form');
-    const fields = ['property-type', 'property-title', 'property-price', 'property-location', 'property-bedrooms', 'property-bathrooms', 'property-description'];
-    fields.forEach(id => {
-        const field = document.getElementById(id);
-        if (field) field.value = '';
-    });
-    const previewContainer = document.getElementById('property-images-container');
-    if (previewContainer) previewContainer.innerHTML = '';
-    propertyImageUrls = [];
-}
-
-function showPropertyPostModal() {
-    console.log('showPropertyPostModal called');
-    resetPropertyForm();
-    propertyImageUrls = [];
-    
-    const modal = document.getElementById('property-post-modal');
-    if (!modal) {
-        console.error('property-post-modal not found');
-        if (typeof window.showToast === 'function') {
-            window.showToast('Property form not available', 'error');
-        }
-        return;
-    }
-    
-    modal.style.display = 'flex';
-    modal.style.zIndex = '10001';
-    console.log('Property modal opened');
-}
-
-// Setup property modal handlers (call once on load)
-function setupPropertyModalHandlers() {
-    const modal = document.getElementById('property-post-modal');
-    if (!modal) {
-        console.warn('property-post-modal not found for setup');
-        return;
-    }
-    
-    // Handle all close buttons
-    const closeBtns = modal.querySelectorAll('.close-modal-btn');
-    closeBtns.forEach(btn => {
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            modal.style.display = 'none';
-            resetPropertyForm();
-            console.log('Property modal closed');
-        });
-    });
-    
-    // Handle cancel button
-    const cancelBtn = modal.querySelector('.btn-outline');
-    if (cancelBtn && cancelBtn.textContent.includes('Cancel')) {
-        const newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-        newCancelBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            modal.style.display = 'none';
-            resetPropertyForm();
-            console.log('Property modal cancelled');
-        });
-        console.log('✅ Property cancel button attached');
-    }
-    
-    // Handle submit button
-    const submitBtn = document.getElementById('submit-property-btn');
-    if (submitBtn) {
-        const newSubmitBtn = submitBtn.cloneNode(true);
-        submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-        newSubmitBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Property submit button clicked');
-            await submitProperty();
-        });
-        console.log('✅ Property submit button attached');
-    } else {
-        console.error('submit-property-btn not found!');
-    }
-}
-
-function uploadPropertyImages() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
-    input.onchange = (e) => handlePropertyImageSelection(e.target.files);
-    input.click();
-}
-
-function handlePropertyImageSelection(files) {
-    const container = document.getElementById('property-images-container');
-    if (!container) return;
-    
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewDiv = document.createElement('div');
-                previewDiv.className = 'image-preview-item';
-                previewDiv.innerHTML = `
-                    <img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
-                    <button type="button" class="remove-image-btn">&times;</button>
-                `;
-                
-                const removeBtn = previewDiv.querySelector('.remove-image-btn');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => {
-                        previewDiv.remove();
-                        const index = propertyImageUrls.indexOf(e.target.result);
-                        if (index > -1) propertyImageUrls.splice(index, 1);
-                    });
-                }
-                
-                container.appendChild(previewDiv);
-                propertyImageUrls.push(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-}
-
-async function submitProperty() {
-    console.log('submitProperty called - saving to Firebase');
-    
-    // Get form values
-    const type = document.getElementById('property-type')?.value;
-    const title = document.getElementById('property-title')?.value.trim();
-    const price = document.getElementById('property-price')?.value;
-    const location = document.getElementById('property-location')?.value.trim();
-    const bedrooms = document.getElementById('property-bedrooms')?.value;
-    const bathrooms = document.getElementById('property-bathrooms')?.value;
-    const description = document.getElementById('property-description')?.value.trim();
-    
-    console.log('Property data collected:', { type, title, price, location, description });
-    
-    // Check if user is logged in
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list a property', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
-    }
-    
-    // Validate required fields
-    const errors = [];
-    if (!type) errors.push('Property type');
-    if (!title) errors.push('Title');
-    if (!price) errors.push('Price');
-    if (!location) errors.push('Location');
-    if (!description) errors.push('Description');
-    
-    if (errors.length > 0) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Please fill in: ${errors.join(', ')}`, 'error');
-        }
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving property to database...', 'info');
-    }
-    
-    const propertyData = {
-        category: type,
-        title: title,
-        price: parseInt(price),
-        location: location,
-        bedrooms: bedrooms ? parseInt(bedrooms) : 0,
-        bathrooms: bathrooms ? parseInt(bathrooms) : 0,
-        description: description,
-        images: propertyImageUrls || [],
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(propertyData);
-        console.log('✅ Property saved to Firebase with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Property listed successfully!', 'success');
-        }
-        
-        // Close modal
-        const modal = document.getElementById('property-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        // Reset form
-        resetPropertyForm();
-        propertyImageUrls = [];
-        
-        // Refresh marketplace items
-        setTimeout(() => {
-            loadMarketplaceItems(type);
-        }, 500);
-        
-    } catch (error) {
-        console.error('Error saving property:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// ========== LAND FUNCTIONS ==========
-let landImageUrls = [];
-
-function resetLandForm() {
-    const fields = ['land-title', 'land-description', 'land-price', 'land-size', 'land-location', 'land-type', 'land-title-deed', 'land-phone'];
-    fields.forEach(id => {
-        const field = document.getElementById(id);
-        if (field) field.value = '';
-    });
-    const listingType = document.getElementById('land-listing-type');
-    if (listingType) listingType.value = 'sale';
-    const checkboxes = document.querySelectorAll('input[name="land-features"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    const customSizeGroup = document.getElementById('custom-size-group');
-    if (customSizeGroup) customSizeGroup.style.display = 'none';
-    const previewContainer = document.getElementById('land-image-preview-container');
-    if (previewContainer) previewContainer.innerHTML = '';
-    
-    fillLocationFromProfile('land');
-}
-
-function showLandPostModal() {
-    console.log('showLandPostModal called');
-    resetLandForm();
-    landImageUrls = [];
-    const modal = document.getElementById('land-post-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.style.zIndex = '10001';
-        setupLandSizeListener();
-        
-        const closeBtn = modal.querySelector('.close-modal-btn');
-        if (closeBtn) {
-            const newCloseBtn = closeBtn.cloneNode(true);
-            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-            newCloseBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const cancelBtn = modal.querySelector('.btn-outline');
-        if (cancelBtn) {
-            const newCancelBtn = cancelBtn.cloneNode(true);
-            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-            newCancelBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        const submitBtn = document.getElementById('submit-land-btn');
-        if (submitBtn) {
-            const newSubmitBtn = submitBtn.cloneNode(true);
-            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-            newSubmitBtn.addEventListener('click', submitLandListing);
-        }
-    } else {
-        console.error('land-post-modal not found');
-        if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
-    }
-}
-
-function triggerLandImageUpload() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
-    input.onchange = (e) => handleLandImageSelection(e.target.files);
-    input.click();
-}
-
-function handleLandImageSelection(files) {
-    const container = document.getElementById('land-image-preview-container');
-    if (!container) return;
-    
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewDiv = document.createElement('div');
-                previewDiv.className = 'image-preview-item';
-                previewDiv.innerHTML = `
-                    <img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
-                    <button type="button" class="remove-image-btn">&times;</button>
-                `;
-                
-                const removeBtn = previewDiv.querySelector('.remove-image-btn');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => {
-                        previewDiv.remove();
-                        const index = landImageUrls.indexOf(e.target.result);
-                        if (index > -1) landImageUrls.splice(index, 1);
-                    });
-                }
-                
-                container.appendChild(previewDiv);
-                landImageUrls.push(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-}
-
-function setupLandSizeListener() {
-    const sizeSelect = document.getElementById('land-size');
-    if (sizeSelect) {
-        const newSizeSelect = sizeSelect.cloneNode(true);
-        sizeSelect.parentNode.replaceChild(newSizeSelect, sizeSelect);
-        newSizeSelect.addEventListener('change', function() {
-            const customGroup = document.getElementById('custom-size-group');
-            if (customGroup) {
-                customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
-            }
-        });
-    }
-}
-
-async function submitLandListing() {
-    console.log('submitLandListing called - saving to Firebase');
-    const listingType = document.getElementById('land-listing-type')?.value;
-    const title = document.getElementById('land-title')?.value.trim();
-    const description = document.getElementById('land-description')?.value.trim();
-    const price = document.getElementById('land-price')?.value;
-    const size = document.getElementById('land-size')?.value;
-    const customSize = document.getElementById('land-custom-size')?.value;
-    const location = document.getElementById('land-location')?.value;
-    const landType = document.getElementById('land-type')?.value;
-    const titleDeed = document.getElementById('land-title-deed')?.value;
-    const phone = document.getElementById('land-phone')?.value.trim();
-    
-    const features = [];
-    document.querySelectorAll('input[name="land-features"]:checked').forEach(cb => features.push(cb.value));
-    
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list land', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
-    }
-    
-    if (!listingType || !title || !description || !price || !location || !phone) {
-        if (typeof window.showToast === 'function') window.showToast('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving land listing to database...', 'info');
-    }
-    
-    const finalSize = size === 'custom' ? customSize : size;
-    
-    const landData = {
-        category: 'land',
-        listingType: listingType,
-        title: title,
-        description: description,
-        price: parseInt(price),
-        size: finalSize,
-        location: location,
-        landType: landType || 'Not specified',
-        titleDeed: titleDeed || 'Not specified',
-        phone: phone,
-        features: features,
-        images: landImageUrls,
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        const docRef = await firebase.firestore().collection('marketplace_items').add(landData);
-        console.log('Land listing saved to Firebase with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Land listed successfully on Firebase!', 'success');
-        }
-        
-        const modal = document.getElementById('land-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        resetLandForm();
-        landImageUrls = [];
-        setTimeout(() => loadMarketplaceItems('land'), 500);
-    } catch (error) {
-        console.error('Error saving land listing:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// ========== LOCATION FUNCTIONS ==========
-function getCurrentUserLocation() {
-    if (typeof window.getCurrentLocation === 'function') {
-        const location = window.getCurrentLocation();
-        return location;
-    }
-    return { country: '', state: '', city: '', fullAddress: '' };
-}
-
-function fillLocationFromProfile(formType) {
-    const location = getCurrentUserLocation();
-    const locationInput = document.getElementById(`${formType}-location`);
-    
-    if (locationInput && location.fullAddress) {
-        locationInput.value = location.fullAddress;
-        if (typeof window.showToast === 'function') {
-            window.showToast('Location filled from profile', 'success');
-        }
-    } else if (locationInput && location.country) {
-        let locationText = '';
-        if (location.city) locationText += location.city;
-        if (location.state) locationText += locationText ? `, ${location.state}` : location.state;
-        if (location.country) locationText += locationText ? `, ${location.country}` : location.country;
-        locationInput.value = locationText || location.country;
-    }
-}
-
-// ========== BUTTON SETUP ==========
-function setupMarketplaceButtons() {
-    console.log('Setting up marketplace buttons...');
-    
-    const buttons = [
-        { id: 'marketplace-post-btn', handler: showMarketplacePostModal },
-        { id: 'gas-refill-post-btn', handler: showGasRefillPostModal },
-        { id: 'water-delivery-post-btn', handler: showWaterDeliveryPostModal },
-        { id: 'hotel-post-btn', handler: showHotelPostModal },
-        { id: 'property-post-btn', handler: showPropertyPostModal },
-        { id: 'land-post-btn', handler: showLandPostModal }
-    ];
-    
-    buttons.forEach(btn => {
-        const element = document.getElementById(btn.id);
-        if (element) {
-            const newElement = element.cloneNode(true);
-            element.parentNode.replaceChild(newElement, element);
-            newElement.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log(`${btn.id} clicked`);
-                btn.handler();
-            });
-            console.log(`${btn.id} button attached`);
-        } else {
-            console.warn(`${btn.id} not found`);
-        }
-    });
-    
-    console.log('✅ Marketplace buttons attached');
-}
-
-// Setup all modal handlers
-function setupAllModalHandlers() {
-    setupMarketplaceModalHandlers();
-    setupPropertyModalHandlers();
-    // Add similar for other modals if needed (gas, water, hotel, land)
-    console.log('✅ All modal handlers attached');
 }
 
 // ========== FILTER BUTTON HANDLERS ==========
@@ -1453,83 +524,426 @@ function setupMarketplaceSearch() {
             clearTimeout(timeout);
             timeout = setTimeout(async () => {
                 const searchTerm = e.target.value.toLowerCase();
-                const snapshot = await firebase.firestore().collection('marketplace_items').where('status', '==', 'active').get();
+                if (searchTerm.length < 2) {
+                    loadMarketplaceItems(currentCategory);
+                    return;
+                }
+                
+                const container = document.getElementById('marketplace-items-container');
+                container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Searching...</div>';
+                
+                const snapshot = await firebase.firestore().collection('marketplace_items')
+                    .where('status', '==', 'active')
+                    .get();
+                    
                 const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const filtered = items.filter(item => 
                     item.title?.toLowerCase().includes(searchTerm) || 
                     item.description?.toLowerCase().includes(searchTerm)
                 );
-                displaySearchResults(filtered);
+                
+                container.innerHTML = '';
+                if (filtered.length === 0) {
+                    container.innerHTML = '<div class="empty-marketplace">No items found</div>';
+                } else {
+                    filtered.forEach(item => {
+                        container.appendChild(createMarketplaceItemElement(item));
+                    });
+                }
             }, 300);
         });
     }
 }
 
-function displaySearchResults(items) {
-    const container = document.getElementById('marketplace-items-container');
-    if (!container) return;
-    
-    if (items.length === 0) {
-        container.innerHTML = '<div class="empty-marketplace">No items found</div>';
-        return;
-    }
-    
-    container.innerHTML = '';
-    items.forEach(item => {
-        container.appendChild(createMarketplaceItemElement(item));
+// ========== GAS REFILL FUNCTIONS ==========
+function showGasRefillPostModal() {
+    resetGasRefillForm();
+    const modal = document.getElementById('gas-refill-post-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function resetGasRefillForm() {
+    const fields = ['gas-title', 'gas-type', 'gas-cylinder-size', 'gas-price', 'gas-brand', 'gas-location', 'gas-description', 'gas-phone'];
+    fields.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
     });
 }
 
-// ========== EXPORT GLOBALLY ==========
-window.loadMarketplaceItems = loadMarketplaceItems;
-window.viewListingDetails = viewListingDetails;
-window.contactSeller = contactSeller;
-window.whatsappSeller = whatsappSeller;
-window.updateMarketplaceForm = updateMarketplaceForm;
-window.previewMarketplaceImages = previewMarketplaceImages;
-window.submitMarketplaceItem = submitMarketplaceItem;
-window.resetMarketplaceForm = resetMarketplaceForm;
-window.showMarketplacePostModal = showMarketplacePostModal;
+async function submitGasRefillListing() {
+    const title = document.getElementById('gas-title')?.value.trim();
+    const gasType = document.getElementById('gas-type')?.value;
+    const cylinderSize = document.getElementById('gas-cylinder-size')?.value;
+    const price = document.getElementById('gas-price')?.value;
+    const brand = document.getElementById('gas-brand')?.value;
+    const location = document.getElementById('gas-location')?.value.trim();
+    const description = document.getElementById('gas-description')?.value.trim();
+    const phone = document.getElementById('gas-phone')?.value.trim();
+    
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showToast('Please sign in to list a service', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!title || !gasType || !cylinderSize || !price || !location || !description || !phone) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const gasData = {
+        category: 'gas-refill',
+        title: title,
+        gasType: gasType,
+        cylinderSize: cylinderSize,
+        price: parseInt(price),
+        brand: brand || 'Not specified',
+        location: location,
+        description: description,
+        phone: phone,
+        status: 'active',
+        promoted: false,
+        images: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email || 'User',
+        userEmail: user.email
+    };
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').add(gasData);
+        showToast('✅ Gas refill service listed successfully!', 'success');
+        const modal = document.getElementById('gas-refill-post-modal');
+        if (modal) modal.style.display = 'none';
+        resetGasRefillForm();
+        loadMarketplaceItems('gas-refill');
+    } catch (error) {
+        console.error('Error saving gas service:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
 
-window.showGasRefillPostModal = showGasRefillPostModal;
-window.submitGasRefillListing = submitGasRefillListing;
+// ========== WATER DELIVERY FUNCTIONS ==========
+function showWaterDeliveryPostModal() {
+    resetWaterDeliveryForm();
+    const modal = document.getElementById('water-delivery-post-modal');
+    if (modal) modal.style.display = 'flex';
+}
 
-window.showWaterDeliveryPostModal = showWaterDeliveryPostModal;
-window.submitWaterDeliveryListing = submitWaterDeliveryListing;
+function resetWaterDeliveryForm() {
+    const fields = ['water-title', 'water-type', 'water-container-size', 'water-price', 'water-location', 'water-description', 'water-phone'];
+    fields.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
+    });
+}
 
-window.showHotelPostModal = showHotelPostModal;
-window.submitHotelListing = submitHotelListing;
-window.triggerImageUpload = triggerImageUpload;
-window.handleImageSelection = handleImageSelection;
+async function submitWaterDeliveryListing() {
+    const title = document.getElementById('water-title')?.value.trim();
+    const waterType = document.getElementById('water-type')?.value;
+    const containerSize = document.getElementById('water-container-size')?.value;
+    const price = document.getElementById('water-price')?.value;
+    const location = document.getElementById('water-location')?.value.trim();
+    const description = document.getElementById('water-description')?.value.trim();
+    const phone = document.getElementById('water-phone')?.value.trim();
+    
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showToast('Please sign in to list a service', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!title || !waterType || !containerSize || !price || !location || !description || !phone) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const waterData = {
+        category: 'water-delivery',
+        title: title,
+        waterType: waterType,
+        containerSize: containerSize,
+        price: parseInt(price),
+        location: location,
+        description: description,
+        phone: phone,
+        status: 'active',
+        promoted: false,
+        images: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email || 'User',
+        userEmail: user.email
+    };
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').add(waterData);
+        showToast('✅ Water delivery service listed successfully!', 'success');
+        const modal = document.getElementById('water-delivery-post-modal');
+        if (modal) modal.style.display = 'none';
+        resetWaterDeliveryForm();
+        loadMarketplaceItems('water-delivery');
+    } catch (error) {
+        console.error('Error saving water service:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
 
-window.showPropertyPostModal = showPropertyPostModal;
-window.submitProperty = submitProperty;
-window.uploadPropertyImages = uploadPropertyImages;
+// ========== HOTEL FUNCTIONS ==========
+function showHotelPostModal() {
+    resetHotelForm();
+    const modal = document.getElementById('hotel-post-modal');
+    if (modal) modal.style.display = 'flex';
+}
 
-window.showLandPostModal = showLandPostModal;
-window.submitLandListing = submitLandListing;
-window.triggerLandImageUpload = triggerLandImageUpload;
-window.setupLandSizeListener = setupLandSizeListener;
+function resetHotelForm() {
+    const fields = ['hotel-name', 'hotel-type', 'hotel-price', 'hotel-rooms', 'hotel-location', 'hotel-description', 'hotel-phone'];
+    fields.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
+    });
+}
 
-window.getCurrentUserLocation = getCurrentUserLocation;
-window.fillLocationFromProfile = fillLocationFromProfile;
+async function submitHotelListing() {
+    const name = document.getElementById('hotel-name')?.value.trim();
+    const hotelType = document.getElementById('hotel-type')?.value;
+    const price = document.getElementById('hotel-price')?.value;
+    const rooms = document.getElementById('hotel-rooms')?.value;
+    const location = document.getElementById('hotel-location')?.value.trim();
+    const description = document.getElementById('hotel-description')?.value.trim();
+    const phone = document.getElementById('hotel-phone')?.value.trim();
+    
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showToast('Please sign in to list a hotel', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!name || !hotelType || !price || !rooms || !location || !description || !phone) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const hotelData = {
+        category: 'hotel',
+        title: name,
+        hotelType: hotelType,
+        price: parseInt(price),
+        rooms: parseInt(rooms),
+        location: location,
+        description: description,
+        phone: phone,
+        status: 'active',
+        promoted: false,
+        images: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email || 'User',
+        userEmail: user.email
+    };
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').add(hotelData);
+        showToast('✅ Hotel listed successfully!', 'success');
+        const modal = document.getElementById('hotel-post-modal');
+        if (modal) modal.style.display = 'none';
+        resetHotelForm();
+        loadMarketplaceItems('hotel');
+    } catch (error) {
+        console.error('Error saving hotel:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
 
-window.setupFilterButtons = setupFilterButtons;
-window.setupMarketplaceSearch = setupMarketplaceSearch;
-window.setupMarketplaceButtons = setupMarketplaceButtons;
-window.setupMarketplaceModalHandlers = setupMarketplaceModalHandlers;
-window.setupPropertyModalHandlers = setupPropertyModalHandlers;
-window.setupAllModalHandlers = setupAllModalHandlers;
+// ========== PROPERTY FUNCTIONS (UNIFIED) ==========
+function showPropertyPostModal() {
+    resetPropertyForm();
+    const modal = document.getElementById('property-post-modal');
+    if (modal) modal.style.display = 'flex';
+}
 
-// Initialize when DOM is ready
+function resetPropertyForm() {
+    const fields = ['property-type', 'property-title', 'property-price', 'property-location', 'property-bedrooms', 'property-bathrooms', 'property-description'];
+    fields.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
+    });
+    const previewContainer = document.getElementById('property-images-container');
+    if (previewContainer) previewContainer.innerHTML = '';
+}
+
+async function submitProperty() {
+    const type = document.getElementById('property-type')?.value;
+    const title = document.getElementById('property-title')?.value.trim();
+    const price = document.getElementById('property-price')?.value;
+    const location = document.getElementById('property-location')?.value.trim();
+    const bedrooms = document.getElementById('property-bedrooms')?.value;
+    const bathrooms = document.getElementById('property-bathrooms')?.value;
+    const description = document.getElementById('property-description')?.value.trim();
+    
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showToast('Please sign in to list a property', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!type || !title || !price || !location || !description) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const propertyData = {
+        category: type,
+        title: title,
+        price: parseInt(price),
+        location: location,
+        bedrooms: bedrooms ? parseInt(bedrooms) : 0,
+        bathrooms: bathrooms ? parseInt(bathrooms) : 0,
+        description: description,
+        images: [],
+        status: 'active',
+        promoted: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email || 'User',
+        userEmail: user.email
+    };
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').add(propertyData);
+        showToast('✅ Property listed successfully!', 'success');
+        const modal = document.getElementById('property-post-modal');
+        if (modal) modal.style.display = 'none';
+        resetPropertyForm();
+        loadMarketplaceItems(type);
+    } catch (error) {
+        console.error('Error saving property:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
+
+// ========== LAND FUNCTIONS ==========
+function showLandPostModal() {
+    resetLandForm();
+    const modal = document.getElementById('land-post-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function resetLandForm() {
+    const fields = ['land-title', 'land-description', 'land-price', 'land-size', 'land-location', 'land-phone'];
+    fields.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
+    });
+}
+
+async function submitLandListing() {
+    const title = document.getElementById('land-title')?.value.trim();
+    const description = document.getElementById('land-description')?.value.trim();
+    const price = document.getElementById('land-price')?.value;
+    const size = document.getElementById('land-size')?.value;
+    const location = document.getElementById('land-location')?.value;
+    const phone = document.getElementById('land-phone')?.value.trim();
+    
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showToast('Please sign in to list land', 'error');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!title || !description || !price || !location || !phone) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const landData = {
+        category: 'land',
+        title: title,
+        description: description,
+        price: parseInt(price),
+        size: size || 'Not specified',
+        location: location,
+        phone: phone,
+        images: [],
+        status: 'active',
+        promoted: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email || 'User',
+        userEmail: user.email
+    };
+    
+    try {
+        await firebase.firestore().collection('marketplace_items').add(landData);
+        showToast('✅ Land listed successfully!', 'success');
+        const modal = document.getElementById('land-post-modal');
+        if (modal) modal.style.display = 'none';
+        resetLandForm();
+        loadMarketplaceItems('land');
+    } catch (error) {
+        console.error('Error saving land listing:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
+
+// ========== BUTTON SETUP ==========
+function setupMarketplaceButtons() {
+    const buttons = [
+        { id: 'marketplace-post-btn', handler: showMarketplacePostModal },
+        { id: 'gas-refill-post-btn', handler: showGasRefillPostModal },
+        { id: 'water-delivery-post-btn', handler: showWaterDeliveryPostModal },
+        { id: 'hotel-post-btn', handler: showHotelPostModal },
+        { id: 'property-post-btn', handler: showPropertyPostModal },
+        { id: 'land-post-btn', handler: showLandPostModal }
+    ];
+    
+    buttons.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            const newElement = element.cloneNode(true);
+            element.parentNode.replaceChild(newElement, element);
+            newElement.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                btn.handler();
+            });
+        }
+    });
+}
+
+// ========== INITIALIZE ==========
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         setupFilterButtons();
         setupMarketplaceSearch();
         setupMarketplaceButtons();
-        setupAllModalHandlers();  // Add this line
+        loadMarketplaceItems('all');
         console.log('✅ Marketplace fully loaded');
-    }, 100);
+    }, 300);
 });
 
-console.log('✅ Marketplace.js with all service functions (gas, hotel, water, property, land) loaded - Now saving to Firebase!');
+// ========== GLOBAL EXPORTS ==========
+window.loadMarketplaceItems = loadMarketplaceItems;
+window.viewListingDetails = viewListingDetails;
+window.contactSeller = contactSeller;
+window.whatsappSeller = whatsappSeller;
+window.submitMarketplaceItem = submitMarketplaceItem;
+window.showMarketplacePostModal = showMarketplacePostModal;
+window.showGasRefillPostModal = showGasRefillPostModal;
+window.submitGasRefillListing = submitGasRefillListing;
+window.showWaterDeliveryPostModal = showWaterDeliveryPostModal;
+window.submitWaterDeliveryListing = submitWaterDeliveryListing;
+window.showHotelPostModal = showHotelPostModal;
+window.submitHotelListing = submitHotelListing;
+window.showPropertyPostModal = showPropertyPostModal;
+window.submitProperty = submitProperty;
+window.showLandPostModal = showLandPostModal;
+window.submitLandListing = submitLandListing;
+window.setupFilterButtons = setupFilterButtons;
+
+console.log('✅ Marketplace.js fully loaded with Firebase Storage integration');

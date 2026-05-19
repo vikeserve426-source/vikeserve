@@ -1,10 +1,9 @@
-// scripts/quick-actions.js - COMPLETE FIXED VERSION (Works in APK WebView)
+// ========== QUICK ACTIONS MANAGER - COMPLETE FIXED VERSION ==========
+// Handles home screen quick action buttons (Boda, Mjengo, Gas, Water, Education, Alerts, etc.)
 
 class QuickActionsManager {
     constructor() {
         this.db = window.db;
-        this.currentServiceType = '';
-        this.currentProviders = [];
         this.init();
     }
 
@@ -24,7 +23,7 @@ class QuickActionsManager {
                 newAction.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    this.handleQuickAction(actionType);
+                    this.handleQuickAction(actionType, newAction);
                 });
             });
         };
@@ -38,10 +37,18 @@ class QuickActionsManager {
 
     // Helper function to switch tabs (works in APK WebView)
     switchToTab(tabId) {
+        // Special handling for 'more-tab' (opens menu, not a tab)
+        if (tabId === 'more-tab') {
+            this.openMoreMenuAndSwitchTo('education');
+            return true;
+        }
+        
         if (typeof window.switchTab === 'function') {
             window.switchTab(tabId);
+            return true;
         } else if (window.app && typeof window.app.switchTab === 'function') {
             window.app.switchTab(tabId);
+            return true;
         } else {
             // Fallback for APK - directly manipulate DOM
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -55,14 +62,52 @@ class QuickActionsManager {
             });
             const activeNav = document.querySelector(`.bottom-nav .nav-item[data-tab="${tabId}"]`);
             if (activeNav) activeNav.classList.add('active');
+            return true;
         }
     }
 
-    handleQuickAction(actionType) {
+    // Show loading indicator on clicked button
+    showButtonLoading(button, originalText) {
+        if (!button) return;
+        button.disabled = true;
+        button.style.opacity = '0.6';
+        const icon = button.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-spinner fa-spin';
+        }
+        if (originalText) {
+            const textSpan = button.querySelector('.action-name');
+            if (textSpan) textSpan.textContent = 'Loading...';
+        }
+    }
+
+    // Reset button after loading
+    resetButton(button, originalIcon, originalText) {
+        if (!button) return;
+        button.disabled = false;
+        button.style.opacity = '1';
+        const icon = button.querySelector('i');
+        if (icon && originalIcon) {
+            icon.className = originalIcon;
+        }
+        if (originalText) {
+            const textSpan = button.querySelector('.action-name');
+            if (textSpan) textSpan.textContent = originalText;
+        }
+    }
+
+    handleQuickAction(actionType, buttonElement) {
+        // Save original button state
+        const originalIcon = buttonElement.querySelector('i')?.className;
+        const originalText = buttonElement.querySelector('.action-name')?.textContent;
+        
+        // Show loading state
+        this.showButtonLoading(buttonElement, originalText);
+        
         // Services actions - go to Services tab
         const servicesActions = ['boda', 'construction', 'daily', 'farm', 'electricity', 'house', 'phone'];
         
-        // Marketplace actions - go to Marketplace tab (Gas and Water are marketplace items)
+        // Marketplace actions - go to Marketplace tab
         const marketplaceActions = ['Marketplace', 'marketplace', 'gas', 'water'];
         
         // Education action - opens More menu > Education tab
@@ -76,65 +121,77 @@ class QuickActionsManager {
             if (typeof window.showToast === 'function') {
                 window.showToast(`Opening ${this.getServiceTitle(actionType)}`, 'info');
             }
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
             
         } else if (marketplaceActions.includes(actionType)) {
             this.switchToTab('marketplace-tab');
             
+            let categoryFilter = 'all';
             let categoryMessage = 'Opening Marketplace';
+            
             if (actionType === 'gas') {
+                categoryFilter = 'gas-refill';
                 categoryMessage = 'Opening Gas Refill listings';
-                setTimeout(() => {
-                    this.applyMarketplaceFilter('gas-refill');
-                }, 300);
             } else if (actionType === 'water') {
+                categoryFilter = 'water-delivery';
                 categoryMessage = 'Opening Water Delivery listings';
-                setTimeout(() => {
-                    this.applyMarketplaceFilter('water-delivery');
-                }, 300);
-            } else {
-                setTimeout(() => {
-                    this.applyMarketplaceFilter('all');
-                }, 300);
             }
             
             if (typeof window.showToast === 'function') {
                 window.showToast(categoryMessage, 'info');
             }
             
+            // Apply filter after tab is switched
+            setTimeout(() => {
+                this.applyMarketplaceFilter(categoryFilter);
+            }, 300);
+            
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
+            
         } else if (educationActions.includes(actionType)) {
             this.openMoreMenuAndSwitchTo('education');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Education Hub', 'info');
             }
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
             
         } else if (alertsActions.includes(actionType)) {
             this.openMoreMenuAndSwitchTo('alerts');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Community Alerts', 'info');
             }
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
             
         } else {
             this.openMoreMenuAndSwitchTo('education');
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
         }
     }
     
     applyMarketplaceFilter(category) {
+        // Method 1: Use the loadMarketplaceItems function if available
+        if (typeof window.loadMarketplaceItems === 'function') {
+            window.loadMarketplaceItems(category);
+            return;
+        }
+        
+        // Method 2: Click the filter button if available
         const filterBtns = document.querySelectorAll('.filter-btn');
         let filterApplied = false;
         
         filterBtns.forEach(btn => {
             const btnCategory = btn.getAttribute('data-category');
             if (btnCategory === category) {
+                // Remove active class from all, add to this one
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // Trigger click event
                 btn.click();
                 filterApplied = true;
             }
         });
         
-        if (typeof window.loadMarketplaceItems === 'function') {
-            window.loadMarketplaceItems(category);
-        }
-        
-        // Fallback for APK - manually filter items
+        // Method 3: Fallback for APK - manually filter items
         if (!filterApplied && category !== 'all') {
             const itemsContainer = document.getElementById('marketplace-items-container');
             if (itemsContainer) {
@@ -171,7 +228,7 @@ class QuickActionsManager {
             if (moreBottomNav) moreBottomNav.style.display = 'flex';
         }
         
-        // Then switch to the specific tab after a short delay
+        // Then switch to the specific tab after a delay (increased for slow devices)
         setTimeout(() => {
             if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab(tabId);
@@ -181,7 +238,7 @@ class QuickActionsManager {
                     tabBtn.click();
                 }
             }
-        }, 150);
+        }, 300); // Increased from 150ms to 300ms for slow devices
     }
 
     getServiceTitle(actionType) {
@@ -194,41 +251,17 @@ class QuickActionsManager {
             'house': 'House Help Services',
             'phone': 'Phone Repair Services',
             'gas': 'Gas Refill',
-            'water': 'Water Delivery'
+            'water': 'Water Delivery',
+            'education': 'Education Hub',
+            'alerts': 'Community Alerts',
+            'Marketplace': 'Marketplace'
         };
         return titles[actionType] || 'Services';
     }
-
-    getServiceIcon(actionType) {
-        const icons = {
-            'boda': '🏍️',
-            'construction': '👷',
-            'daily': '💼',
-            'farm': '🚜',
-            'gas': '🔥',
-            'water': '💧',
-            'electricity': '⚡',
-            'house': '🏠',
-            'phone': '📱'
-        };
-        return icons[actionType] || '🔧';
-    }
-
-    getServiceColor(actionType) {
-        const colors = {
-            'boda': '#2E86DE',
-            'construction': '#f39c12',
-            'daily': '#27ae60',
-            'farm': '#8e44ad',
-            'gas': '#e74c3c',
-            'water': '#3498db',
-            'electricity': '#f1c40f',
-            'house': '#9b59b6',
-            'phone': '#34495e'
-        };
-        return colors[actionType] || '#2E86DE';
-    }
 }
 
+// Initialize quick actions manager
 const quickActionsManager = new QuickActionsManager();
 window.quickActionsManager = quickActionsManager;
+
+console.log('✅ Quick-actions.js fully loaded with all fixes');

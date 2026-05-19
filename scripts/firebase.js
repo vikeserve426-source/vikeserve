@@ -61,12 +61,100 @@ const collections = {
     chatMessages: (chatId) => db.collection('chats').doc(chatId).collection('messages')
 };
 
-// Global variables
+// ========== GLOBAL VARIABLES WITH PERSISTENCE ==========
 let currentUser = null;
-let selectedCountry = "Kenya";
-let selectedLanguage = "en";
+let selectedCountry = localStorage.getItem('vikeserve_country') || "Kenya";
+let selectedLanguage = localStorage.getItem('vikeserve_language') || "en";
 
 console.log("Firebase initialized successfully!");
+
+// Helper function to save user preferences
+function saveUserPreferences(country, language) {
+    selectedCountry = country;
+    selectedLanguage = language;
+    localStorage.setItem('vikeserve_country', country);
+    localStorage.setItem('vikeserve_language', language);
+    console.log('Preferences saved:', { country, language });
+}
+window.saveUserPreferences = saveUserPreferences;
+
+// ========== HELPER FUNCTIONS ==========
+
+// Get current user ID safely
+function getCurrentUserId() {
+    return currentUser ? currentUser.uid : null;
+}
+window.getCurrentUserId = getCurrentUserId;
+
+// Check if user is authenticated
+function isAuthenticated() {
+    return !!currentUser;
+}
+window.isAuthenticated = isAuthenticated;
+
+// Get user role (with caching)
+let cachedUserRole = null;
+
+async function getUserRole() {
+    if (!currentUser) return null;
+    if (cachedUserRole) return cachedUserRole;
+    
+    try {
+        const userDoc = await collections.users().doc(currentUser.uid).get();
+        cachedUserRole = userDoc.exists ? userDoc.data().role : 'general-user';
+        return cachedUserRole;
+    } catch (error) {
+        console.error("Error getting user role:", error);
+        return 'general-user';
+    }
+}
+window.getUserRole = getUserRole;
+
+// Clear user cache (call on logout)
+function clearUserCache() {
+    cachedUserRole = null;
+    console.log('User cache cleared');
+}
+window.clearUserCache = clearUserCache;
+
+// Get current location preferences
+function getCurrentPreferences() {
+    return {
+        country: selectedCountry,
+        language: selectedLanguage
+    };
+}
+window.getCurrentPreferences = getCurrentPreferences;
+
+// Update user location in Firestore
+async function updateUserLocation(userId, locationData) {
+    if (!userId) return false;
+    try {
+        await collections.users().doc(userId).update({
+            location: locationData,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return true;
+    } catch (error) {
+        console.error('Error updating location:', error);
+        return false;
+    }
+}
+window.updateUserLocation = updateUserLocation;
+
+// Logout helper with cleanup
+async function logoutAndCleanup() {
+    try {
+        clearUserCache();
+        await firebase.auth().signOut();
+        console.log('User signed out and cache cleared');
+        return true;
+    } catch (error) {
+        console.error('Logout error:', error);
+        return false;
+    }
+}
+window.logoutAndCleanup = logoutAndCleanup;
 
 // Export everything to global scope
 window.firebaseApp = app;
@@ -85,14 +173,23 @@ window.currentUser = currentUser;
 // Initialize app
 initializeApp();
 
+// ========== APP INITIALIZATION WITH DOM READY CHECK ==========
 async function initializeApp() {
     try {
         console.log("Initializing app...");
         
         // Set up auth state listener
         auth.onAuthStateChanged(async (user) => {
+            // Update BOTH local and global currentUser
             currentUser = user;
-            window.currentUser = user; // Update global reference
+            window.currentUser = user;
+            
+            // Clear cached user role on logout
+            if (!user) {
+                if (typeof window.clearUserCache === 'function') {
+                    window.clearUserCache();
+                }
+            }
             
             if (user) {
                 console.log("User signed in:", user.email);
@@ -105,11 +202,23 @@ async function initializeApp() {
             if (typeof updateAuthUI === 'function') {
                 updateAuthUI();
             }
+            
+            // Dispatch event for other modules
+            window.dispatchEvent(new CustomEvent('authStateChanged', { 
+                detail: { user: user, isLoggedIn: !!user } 
+            }));
         });
         
     } catch (error) {
         console.error("App initialization error:", error);
     }
+}
+
+// Initialize app only when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initializeApp());
+} else {
+    initializeApp();
 }
 
 async function ensureUserProfile(user) {
@@ -128,6 +237,11 @@ async function ensureUserProfile(user) {
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log("New user profile created");
+        } else {
+            // Update last login for existing users
+            await collections.users().doc(user.uid).update({
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(() => {}); // Silent fail if field doesn't exist
         }
     } catch (error) {
         console.error("Error ensuring user profile:", error);

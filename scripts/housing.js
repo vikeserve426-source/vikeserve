@@ -1,34 +1,41 @@
-// Housing services management - FIXED FIREBASE PATTERN
+// ========== HOUSING MANAGER - COMPLETE FIXED VERSION ==========
+// Uses propertyListings collection (exists in firebase.js)
 
-// Add this at the top of the file
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
 }
 if (typeof window.showModalWithContent !== 'function') {
     window.showModalWithContent = function(id, content) {
         const modal = document.createElement('div');
+        modal.id = id;
         modal.className = 'modal';
         modal.innerHTML = content;
         document.body.appendChild(modal);
         modal.style.display = 'block';
+        
+        const closeBtn = modal.querySelector('.close-modal-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+        }
     };
 }
 
 class HousingManager {
     constructor() {
-        // Use global Firebase instances
         this.db = db;
         this.auth = auth;
         this.storage = storage;
         this.currentListeners = {};
         
-        // Use the consistent collections pattern
-        this.housingCollection = collections.housing ? collections.housing() : collections.propertyListings();
+        // FIXED: Use propertyListings collection (exists in firebase.js)
+        this.housingCollection = collections.propertyListings();
         this.usersCollection = collections.users();
         this.chatsCollection = collections.chats ? collections.chats() : collections.bookingChats();
     }
 
-    // Get housing listings by type with filters
+    // Get housing listings by type with filters (with pagination)
     async getHousingListings(type, filters = {}, limit = 20, startAfter = null) {
         try {
             let query = this.housingCollection
@@ -76,8 +83,8 @@ class HousingManager {
         }
     }
 
-    // Search housing listings
-    async searchHousingListings(searchTerm, type = null, filters = {}, limit = 20) {
+    // FIXED: Search with pagination (not loading all)
+    async searchHousingListings(searchTerm, type = null, filters = {}, limit = 20, startAfter = null) {
         try {
             let query = this.housingCollection
                 .where('status', '==', 'active');
@@ -86,27 +93,29 @@ class HousingManager {
                 query = query.where('type', '==', type);
             }
 
-            // Apply filters (same as getHousingListings)
+            // Apply filters
             if (filters.minPrice) query = query.where('price', '>=', parseInt(filters.minPrice));
             if (filters.maxPrice) query = query.where('price', '<=', parseInt(filters.maxPrice));
             if (filters.location) query = query.where('location', '==', filters.location);
             if (filters.bedrooms) query = query.where('bedrooms', '==', parseInt(filters.bedrooms));
             if (filters.bathrooms) query = query.where('bathrooms', '==', parseInt(filters.bathrooms));
-            if (filters.furnished !== undefined) {
-                query = query.where('furnished', '==', filters.furnished === 'true');
+
+            if (startAfter) {
+                query = query.startAfter(startAfter);
             }
 
             const snapshot = await query
                 .orderBy('createdAt', 'desc')
+                .limit(limit * 2) // Fetch extra for client-side search
                 .get();
 
             const listings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // Client-side search
+            // Client-side search on limited results
             const searchLower = searchTerm.toLowerCase();
             const filteredListings = listings.filter(listing => 
                 listing.title.toLowerCase().includes(searchLower) ||
-                listing.description.toLowerCase().includes(searchLower) ||
+                (listing.description && listing.description.toLowerCase().includes(searchLower)) ||
                 listing.location.toLowerCase().includes(searchLower)
             ).slice(0, limit);
 
@@ -118,29 +127,40 @@ class HousingManager {
     }
 
     // Create a new housing listing
-    async createHousingListing(listingData) {
+    async createHousingListing(listingData, imageFiles = []) {
         try {
             const user = this.auth.currentUser;
             if (!user) throw new Error('User must be logged in to create a housing listing');
 
+            // Upload images first
+            const imageUrls = [];
+            if (imageFiles.length > 0) {
+                const uploadResult = await this.uploadHousingImages(imageFiles, 'temp');
+                if (uploadResult.success) {
+                    imageUrls.push(...uploadResult.urls);
+                }
+            }
+
             const listingWithMetadata = {
                 ...listingData,
                 userId: user.uid,
-                status: 'pending',
+                userName: user.displayName || user.email,
+                images: imageUrls,
+                status: 'pending', // Admin approval required
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 viewCount: 0
             };
 
             const docRef = await this.housingCollection.add(listingWithMetadata);
-            return { success: true, id: docRef.id };
+            return { success: true, id: docRef.id, imageUrls: imageUrls };
         } catch (error) {
             console.error('Error creating housing listing:', error);
             return { success: false, error: error.message };
         }
     }
 
-    // Upload housing images
+    // Upload housing images to Firebase Storage (not base64)
     async uploadHousingImages(files, listingId) {
         try {
             const imageUrls = [];
@@ -150,7 +170,7 @@ class HousingManager {
                 const fileExtension = file.name.split('.').pop();
                 const filename = `image-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
                 
-                const storageRef = this.storage.ref(`housing-images/${listingId}/${filename}`);
+                const storageRef = this.storage.ref(`properties/${listingId}/${filename}`);
                 const snapshot = await storageRef.put(file);
                 const downloadURL = await snapshot.ref.getDownloadURL();
                 imageUrls.push(downloadURL);
@@ -169,14 +189,17 @@ class HousingManager {
             const user = this.auth.currentUser;
             if (!user) throw new Error('User must be logged in to contact a lister');
 
-            // Get listing details
             const listingDoc = await this.housingCollection.doc(listingId).get();
             if (!listingDoc.exists) throw new Error('Housing listing not found');
 
             const listing = listingDoc.data();
             const listerId = listing.userId;
+            
+            // Prevent self-contact
+            if (user.uid === listerId) {
+                return { success: false, error: 'You cannot contact yourself' };
+            }
 
-            // Create chat between interested party and lister
             const chatData = {
                 participants: [user.uid, listerId],
                 listingId: listingId,
@@ -187,7 +210,6 @@ class HousingManager {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // Check if chat already exists
             const existingChat = await this.chatsCollection
                 .where('participants', 'array-contains', user.uid)
                 .where('listingId', '==', listingId)
@@ -204,7 +226,6 @@ class HousingManager {
                 });
             }
 
-            // Add message to chat
             await this.chatsCollection.doc(chatRef.id).collection('messages').add({
                 senderId: user.uid,
                 text: message,
@@ -218,56 +239,11 @@ class HousingManager {
         }
     }
 
-    // Set up real-time listener for housing listings
-    setupHousingListener(type, filters = {}, callback) {
-        const listenerKey = `${type}-${JSON.stringify(filters)}`;
-        
-        // Remove any existing listener for this type/filters
-        if (this.currentListeners[listenerKey]) {
-            this.currentListeners[listenerKey]();
-        }
-
-        let query = this.housingCollection
-            .where('type', '==', type)
-            .where('status', '==', 'active');
-
-        // Apply filters
-        if (filters.minPrice) query = query.where('price', '>=', parseInt(filters.minPrice));
-        if (filters.maxPrice) query = query.where('price', '<=', parseInt(filters.maxPrice));
-        if (filters.location) query = query.where('location', '==', filters.location);
-        if (filters.bedrooms) query = query.where('bedrooms', '==', parseInt(filters.bedrooms));
-        if (filters.bathrooms) query = query.where('bathrooms', '==', parseInt(filters.bathrooms));
-
-        const unsubscribe = query
-            .orderBy('createdAt', 'desc')
-            .onSnapshot(snapshot => {
-                const listings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                callback(listings);
-            }, error => {
-                console.error('Housing listener error:', error);
-            });
-
-        // Store the unsubscribe function
-        this.currentListeners[listenerKey] = unsubscribe;
-        return unsubscribe;
-    }
-
-    // Remove all active listeners
-    removeAllListeners() {
-        Object.values(this.currentListeners).forEach(unsubscribe => {
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            }
-        });
-        this.currentListeners = {};
-    }
-
     // Get housing listing by ID
     async getHousingListing(listingId) {
         try {
             const doc = await this.housingCollection.doc(listingId).get();
             if (doc.exists) {
-                // Increment view count
                 await this.incrementViewCount(listingId);
                 return { success: true, data: { id: doc.id, ...doc.data() } };
             } else {
@@ -305,71 +281,36 @@ class HousingManager {
         }
     }
 
-    // Update a housing listing
-    async updateListing(listingId, updates) {
+    // FIXED: Get user's favorite housing listings (batched query)
+    async getUserFavorites(userId) {
         try {
-            const user = this.auth.currentUser;
-            if (!user) throw new Error('User must be logged in to update a listing');
+            const userDoc = await this.usersCollection.doc(userId).get();
+            if (!userDoc.exists) return [];
 
-            // Verify user owns this listing
-            const listingDoc = await this.housingCollection.doc(listingId).get();
-            if (!listingDoc.exists || listingDoc.data().userId !== user.uid) {
-                throw new Error('You can only update your own listings');
+            const favorites = userDoc.data().housingFavorites || [];
+            if (favorites.length === 0) return [];
+
+            // Batch query using 'in' (max 10 items per batch)
+            const batchSize = 10;
+            const batches = [];
+            for (let i = 0; i < favorites.length; i += batchSize) {
+                batches.push(favorites.slice(i, i + batchSize));
+            }
+            
+            const allListings = [];
+            for (const batch of batches) {
+                const snapshot = await this.housingCollection
+                    .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                    .where('status', '==', 'active')
+                    .get();
+                
+                allListings.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             }
 
-            await this.housingCollection.doc(listingId).update({
-                ...updates,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            return { success: true };
+            return allListings;
         } catch (error) {
-            console.error('Error updating listing:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // Delete a housing listing
-    async deleteListing(listingId) {
-        try {
-            const user = this.auth.currentUser;
-            if (!user) throw new Error('User must be logged in to delete a listing');
-
-            // Verify user owns this listing
-            const listingDoc = await this.housingCollection.doc(listingId).get();
-            if (!listingDoc.exists || listingDoc.data().userId !== user.uid) {
-                throw new Error('You can only delete your own listings');
-            }
-
-            await this.housingCollection.doc(listingId).delete();
-            return { success: true };
-        } catch (error) {
-            console.error('Error deleting listing:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // Mark as rented/sold
-    async markAsRented(listingId) {
-        try {
-            const user = this.auth.currentUser;
-            if (!user) throw new Error('User must be logged in to mark as rented');
-
-            // Verify user owns this listing
-            const listingDoc = await this.housingCollection.doc(listingId).get();
-            if (!listingDoc.exists || listingDoc.data().userId !== user.uid) {
-                throw new Error('You can only update your own listings');
-            }
-
-            await this.housingCollection.doc(listingId).update({
-                status: 'rented',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            return { success: true };
-        } catch (error) {
-            console.error('Error marking as rented:', error);
-            return { success: false, error: error.message };
+            console.error('Error getting user favorites:', error);
+            return [];
         }
     }
 
@@ -407,28 +348,47 @@ class HousingManager {
         }
     }
 
-    // Get user's favorite housing listings
-    async getUserFavorites(userId) {
+    // Delete a housing listing
+    async deleteListing(listingId) {
         try {
-            const userDoc = await this.usersCollection.doc(userId).get();
-            if (!userDoc.exists) return [];
+            const user = this.auth.currentUser;
+            if (!user) throw new Error('User must be logged in to delete a listing');
 
-            const favorites = userDoc.data().housingFavorites || [];
-            if (favorites.length === 0) return [];
-
-            // Get favorite listings
-            const listings = [];
-            for (const listingId of favorites) {
-                const listingDoc = await this.housingCollection.doc(listingId).get();
-                if (listingDoc.exists && listingDoc.data().status === 'active') {
-                    listings.push({ id: listingDoc.id, ...listingDoc.data() });
-                }
+            const listingDoc = await this.housingCollection.doc(listingId).get();
+            if (!listingDoc.exists || listingDoc.data().userId !== user.uid) {
+                throw new Error('You can only delete your own listings');
             }
 
-            return listings;
+            await this.housingCollection.doc(listingId).delete();
+            return { success: true };
         } catch (error) {
-            console.error('Error getting user favorites:', error);
-            return [];
+            console.error('Error deleting listing:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Mark as rented/sold
+    async markAsRented(listingId) {
+        try {
+            const user = this.auth.currentUser;
+            if (!user) throw new Error('User must be logged in to mark as rented');
+
+            const listingDoc = await this.housingCollection.doc(listingId).get();
+            if (!listingDoc.exists || listingDoc.data().userId !== user.uid) {
+                throw new Error('You can only update your own listings');
+            }
+
+            await this.housingCollection.doc(listingId).update({
+                status: 'rented',
+                rentedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                rentedBy: user.uid,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            return { success: true };
+        } catch (error) {
+            console.error('Error marking as rented:', error);
+            return { success: false, error: error.message };
         }
     }
 
@@ -440,7 +400,7 @@ class HousingManager {
             { id: 'apartments', name: 'Apartments', icon: 'fas fa-building' },
             { id: 'houses', name: 'Houses', icon: 'fas fa-home' },
             { id: 'short-stays', name: 'Short Stays', icon: 'fas fa-hotel' },
-            { id: 'plots', name: 'Plots', icon: 'fas fa-vector-square' }
+            { id: 'land', name: 'Land/Plots', icon: 'fas fa-vector-square' }
         ];
     }
 
@@ -454,31 +414,31 @@ class HousingManager {
     }
 }
 
-// Initialize housing manager when Firebase is ready
+// Initialize housing manager
 function initializeHousingManager() {
     window.housingManager = new HousingManager();
-    console.log("Housing Manager initialized with Firebase collections pattern");
+    console.log("✅ Housing Manager initialized with propertyListings collection");
 }
 
-// Make sure Firebase is initialized before creating housing manager
 if (typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth) {
     initializeHousingManager();
 } else {
-    // Wait for Firebase to be ready
     document.addEventListener('firebase-ready', initializeHousingManager);
 }
+
+// ========== UI FUNCTIONS ==========
 
 // Load housing listings by type
 async function loadHousingListings(type, filters = {}) {
     const housingContainer = document.getElementById('housing-container');
     if (!housingContainer) return;
 
-    housingContainer.innerHTML = '<div class="loading-spinner">Loading listings...</div>';
+    housingContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading listings...</div>';
     
     const result = await housingManager.getHousingListings(type, filters, 20);
     
     if (result.listings.length === 0) {
-        housingContainer.innerHTML = '<div class="no-listings">No housing listings available in this category</div>';
+        housingContainer.innerHTML = '<div class="no-listings" style="text-align: center; padding: 40px;">No housing listings available in this category</div>';
         return;
     }
 
@@ -488,7 +448,6 @@ async function loadHousingListings(type, filters = {}) {
         housingContainer.appendChild(listingElement);
     });
 
-    // Store for pagination
     window.lastVisibleHousingListing = result.lastVisible;
 }
 
@@ -496,11 +455,12 @@ async function loadHousingListings(type, filters = {}) {
 function createHousingListingElement(listing) {
     const div = document.createElement('div');
     div.className = 'property-listing';
+    div.setAttribute('data-id', listing.id);
     div.innerHTML = `
-        <div class="property-image" onclick="viewHousingDetails('${listing.id}')">
+        <div class="property-image" style="cursor: pointer;">
             ${listing.images && listing.images.length > 0 ? 
                 `<img src="${listing.images[0]}" alt="${escapeHtml(listing.title)}" loading="lazy">` : 
-                `<i class="fas fa-home"></i>`
+                `<div style="height: 180px; background: var(--light); display: flex; align-items: center; justify-content: center;"><i class="fas fa-home" style="font-size: 3rem; color: var(--grey-dark);"></i></div>`
             }
             ${listing.urgent ? '<div class="property-badge urgent">Urgent</div>' : ''}
             ${listing.status === 'rented' ? '<div class="property-badge rented">Rented</div>' : ''}
@@ -521,35 +481,106 @@ function createHousingListingElement(listing) {
                 ${listing.furnished ? '<div class="property-meta-item"><i class="fas fa-couch"></i> Furnished</div>' : ''}
             </div>
             <div class="property-actions">
-                <button class="btn btn-sm btn-primary" onclick="contactHousingLister('${listing.id}')">Contact</button>
-                <button class="btn btn-sm btn-outline" onclick="viewHousingDetails('${listing.id}')">Details</button>
-                <button class="btn btn-sm btn-outline" onclick="toggleHousingFavorite('${listing.id}', this)">
+                <button class="btn btn-sm btn-primary contact-lister-btn" data-id="${listing.id}">Contact</button>
+                <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
+                <button class="btn btn-sm btn-outline favorite-btn" data-id="${listing.id}">
                     <i class="far fa-heart"></i>
                 </button>
             </div>
         </div>
     `;
+    
+    // Attach event listeners
+    const imageDiv = div.querySelector('.property-image');
+    if (imageDiv) {
+        imageDiv.addEventListener('click', () => viewHousingDetails(listing.id));
+    }
+    
+    const contactBtn = div.querySelector('.contact-lister-btn');
+    if (contactBtn) {
+        contactBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            contactHousingLister(listing.id);
+        });
+    }
+    
+    const detailsBtn = div.querySelector('.view-details-btn');
+    if (detailsBtn) {
+        detailsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewHousingDetails(listing.id);
+        });
+    }
+    
+    const favBtn = div.querySelector('.favorite-btn');
+    if (favBtn) {
+        favBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleHousingFavorite(listing.id, favBtn);
+        });
+    }
+    
     return div;
 }
 
 // Contact housing lister
 async function contactHousingLister(listingId) {
-    try {
-        const message = prompt('Enter your message to the property owner:');
-        if (!message) return;
-
-        const result = await housingManager.contactLister(listingId, message);
-        if (result.success) {
-            showToast('Message sent to property owner successfully!', 'success');
-            // Open chat interface
-            openChat(result.chatId);
-        } else {
-            showToast('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('Error contacting property owner:', error);
-        showToast('Error contacting property owner', 'error');
+    if (!auth.currentUser) {
+        showToast('Please sign in to contact the owner', 'warning');
+        if (typeof openAuthModal === 'function') openAuthModal();
+        return;
     }
+    
+    // Use custom modal instead of prompt
+    showContactMessageModal(listingId);
+}
+
+function showContactMessageModal(listingId) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-envelope"></i> Contact Owner</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Your Message</label>
+                    <textarea id="contact-message" class="form-input" rows="4" placeholder="Hi, I'm interested in your property. Is it still available?"></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="send-message-btn">Send Message</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('contact-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const sendBtn = document.getElementById('send-message-btn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', async () => {
+                const message = document.getElementById('contact-message')?.value;
+                if (!message) {
+                    showToast('Please enter a message', 'error');
+                    return;
+                }
+                
+                const result = await housingManager.contactLister(listingId, message);
+                if (result.success) {
+                    showToast('Message sent to property owner!', 'success');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('contact-modal');
+                    }
+                } else {
+                    showToast('Error: ' + result.error, 'error');
+                }
+            });
+        }
+    }, 100);
 }
 
 // View housing details
@@ -569,36 +600,57 @@ async function viewHousingDetails(listingId) {
 
 // Show housing modal
 function showHousingModal(listing) {
-    // Implement modal showing property details
     const modalContent = `
-        <div class="housing-modal">
-            <div class="housing-images">
-                ${listing.images && listing.images.length > 0 ? 
-                    listing.images.map(img => `<img src="${img}" alt="${escapeHtml(listing.title)}">`).join('') : 
-                    '<div class="no-image"><i class="fas fa-home"></i></div>'
-                }
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title">${escapeHtml(listing.title)}</div>
+                <button class="close-modal-btn">&times;</button>
             </div>
-            <div class="housing-details">
-                <h2>${escapeHtml(listing.title)}</h2>
-                <div class="housing-price">KES ${listing.price?.toLocaleString() || '0'}</div>
-                <div class="housing-location">
-                    <i class="fas fa-map-marker-alt"></i> ${escapeHtml(listing.location || 'Nairobi')}
+            <div style="padding: 15px;">
+                <div class="housing-images" style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
+                    ${listing.images && listing.images.length > 0 ? 
+                        listing.images.map(img => `<img src="${img}" alt="${escapeHtml(listing.title)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('') : 
+                        '<div class="no-image" style="height: 150px; background: var(--light); display: flex; align-items: center; justify-content: center;"><i class="fas fa-home" style="font-size: 3rem;"></i></div>'
+                    }
                 </div>
-                <div class="housing-description">${escapeHtml(listing.description || 'No description provided.')}</div>
-                <div class="housing-features">
+                <div class="housing-price" style="font-size: 1.5rem; font-weight: 700; color: var(--primary); margin-bottom: 10px;">KES ${listing.price?.toLocaleString() || '0'}</div>
+                <div class="housing-location" style="margin-bottom: 10px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(listing.location || 'Nairobi')}</div>
+                <div class="housing-description" style="margin-bottom: 15px;"><strong>Description:</strong><br>${escapeHtml(listing.description || 'No description provided.')}</div>
+                <div class="housing-features" style="display: flex; gap: 15px; margin-bottom: 15px;">
                     <div><i class="fas fa-bed"></i> ${listing.bedrooms || 'N/A'} Bedrooms</div>
                     <div><i class="fas fa-bath"></i> ${listing.bathrooms || 'N/A'} Bathrooms</div>
                     ${listing.furnished ? '<div><i class="fas fa-couch"></i> Furnished</div>' : ''}
                 </div>
-                <button class="btn btn-primary" onclick="contactHousingLister('${listing.id}')">Contact Owner</button>
-                <button class="btn btn-outline" onclick="toggleHousingFavorite('${listing.id}')">
-                    <i class="far fa-heart"></i> Save Property
-                </button>
+                <div class="form-actions" style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary contact-from-modal-btn" data-id="${listing.id}" style="flex: 1;">Contact Owner</button>
+                    <button class="btn btn-outline favorite-modal-btn" data-id="${listing.id}" style="flex: 1;">Save Property</button>
+                </div>
             </div>
         </div>
     `;
     
-    showModal(listing.title, modalContent);
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('housing-details-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const contactBtn = document.querySelector('#housing-details-modal .contact-from-modal-btn');
+        if (contactBtn) {
+            contactBtn.addEventListener('click', () => {
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('housing-details-modal');
+                }
+                contactHousingLister(listing.id);
+            });
+        }
+        
+        const favBtn = document.querySelector('#housing-details-modal .favorite-modal-btn');
+        if (favBtn) {
+            favBtn.addEventListener('click', () => {
+                toggleHousingFavorite(listing.id, favBtn);
+            });
+        }
+    }, 100);
 }
 
 // Toggle housing favorite
@@ -607,10 +659,10 @@ async function toggleHousingFavorite(listingId, button = null) {
         const user = auth.currentUser;
         if (!user) {
             showToast('Please sign in to save properties', 'warning');
+            if (typeof openAuthModal === 'function') openAuthModal();
             return;
         }
 
-        // Check if already favorited
         const userDoc = await collections.users().doc(user.uid).get();
         const favorites = userDoc.exists ? userDoc.data().housingFavorites || [] : [];
         
@@ -620,7 +672,7 @@ async function toggleHousingFavorite(listingId, button = null) {
             showToast('Removed from saved properties', 'success');
         } else {
             await housingManager.addToFavorites(listingId);
-            if (button) button.innerHTML = '<i class="fas fa-heart"></i>';
+            if (button) button.innerHTML = '<i class="fas fa-heart" style="color: #e74c3c;"></i>';
             showToast('Added to saved properties', 'success');
         }
     } catch (error) {
@@ -636,202 +688,92 @@ function showHousingFilters(type) {
     const locations = housingManager.getCommonLocations();
     
     const filterContent = `
-        <div class="filter-modal">
-            <h3>Filter ${currentType?.name || 'Housing'} Listings</h3>
-            <div class="form-group">
-                <label for="min-price">Minimum Price (KES)</label>
-                <input type="number" id="min-price" class="form-input" placeholder="0">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title">Filter ${currentType?.name || 'Housing'} Listings</div>
+                <button class="close-modal-btn">&times;</button>
             </div>
-            <div class="form-group">
-                <label for="max-price">Maximum Price (KES)</label>
-                <input type="number" id="max-price" class="form-input" placeholder="100000">
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label for="min-price">Minimum Price (KES)</label>
+                    <input type="number" id="min-price" class="form-input" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="max-price">Maximum Price (KES)</label>
+                    <input type="number" id="max-price" class="form-input" placeholder="100000">
+                </div>
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <select id="location" class="form-input">
+                        <option value="">Any Location</option>
+                        ${locations.map(loc => `<option value="${loc}">${loc}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bedrooms">Bedrooms</label>
+                    <select id="bedrooms" class="form-input">
+                        <option value="">Any</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4+</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bathrooms">Bathrooms</label>
+                    <select id="bathrooms" class="form-input">
+                        <option value="">Any</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3+</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="furnished">Furnished</label>
+                    <select id="furnished" class="form-input">
+                        <option value="">Any</option>
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="apply-filters-btn">Apply Filters</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="location">Location</label>
-                <select id="location" class="form-input">
-                    <option value="">Any Location</option>
-                    ${locations.map(loc => `<option value="${loc}">${loc}</option>`).join('')}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="bedrooms">Bedrooms</label>
-                <select id="bedrooms" class="form-input">
-                    <option value="">Any</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4+</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="bathrooms">Bathrooms</label>
-                <select id="bathrooms" class="form-input">
-                    <option value="">Any</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3+</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="furnished">Furnished</label>
-                <select id="furnished" class="form-input">
-                    <option value="">Any</option>
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" onclick="applyHousingFilters('${type}')">Apply Filters</button>
         </div>
     `;
     
-    showModal('Filter Housing', filterContent);
-}
-
-// Apply housing filters
-function applyHousingFilters(type) {
-    const minPrice = document.getElementById('min-price').value;
-    const maxPrice = document.getElementById('max-price').value;
-    const location = document.getElementById('location').value;
-    const bedrooms = document.getElementById('bedrooms').value;
-    const bathrooms = document.getElementById('bathrooms').value;
-    const furnished = document.getElementById('furnished').value;
-    
-    const filters = {};
-    if (minPrice) filters.minPrice = minPrice;
-    if (maxPrice) filters.maxPrice = maxPrice;
-    if (location) filters.location = location;
-    if (bedrooms) filters.bedrooms = bedrooms;
-    if (bathrooms) filters.bathrooms = bathrooms;
-    if (furnished) filters.furnished = furnished;
-    
-    loadHousingListings(type, filters);
-    closeModal();
-}
-
-// Open chat function (placeholder)
-function openChat(chatId) {
-    // This would open a chat interface
-    console.log('Opening chat:', chatId);
-    showToast('Chat opened successfully!', 'success');
-}
-
-// Escape HTML to prevent XSS
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ===== NEW FUNCTIONS ADDED =====
-
-// Submit property listing - SAVES TO MARKETPLACE COLLECTION
-async function submitProperty() {
-    console.log('submitProperty called - saving to marketplace_items');
-    
-    const type = document.getElementById('property-type')?.value;
-    const title = document.getElementById('property-title')?.value.trim();
-    const price = document.getElementById('property-price')?.value;
-    const location = document.getElementById('property-location')?.value.trim();
-    const bedrooms = document.getElementById('property-bedrooms')?.value;
-    const bathrooms = document.getElementById('property-bathrooms')?.value;
-    const description = document.getElementById('property-description')?.value.trim();
-    
-    // Check if user is logged in
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please sign in to list a property', 'error');
-        }
-        if (typeof window.openAuthModal === 'function') {
-            window.openAuthModal();
-        }
-        return;
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('filter-modal', filterContent);
     }
     
-    // Validate required fields
-    if (!type || !title || !price || !location || !description) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Please fill in all required fields', 'error');
+    setTimeout(() => {
+        const applyBtn = document.getElementById('apply-filters-btn');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                const minPrice = document.getElementById('min-price').value;
+                const maxPrice = document.getElementById('max-price').value;
+                const location = document.getElementById('location').value;
+                const bedrooms = document.getElementById('bedrooms').value;
+                const bathrooms = document.getElementById('bathrooms').value;
+                const furnished = document.getElementById('furnished').value;
+                
+                const filters = {};
+                if (minPrice) filters.minPrice = minPrice;
+                if (maxPrice) filters.maxPrice = maxPrice;
+                if (location) filters.location = location;
+                if (bedrooms) filters.bedrooms = bedrooms;
+                if (bathrooms) filters.bathrooms = bathrooms;
+                if (furnished) filters.furnished = furnished;
+                
+                loadHousingListings(type, filters);
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('filter-modal');
+                }
+            });
         }
-        return;
-    }
-    
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving property to database...', 'info');
-    }
-    
-    // Prepare data for marketplace_items collection
-    const propertyData = {
-        category: type,  // 'rooms', 'bedsitters', 'apartments', 'houses'
-        title: title,
-        price: parseInt(price),
-        location: location,
-        bedrooms: bedrooms ? parseInt(bedrooms) : 0,
-        bathrooms: bathrooms ? parseInt(bathrooms) : 0,
-        description: description,
-        images: [],
-        status: 'active',
-        promoted: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
-    
-    try {
-        // Save to marketplace_items collection
-        const docRef = await firebase.firestore().collection('marketplace_items').add(propertyData);
-        console.log('✅ Property saved to marketplace_items with ID:', docRef.id);
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Property listed successfully in Marketplace!', 'success');
-        }
-        
-        // Close modal
-        const modal = document.getElementById('property-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        // Reset form
-        if (typeof resetPropertyForm === 'function') {
-            resetPropertyForm();
-        } else {
-            document.getElementById('property-type').value = '';
-            document.getElementById('property-title').value = '';
-            document.getElementById('property-price').value = '';
-            document.getElementById('property-location').value = '';
-            document.getElementById('property-bedrooms').value = '';
-            document.getElementById('property-bathrooms').value = '';
-            document.getElementById('property-description').value = '';
-        }
-        
-        // Refresh marketplace items to show new property
-        setTimeout(() => {
-            if (typeof window.loadMarketplaceItems === 'function') {
-                window.loadMarketplaceItems(type);
-            }
-            // Switch to marketplace tab
-            if (typeof window.switchTab === 'function') {
-                window.switchTab('marketplace-tab');
-            }
-        }, 500);
-        
-    } catch (error) {
-        console.error('Error saving property:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
-    }
-}
-
-// Upload property images (placeholder)
-function uploadPropertyImages() {
-    showToast('Image upload functionality coming soon', 'info');
-}
-
-// Show create housing modal
-function showCreateHousingModal() {
-    showModal('property-post-modal');
+    }, 100);
 }
 
 // Load housing listings for specific type
@@ -840,23 +782,12 @@ function loadHousingListingsByType(type) {
     loadHousingListings(type);
 }
 
-// Show housing category
-function showHousingCategory(category) {
-    const housingTypes = housingManager.getHousingTypes();
-    const type = housingTypes.find(t => t.name.toLowerCase().includes(category.toLowerCase()));
-    if (type) {
-        loadHousingListingsByType(type.id);
-    } else {
-        showToast('Housing category not found', 'error');
-    }
-}
-
 // Search housing
 function searchHousing() {
     const searchInput = document.querySelector('#services-tab .search-input');
-    const searchTerm = searchInput.value.trim();
+    const searchTerm = searchInput?.value.trim();
     
-    if (searchTerm.length === 0) {
+    if (!searchTerm || searchTerm.length === 0) {
         if (window.currentHousingType) {
             loadHousingListings(window.currentHousingType);
         }
@@ -864,12 +795,14 @@ function searchHousing() {
     }
     
     const housingContainer = document.getElementById('housing-container');
-    housingContainer.innerHTML = '<div class="loading-spinner">Searching properties...</div>';
+    if (!housingContainer) return;
+    
+    housingContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Searching properties...</div>';
     
     housingManager.searchHousingListings(searchTerm, window.currentHousingType).then(listings => {
         housingContainer.innerHTML = '';
         if (listings.length === 0) {
-            housingContainer.innerHTML = '<div class="no-listings">No properties found for "' + searchTerm + '"</div>';
+            housingContainer.innerHTML = '<div class="no-listings" style="text-align: center; padding: 40px;">No properties found for "' + escapeHtml(searchTerm) + '"</div>';
             return;
         }
         
@@ -880,139 +813,31 @@ function searchHousing() {
     });
 }
 
-// Load user's housing listings
-async function loadUserHousingListings() {
-    try {
-        const user = auth.currentUser;
-        if (!user) {
-            showToast('Please sign in to view your listings', 'warning');
-            return;
-        }
-        
-        const listings = await housingManager.getUserListings(user.uid);
-        const container = document.getElementById('user-housing-listings-container');
-        
-        if (!container) return;
-        
-        if (listings.length === 0) {
-            container.innerHTML = '<div class="no-listings">You have no housing listings</div>';
-            return;
-        }
-        
-        container.innerHTML = '';
-        listings.forEach(listing => {
-            const listingElement = createUserHousingListingElement(listing);
-            container.appendChild(listingElement);
-        });
-    } catch (error) {
-        console.error('Error loading user housing listings:', error);
-        showToast('Error loading your listings', 'error');
-    }
-}
-
-// Create user housing listing element
-function createUserHousingListingElement(listing) {
+// Escape HTML helper
+function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
-    div.className = 'user-housing-listing';
-    div.innerHTML = `
-        <div class="listing-preview">
-            ${listing.images && listing.images.length > 0 ? 
-                `<img src="${listing.images[0]}" alt="${escapeHtml(listing.title)}">` : 
-                `<div class="no-image"><i class="fas fa-home"></i></div>`
-            }
-        </div>
-        <div class="listing-info">
-            <h4>${escapeHtml(listing.title)}</h4>
-            <div class="listing-price">KES ${listing.price?.toLocaleString() || '0'}</div>
-            <div class="listing-type">${listing.type}</div>
-            <div class="listing-status">
-                <span class="status-badge ${listing.status}">${listing.status}</span>
-            </div>
-            <div class="listing-views">
-                <i class="fas fa-eye"></i> ${listing.viewCount || 0} views
-            </div>
-        </div>
-        <div class="listing-actions">
-            <button class="btn btn-sm btn-outline" onclick="editHousingListing('${listing.id}')">Edit</button>
-            ${listing.status === 'active' ? 
-                `<button class="btn btn-sm btn-primary" onclick="markHousingAsRented('${listing.id}')">Mark Rented</button>` : 
-                ''
-            }
-            <button class="btn btn-sm btn-danger" onclick="deleteHousingListing('${listing.id}')">Delete</button>
-        </div>
-    `;
-    return div;
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-// Edit housing listing
-function editHousingListing(listingId) {
-    showToast('Edit housing listing functionality coming soon', 'info');
-}
-
-// Mark housing as rented
-async function markHousingAsRented(listingId) {
-    try {
-        const result = await housingManager.markAsRented(listingId);
-        if (result.success) {
-            showToast('Property marked as rented!', 'success');
-            loadUserHousingListings();
-        } else {
-            showToast('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('Error marking property as rented:', error);
-        showToast('Error updating listing', 'error');
+// Show toast helper
+function showToast(message, type = 'info') {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        console.log(`${type}: ${message}`);
     }
 }
 
-// Delete housing listing
-async function deleteHousingListing(listingId) {
-    if (!confirm('Are you sure you want to delete this property listing?')) return;
-    
-    try {
-        const result = await housingManager.deleteListing(listingId);
-        if (result.success) {
-            showToast('Property listing deleted successfully!', 'success');
-            loadUserHousingListings();
-        } else {
-            showToast('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting property listing:', error);
-        showToast('Error deleting listing', 'error');
-    }
-}
-
-// Make it available globally
+// ========== EXPOSE GLOBALLY ==========
+window.housingManager = housingManager;
 window.loadHousingListings = loadHousingListings;
 window.contactHousingLister = contactHousingLister;
 window.viewHousingDetails = viewHousingDetails;
 window.showHousingFilters = showHousingFilters;
-window.applyHousingFilters = applyHousingFilters;
 window.toggleHousingFavorite = toggleHousingFavorite;
-window.openChat = openChat;
-window.escapeHtml = escapeHtml;
-window.showPropertyPostModal = showPropertyPostModal;
-window.submitProperty = submitProperty;
-window.uploadPropertyImages = uploadPropertyImages;
-window.showCreateHousingModal = showCreateHousingModal;
 window.loadHousingListingsByType = loadHousingListingsByType;
-window.showHousingCategory = showHousingCategory;
 window.searchHousing = searchHousing;
-window.loadUserHousingListings = loadUserHousingListings;
-window.editHousingListing = editHousingListing;
-window.markHousingAsRented = markHousingAsRented;
-window.deleteHousingListing = deleteHousingListing;
 
-// Auto-load housing listings when services tab is opened
-document.addEventListener('DOMContentLoaded', function() {
-    // Set default housing type
-    window.currentHousingType = 'rooms';
-    
-    // Load initial housing listings when services tab is active
-    setTimeout(() => {
-        if (document.getElementById('services-tab').classList.contains('active')) {
-            loadHousingListings('rooms');
-        }
-    }, 500);
-});
+console.log('✅ Housing.js fully loaded with all fixes');
