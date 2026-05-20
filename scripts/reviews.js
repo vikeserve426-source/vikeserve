@@ -656,14 +656,6 @@ class ReviewsManager {
         }
     }
 
-    // Helper: Show toast
-    showToast(message, type) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-        } else {
-            console.log(`${type}: ${message}`);
-        }
-    }
 }
 
 // ========== GLOBAL FUNCTIONS ==========

@@ -821,15 +821,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Show toast helper
-function showToast(message, type = 'info') {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    } else {
-        console.log(`${type}: ${message}`);
-    }
-}
-
 // ========== EXPOSE GLOBALLY ==========
 window.housingManager = housingManager;
 window.loadHousingListings = loadHousingListings;
