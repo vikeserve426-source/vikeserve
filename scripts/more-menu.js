@@ -560,17 +560,19 @@ class MoreMenuManager {
             </div>
         `;
         
-        if (typeof window.showModalWithContent === 'function') {
-            window.showModalWithContent(`${type}-modal`, modalContent);
+if (typeof window.showModalWithContent === 'function') {
+    window.showModalWithContent(`${type}-modal`, modalContent);
+}
+    
+    // Ensure modal is on top
+    setTimeout(() => {
+        const modal = document.getElementById(`${type}-modal`);
+        if (modal) {
+            modal.style.zIndex = '20002';
+            modal.style.display = 'flex';
         }
-        
-        setTimeout(() => {
-            const submitBtn = document.querySelector(`#${type}-modal .submit-post-btn`);
-            if (submitBtn) {
-                submitBtn.addEventListener('click', () => this.submitPostToFirestore(type, collection));
-            }
-        }, 100);
-    }
+    }, 50);
+}
     
     async submitPostToFirestore(type, collection) {
         const modal = document.getElementById(`${type}-modal`);

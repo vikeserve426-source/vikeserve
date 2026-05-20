@@ -77,6 +77,7 @@ function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'flex';
+        modal.style.zIndex = '20000';
         document.body.style.overflow = 'hidden';
     } else {
         console.error('Modal not found:', modalId);
@@ -101,6 +102,14 @@ function showModalWithContent(modalId, content) {
     }
     modal.innerHTML = content;
     modal.style.display = 'flex';
+    modal.style.zIndex = '20000';  // Add this line
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.overflowY = 'auto';
 }
 
 // ========== STAR RATING ==========

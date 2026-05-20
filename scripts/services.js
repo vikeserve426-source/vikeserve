@@ -187,14 +187,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function showToast(message, type) {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    } else {
-        console.log(`${type}: ${message}`);
-    }
-}
-
 // ========== LOAD URGENT JOBS ==========
 async function loadUrgentJobs(limit = 5) {
     const container = document.getElementById('urgent-jobs-container');
