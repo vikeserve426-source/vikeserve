@@ -1,5 +1,5 @@
 // ========== SERVICES MANAGER - COMPLETE FIXED VERSION ==========
-// Handles services and jobs posting, loading, and management
+// Handles services and jobs posting, loading, and booking
 
 class ServicesManager {
     constructor() {
@@ -55,7 +55,6 @@ class ServicesManager {
             const user = auth.currentUser;
             if (!user) throw new Error('User must be logged in');
 
-            // Upload images if any
             let imageUrls = [];
             if (imageFiles.length > 0) {
                 imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
@@ -88,7 +87,6 @@ class ServicesManager {
             const user = auth.currentUser;
             if (!user) throw new Error('User must be logged in');
 
-            // Upload images if any
             let imageUrls = [];
             if (imageFiles.length > 0) {
                 imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
@@ -237,7 +235,7 @@ function createJobElement(job) {
     return div;
 }
 
-// ========== LOAD SERVICES (USING SERVICESMANAGER) ==========
+// ========== LOAD SERVICES ==========
 async function loadServices(category = null, limit = 20) {
     const container = document.getElementById('services-list-container');
     if (!container) return;
@@ -249,7 +247,6 @@ async function loadServices(category = null, limit = 20) {
         if (category) {
             result = await servicesManager.getServicesByCategory(category, limit);
         } else {
-            // Load all active services
             const snapshot = await collections.services()
                 .where('status', '==', 'active')
                 .orderBy('createdAt', 'desc')
@@ -306,17 +303,140 @@ async function viewJobDetails(serviceId) {
         const result = await servicesManager.getServiceById(serviceId);
         if (result.success) {
             showServiceDetailsModal(result.data);
-        } else if (typeof showToast === 'function') {
-            showToast('Error loading service details', 'error');
+        } else if (typeof window.showToast === 'function') {
+            window.showToast('Error loading service details', 'error');
         }
     } catch (error) {
         console.error('Error viewing job details:', error);
     }
 }
 
-function showServiceDetailsModal(service) {
+// ========== BOOKING MODAL FUNCTION ==========
+function showBookingModal(service) {
+    const currentUser = firebase.auth().currentUser;
+    
     const modalContent = `
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title">Book ${escapeHtml(service.title)}</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Your Name</label>
+                    <input type="text" id="booking-name" class="form-input" value="${escapeHtml(currentUser?.displayName || '')}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Your Phone</label>
+                    <input type="tel" id="booking-phone" class="form-input" value="${escapeHtml(currentUser?.phoneNumber || '')}" placeholder="e.g., 0712345678">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date *</label>
+                    <input type="date" id="booking-date" class="form-input" min="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Time</label>
+                    <input type="time" id="booking-time" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Message (Optional)</label>
+                    <textarea id="booking-message" class="form-input" rows="3" placeholder="Any additional information..."></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="confirm-booking-btn" data-service-id="${service.id}" data-provider-id="${service.userId}">Confirm Booking</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('booking-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const confirmBtn = document.getElementById('confirm-booking-btn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async () => {
+                const name = document.getElementById('booking-name')?.value;
+                const phone = document.getElementById('booking-phone')?.value;
+                const date = document.getElementById('booking-date')?.value;
+                const time = document.getElementById('booking-time')?.value;
+                const message = document.getElementById('booking-message')?.value;
+                
+                if (!date) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Please select a date', 'error');
+                    }
+                    return;
+                }
+                
+                if (!name) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Please enter your name', 'error');
+                    }
+                    return;
+                }
+                
+                // Show loading state
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<div class="spinner"></div> Processing...';
+                
+                const bookingData = {
+                    serviceId: service.id,
+                    serviceName: service.title,
+                    providerId: service.userId,
+                    providerName: service.userName || 'Provider',
+                    customerName: name,
+                    customerPhone: phone,
+                    date: date,
+                    time: time || 'Anytime',
+                    notes: message,
+                    price: service.price,
+                    status: 'pending',
+                    location: service.location,
+                    createdAt: new Date().toISOString()
+                };
+                
+                try {
+                    // Save to Firestore bookings collection
+                    const docRef = await firebase.firestore().collection('bookings').add({
+                        ...bookingData,
+                        customerId: firebase.auth().currentUser?.uid,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('✅ Booking request sent successfully!', 'success');
+                    }
+                    
+                    // Close modal
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('booking-modal');
+                    } else {
+                        const modal = document.getElementById('booking-modal');
+                        if (modal) modal.remove();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error creating booking:', error);
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Error: ' + error.message, 'error');
+                    }
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = 'Confirm Booking';
+                }
+            });
+        }
+    }, 100);
+}
+
+function showServiceDetailsModal(service) {
+    const currentUser = firebase.auth().currentUser;
+    const isOwner = currentUser && service.userId === currentUser.uid;
+    
+    const modalContent = `
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
                 <div class="modal-title">${escapeHtml(service.title)}</div>
                 <button class="close-modal-btn">&times;</button>
@@ -331,10 +451,17 @@ function showServiceDetailsModal(service) {
                 <div class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location || 'Nairobi')}</div>
                 <div class="service-description" style="margin: 15px 0;"><strong>Description:</strong><br>${escapeHtml(service.description)}</div>
                 <div class="service-contact"><i class="fas fa-phone"></i> ${escapeHtml(service.phone || 'Contact via app')}</div>
-                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-primary contact-service-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
-                    <button class="btn btn-outline book-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book</button>
-                </div>
+                ${!isOwner ? `
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary contact-service-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
+                        <button class="btn btn-outline book-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book</button>
+                    </div>
+                ` : `
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline edit-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-danger delete-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                `}
             </div>
         </div>
     `;
@@ -349,23 +476,60 @@ function showServiceDetailsModal(service) {
             contactBtn.addEventListener('click', () => {
                 const phone = contactBtn.getAttribute('data-phone');
                 if (phone) window.location.href = `tel:${phone}`;
-                else showToast('Contact info coming soon', 'info');
+                else window.showToast('Contact info coming soon', 'info');
             });
         }
         
         const bookBtn = document.querySelector('#service-details-modal .book-service-btn');
         if (bookBtn) {
-            bookBtn.addEventListener('click', () => {
-                showToast('Booking feature coming soon', 'info');
+            bookBtn.addEventListener('click', async () => {
+                const user = firebase.auth().currentUser;
+                if (!user) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Please sign in to book this service', 'warning');
+                    }
+                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
+                    return;
+                }
+                
+                const serviceId = bookBtn.getAttribute('data-service-id');
+                const result = await servicesManager.getServiceById(serviceId);
+                if (result.success) {
+                    showBookingModal(result.data);
+                }
+            });
+        }
+        
+        const editBtn = document.querySelector('#service-details-modal .edit-service-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                window.showToast('Edit feature coming soon', 'info');
+            });
+        }
+        
+        const deleteBtn = document.querySelector('#service-details-modal .delete-service-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete this service?')) {
+                    const serviceId = deleteBtn.getAttribute('data-service-id');
+                    try {
+                        await firebase.firestore().collection('services').doc(serviceId).delete();
+                        window.showToast('Service deleted successfully', 'success');
+                        if (typeof window.closeModal === 'function') {
+                            window.closeModal('service-details-modal');
+                        }
+                        loadServices();
+                    } catch (error) {
+                        window.showToast('Error deleting service', 'error');
+                    }
+                }
             });
         }
     }, 100);
 }
 
-// ========== PROMOTE SERVICE (USES MARKETPLACE PROMOTION) ==========
+// ========== PROMOTE SERVICE ==========
 function promoteService(serviceId) {
-    // Services need to be in marketplace_items to be promoted
-    // Show option to convert service to marketplace item or use service promotion
     const modalContent = `
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
@@ -390,11 +554,9 @@ function promoteService(serviceId) {
         const convertBtn = document.getElementById('convert-and-promote-btn');
         if (convertBtn) {
             convertBtn.addEventListener('click', async () => {
-                // Get service data
                 const result = await servicesManager.getServiceById(serviceId);
                 if (result.success) {
                     const service = result.data;
-                    // Copy to marketplace_items
                     const marketplaceData = {
                         category: 'services',
                         title: service.title,
@@ -413,7 +575,7 @@ function promoteService(serviceId) {
                     };
                     
                     const docRef = await firebase.firestore().collection('marketplace_items').add(marketplaceData);
-                    showToast('Service copied to Marketplace! Now you can promote it.', 'success');
+                    window.showToast('Service copied to Marketplace! Now you can promote it.', 'success');
                     if (typeof window.closeModal === 'function') {
                         window.closeModal('promote-service-modal');
                     }
@@ -436,10 +598,9 @@ function showServicePostModal() {
     if (modal) {
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
-        console.log('Service modal opened');
     } else {
         console.error('service-post-modal not found');
-        showToast('Service form not available', 'error');
+        window.showToast('Service form not available', 'error');
     }
 }
 
@@ -516,7 +677,6 @@ function updateServiceForm() {
     specificFields.innerHTML = additionalFields;
 }
 
-// Preview service images
 function previewServiceImages(files) {
     const container = document.getElementById('service-image-preview');
     if (!container) return;
@@ -554,17 +714,16 @@ async function submitService() {
     
     const user = firebase.auth().currentUser;
     if (!user) {
-        showToast('Please sign in to post a service', 'error');
+        window.showToast('Please sign in to post a service', 'error');
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
     
     if (!serviceType || !title || !description || !price || !location || !phone) {
-        showToast('Please fill in all required fields', 'error');
+        window.showToast('Please fill in all required fields', 'error');
         return;
     }
     
-    // Disable submit button and show loading
     const submitBtn = document.getElementById('submit-service-btn');
     const originalText = submitBtn?.textContent;
     if (submitBtn) {
@@ -572,9 +731,8 @@ async function submitService() {
         submitBtn.innerHTML = '<div class="spinner"></div> Saving...';
     }
     
-    showToast('Saving service to database...', 'info');
+    window.showToast('Saving service to database...', 'info');
     
-    // Collect category-specific fields
     const additionalData = {};
     switch(serviceType) {
         case 'vehicle-hire':
@@ -610,7 +768,7 @@ async function submitService() {
     }
     
     if (result.success) {
-        showToast('✅ Service posted successfully!', 'success');
+        window.showToast('✅ Service posted successfully!', 'success');
         
         const modal = document.getElementById('service-post-modal');
         if (modal) modal.style.display = 'none';
@@ -618,7 +776,7 @@ async function submitService() {
         resetServicePostForm();
         setTimeout(() => loadServices(), 500);
     } else {
-        showToast(`Error: ${result.error}`, 'error');
+        window.showToast(`Error: ${result.error}`, 'error');
     }
 }
 
@@ -632,10 +790,9 @@ function showJobPostModal() {
     if (modal) {
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
-        console.log('Job modal opened');
     } else {
         console.error('job-post-modal not found');
-        showToast('Job form not available', 'error');
+        window.showToast('Job form not available', 'error');
     }
 }
 
@@ -707,13 +864,13 @@ async function submitJob() {
     
     const user = firebase.auth().currentUser;
     if (!user) {
-        showToast('Please sign in to post a job', 'error');
+        window.showToast('Please sign in to post a job', 'error');
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
     
     if (!title || !category || !description || !price || !location || !phone) {
-        showToast('Please fill in all required fields', 'error');
+        window.showToast('Please fill in all required fields', 'error');
         return;
     }
     
@@ -724,7 +881,7 @@ async function submitJob() {
         submitBtn.innerHTML = '<div class="spinner"></div> Saving...';
     }
     
-    showToast('Saving job to database...', 'info');
+    window.showToast('Saving job to database...', 'info');
     
     const jobData = {
         title: title,
@@ -746,7 +903,7 @@ async function submitJob() {
     }
     
     if (result.success) {
-        showToast('✅ Job posted successfully!', 'success');
+        window.showToast('✅ Job posted successfully!', 'success');
         
         const modal = document.getElementById('job-post-modal');
         if (modal) modal.style.display = 'none';
@@ -758,7 +915,7 @@ async function submitJob() {
         }
         setTimeout(() => loadServices(), 500);
     } else {
-        showToast(`Error: ${result.error}`, 'error');
+        window.showToast(`Error: ${result.error}`, 'error');
     }
 }
 
@@ -783,12 +940,6 @@ function fillJobLocationFromProfile() {
     }
 }
 
-// ========== SEE ALL BUTTONS (REMOVED DUPLICATE - handled by app.js) ==========
-// setupSeeAllButtons removed to prevent conflict with app.js
-
-// ========== QUICK ACTIONS (REMOVED DUPLICATE - handled by quick-actions.js) ==========
-// setupQuickActions removed to prevent conflict with quick-actions.js
-
 // ========== EXPORT GLOBALLY ==========
 window.servicesManager = servicesManager;
 window.loadUrgentJobs = loadUrgentJobs;
@@ -805,13 +956,13 @@ window.promoteService = promoteService;
 window.setupServiceModalHandlers = setupServiceModalHandlers;
 window.setupJobModalHandlers = setupJobModalHandlers;
 window.previewServiceImages = previewServiceImages;
+window.showBookingModal = showBookingModal;
 
 // ========== INITIALIZE ON DOM LOAD ==========
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Services.js DOM loaded - initializing');
     
     setTimeout(() => {
-        // Setup modal handlers (only once!)
         setupServiceModalHandlers();
         setupJobModalHandlers();
         console.log('Services.js interactive elements initialized');
@@ -820,7 +971,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(loadUrgentJobs, 500);
     setTimeout(() => loadServices(), 1000);
     
-    // Setup service post button
     const serviceBtn = document.getElementById('service-post-btn');
     if (serviceBtn) {
         const newServiceBtn = serviceBtn.cloneNode(true);
@@ -832,7 +982,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Setup job post button
     const jobBtn = document.getElementById('job-post-btn');
     if (jobBtn) {
         const newJobBtn = jobBtn.cloneNode(true);
@@ -845,4 +994,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-console.log('✅ Services.js fully loaded');
+console.log('✅ Services.js fully loaded with booking feature');
