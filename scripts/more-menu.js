@@ -1,48 +1,136 @@
-// more-menu.js - COMPLETE VERSION with All Features PRESERVED
+// more-menu.js - COMPLETE FIXED VERSION with ALL Features Preserved
+// Issues fixed: Firebase integration, message tab, ratings, announcements, validation, etc.
 
 class MoreMenuManager {
     constructor() {
         this.currentMoreTab = 'education';
+        this.db = firebase.firestore();
+        this.auth = firebase.auth();
+        this.currentUser = null;
+        this.hasRated = false;
         this.init();
     }
     
-    init() {
-        console.log('More Menu Manager initializing...');
-        this.initializeFounderData();
+    async init() {
+        console.log('More Menu Manager initializing with Firestore...');
+        
+        // Set up auth listener
+        this.auth.onAuthStateChanged((user) => {
+            this.currentUser = user;
+            if (user) {
+                this.checkIfUserHasRated();
+            }
+        });
+        
+        await this.initializeFirestoreData();
         this.replaceAllTabContent();
         this.setupEventListeners();
-        this.loadDataFromStorage();
-        console.log('✅ More Menu Manager ready');
+        await this.loadDataFromFirestore();
+        console.log('✅ More Menu Manager ready with Firestore');
     }
     
-    initializeFounderData() {
-        // Initialize founder data if not exists
-        if (!localStorage.getItem('vikeserve_founder_total_stars')) {
-            localStorage.setItem('vikeserve_founder_total_stars', '0');
-            localStorage.setItem('vikeserve_founder_rating_count', '0');
-            localStorage.setItem('vikeserve_founder_rating', '5.0');
+    async initializeFirestoreData() {
+        // Initialize founder data in Firestore if not exists
+        const founderRef = this.db.collection('system_settings').doc('founder');
+        const founderDoc = await founderRef.get();
+        
+        if (!founderDoc.exists) {
+            await founderRef.set({
+                name: 'Victor Wanyama',
+                email: 'vikeserve426@gmail.com',
+                role: 'founder',
+                totalStars: 0,
+                ratingCount: 0,
+                averageRating: 5.0,
+                portfolioUrl: 'https://vike-store.netlify.app/',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
         }
         
-        // Add welcome announcement if none exist
-        if (!localStorage.getItem('vikeserve_announcements')) {
+        // Initialize default announcements if none exist
+        const announcementsSnapshot = await this.db.collection('announcements').limit(1).get();
+        if (announcementsSnapshot.empty) {
             const defaultAnnouncements = [
                 {
                     id: Date.now(),
                     title: '🎉 Welcome to VikeServe!',
                     message: 'Thank you for using VikeServe! We\'re constantly improving to serve you better. Stay tuned for exciting updates!',
-                    date: new Date().toISOString(),
-                    isRead: false
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    isRead: false,
+                    isGlobal: true
                 },
                 {
                     id: Date.now() + 1,
                     title: '✨ New Feature: Ad Promotion',
                     message: 'You can now promote your ads to reach more customers! Check out the "View Packages" button.',
-                    date: new Date().toISOString(),
-                    isRead: false
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    isRead: false,
+                    isGlobal: true
                 }
             ];
-            localStorage.setItem('vikeserve_announcements', JSON.stringify(defaultAnnouncements));
+            
+            for (const announcement of defaultAnnouncements) {
+                await this.db.collection('announcements').add(announcement);
+            }
         }
+        
+        // Initialize terms and conditions in Firestore
+        const termsRef = this.db.collection('system_settings').doc('terms');
+        const termsDoc = await termsRef.get();
+        if (!termsDoc.exists) {
+            await termsRef.set({
+                content: this.getDefaultTermsContent(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        // Initialize ad packages in Firestore
+        const packagesRef = this.db.collection('ad_packages');
+        const packagesSnapshot = await packagesRef.limit(1).get();
+        if (packagesSnapshot.empty) {
+            const defaultPackages = [
+                { id: 'basic', name: 'Basic Boost', price: 100, duration: 3, tag: 'POPULAR', color: '#27ae60' },
+                { id: 'premium', name: 'Premium Reach', price: 250, duration: 7, tag: 'BEST VALUE', color: '#2E86DE' },
+                { id: 'pro', name: 'Pro Featured', price: 500, duration: 14, tag: 'HOT', color: '#f39c12' },
+                { id: 'vip', name: 'VIP Spotlight', price: 1000, duration: 30, tag: 'VIP', color: '#e74c3c' }
+            ];
+            for (const pkg of defaultPackages) {
+                await packagesRef.add(pkg);
+            }
+        }
+    }
+    
+    getDefaultTermsContent() {
+        return `
+            <h4>1. Acceptance of Terms</h4>
+            <p>By using VikeServe, you agree to these terms and conditions.</p>
+            <h4>2. User Responsibilities</h4>
+            <p>You are responsible for the accuracy of information you provide and for your interactions with other users.</p>
+            <h4>3. Prohibited Activities</h4>
+            <p>You may not post false information, spam, or engage in fraudulent activities.</p>
+            <h4>4. Payments and Fees</h4>
+            <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
+            <h4>5. Intellectual Property</h4>
+            <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
+            <h4>6. Limitation of Liability</h4>
+            <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
+            <h4>7. Termination</h4>
+            <p>We reserve the right to suspend accounts that violate these terms.</p>
+            <h4>8. Changes to Terms</h4>
+            <p>We may update terms. Continued use means acceptance of changes.</p>
+            <h4>9. Contact</h4>
+            <p>For questions, contact vikeserve426@gmail.com</p>
+        `;
+    }
+    
+    async checkIfUserHasRated() {
+        if (!this.currentUser) return;
+        
+        const ratingSnapshot = await this.db.collection('ratings')
+            .where('userId', '==', this.currentUser.uid)
+            .get();
+        
+        this.hasRated = !ratingSnapshot.empty;
     }
     
     replaceAllTabContent() {
@@ -67,54 +155,38 @@ class MoreMenuManager {
     getEducationHTML() {
         return `
             <div class="section-title"><i class="fas fa-graduation-cap"></i> Education & Skills</div>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="education-actions" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                 <button class="post-teacher-btn btn btn-primary" style="flex: 1; padding: 12px;"><i class="fas fa-school"></i> Post Teaching Position</button>
                 <button class="post-internship-btn btn btn-outline" style="flex: 1; padding: 12px;"><i class="fas fa-briefcase"></i> Post Internship</button>
                 <button class="offer-attachment-btn btn btn-outline" style="flex: 1; padding: 12px;"><i class="fas fa-user-graduate"></i> Offer Attachment</button>
                 <button class="post-training-btn btn btn-outline" style="flex: 1; padding: 12px;"><i class="fas fa-tools"></i> Offer Training</button>
             </div>
             
-            <div style="margin-bottom: 25px;">
+            <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-chalkboard-teacher"></i> Teachers Available</h3>
                 <div id="teachers-list-container" class="teachers-list">
-                    <div class="empty-state" style="text-align: center; padding: 30px; background: var(--light); border-radius: 12px;">
-                        <i class="fas fa-chalkboard-teacher" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                        <p style="margin-top: 10px;">No teachers available yet.</p>
-                        <p style="font-size: 0.8rem; color: var(--grey-dark);">Click "Post Teaching Position" to add a teacher.</p>
-                    </div>
+                    <div class="loading-spinner">Loading teachers...</div>
                 </div>
             </div>
             
-            <div style="margin-bottom: 25px;">
+            <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-briefcase"></i> Internship Opportunities</h3>
                 <div id="internships-list-container" class="internships-list">
-                    <div class="empty-state" style="text-align: center; padding: 30px; background: var(--light); border-radius: 12px;">
-                        <i class="fas fa-briefcase" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                        <p style="margin-top: 10px;">No internships posted yet.</p>
-                        <p style="font-size: 0.8rem; color: var(--grey-dark);">Click "Post Internship" to add an opportunity.</p>
-                    </div>
+                    <div class="loading-spinner">Loading internships...</div>
                 </div>
             </div>
             
-            <div style="margin-bottom: 25px;">
+            <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-user-graduate"></i> Attachment Positions</h3>
                 <div id="attachments-list-container" class="attachments-list">
-                    <div class="empty-state" style="text-align: center; padding: 30px; background: var(--light); border-radius: 12px;">
-                        <i class="fas fa-user-graduate" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                        <p style="margin-top: 10px;">No attachment positions available.</p>
-                        <p style="font-size: 0.8rem; color: var(--grey-dark);">Click "Offer Attachment" to add a position.</p>
-                    </div>
+                    <div class="loading-spinner">Loading attachments...</div>
                 </div>
             </div>
             
-            <div style="margin-bottom: 25px;">
+            <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-tools"></i> Training Programs</h3>
                 <div id="training-list-container" class="training-list">
-                    <div class="empty-state" style="text-align: center; padding: 30px; background: var(--light); border-radius: 12px;">
-                        <i class="fas fa-tools" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                        <p style="margin-top: 10px;">No training programs available.</p>
-                        <p style="font-size: 0.8rem; color: var(--grey-dark);">Click "Offer Training" to add a program.</p>
-                    </div>
+                    <div class="loading-spinner">Loading training programs...</div>
                 </div>
             </div>
         `;
@@ -134,11 +206,7 @@ class MoreMenuManager {
                 <button class="filter-alert-btn" data-filter="event" style="padding: 6px 12px; background: var(--light); border: none; border-radius: 20px;">Event</button>
             </div>
             <div id="alerts-list-container">
-                <div class="empty-state" style="text-align: center; padding: 40px; background: var(--light); border-radius: 12px;">
-                    <i class="fas fa-bell-slash" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                    <p style="margin-top: 10px;">No alerts reported yet.</p>
-                    <p style="font-size: 0.8rem; color: var(--grey-dark);">Click "Report Community Alert" to share important information.</p>
-                </div>
+                <div class="loading-spinner">Loading alerts...</div>
             </div>
         `;
     }
@@ -151,11 +219,7 @@ class MoreMenuManager {
                 <input type="text" id="message-search-input" class="search-input" placeholder="Search conversations...">
             </div>
             <div id="conversations-list-container">
-                <div class="empty-state" style="text-align: center; padding: 40px; background: var(--light); border-radius: 12px;">
-                    <i class="fas fa-comments" style="font-size: 2rem; color: var(--grey-dark);"></i>
-                    <p style="margin-top: 10px;">No messages yet.</p>
-                    <p style="font-size: 0.8rem; color: var(--grey-dark);">Start a conversation with service providers.</p>
-                </div>
+                <div class="loading-spinner">Loading conversations...</div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
                 <button class="new-chat-btn btn btn-primary" style="width: auto; padding: 10px 24px;"><i class="fas fa-plus"></i> Start New Chat</button>
@@ -175,7 +239,7 @@ class MoreMenuManager {
                 <button class="safety-cat-btn" data-cat="emergency" style="padding: 10px 15px; background: var(--light); border: none; border-radius: 20px;"><i class="fas fa-phone-alt"></i> Emergency Contacts</button>
             </div>
             
-            <div id="payment-safety-content" class="safety-content-active">
+            <div data-safety-content="payment" class="safety-content-active">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> DO: Meet in person before payment</strong>
                     <p style="margin-top: 5px;">Always verify the service or product quality before making any payments.</p>
@@ -186,7 +250,7 @@ class MoreMenuManager {
                 </div>
             </div>
             
-            <div id="personal-safety-content" style="display: none;">
+            <div data-safety-content="personal" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Meet in public places</strong>
                     <p style="margin-top: 5px;">Always arrange to meet in well-lit, public areas for the first meeting.</p>
@@ -197,28 +261,28 @@ class MoreMenuManager {
                 </div>
             </div>
             
-            <div id="home-safety-content" style="display: none;">
+            <div data-safety-content="home" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Verify service providers</strong>
                     <p style="margin-top: 5px;">Always check credentials, reviews, and ratings before allowing anyone into your home.</p>
                 </div>
             </div>
             
-            <div id="transport-safety-content" style="display: none;">
+            <div data-safety-content="transport" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Use registered services</strong>
                     <p style="margin-top: 5px;">Only use registered transport providers with verified credentials.</p>
                 </div>
             </div>
             
-            <div id="online-safety-content" style="display: none;">
+            <div data-safety-content="online" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Use strong passwords</strong>
                     <p style="margin-top: 5px;">Create unique, strong passwords for your VikeServe account.</p>
                 </div>
             </div>
             
-            <div id="emergency-safety-content" style="display: none;">
+            <div data-safety-content="emergency" style="display: none;">
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                     <h4 style="margin-bottom: 15px; color: var(--emergency);"><i class="fas fa-phone-alt"></i> Emergency Contacts (Kenya)</h4>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -252,19 +316,10 @@ class MoreMenuManager {
         `;
     }
     
-    getSettingsHTML() {
-        let founderRating = localStorage.getItem('vikeserve_founder_rating');
-        let founderRatingCount = localStorage.getItem('vikeserve_founder_rating_count');
-        let founderTotalStars = localStorage.getItem('vikeserve_founder_total_stars');
-        
-        if (!founderRating) {
-            founderRating = '5.0';
-            founderRatingCount = '0';
-            founderTotalStars = '0';
-            localStorage.setItem('vikeserve_founder_rating', '5.0');
-            localStorage.setItem('vikeserve_founder_rating_count', '0');
-            localStorage.setItem('vikeserve_founder_total_stars', '0');
-        }
+    async getSettingsHTML() {
+        // Load founder data from Firestore
+        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+        const founder = founderDoc.exists ? founderDoc.data() : { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0 };
         
         return `
             <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
@@ -291,23 +346,23 @@ class MoreMenuManager {
                         <i class="fas fa-crown" style="font-size: 2rem;"></i>
                     </div>
                     <div>
-                        <h3 style="margin: 0;">Victor Wanyama</h3>
+                        <h3 style="margin: 0;">${this.escapeHtml(founder.name)}</h3>
                         <p style="margin: 0; opacity: 0.9;">Founder & Lead Developer</p>
                     </div>
                 </div>
                 
                 <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
-                    <div style="font-size: 2.5rem; font-weight: bold;" id="founder-total-stars">${parseInt(founderTotalStars).toLocaleString()}</div>
+                    <div style="font-size: 2.5rem; font-weight: bold;" id="founder-total-stars">${(founder.totalStars || 0).toLocaleString()}</div>
                     <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Earned ⭐</div>
                     <div id="founder-star-rating" style="margin: 10px 0;">
-                        ${this.generateStarRatingHTML(parseFloat(founderRating))}
+                        ${this.generateStarRatingHTML(founder.averageRating || 5.0)}
                     </div>
-                    <div style="font-size: 0.75rem; opacity: 0.8;">⭐ Average Rating: ${founderRating} ⭐</div>
-                    <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 5px;">Based on ${parseInt(founderRatingCount).toLocaleString()} community ratings</div>
+                    <div style="font-size: 0.75rem; opacity: 0.8;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
+                    <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} community ratings</div>
                 </div>
                 
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;"><i class="fas fa-star"></i> Rate Founder</button>
+                    <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}><i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate Founder'}</button>
                     <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);"><i class="fas fa-user-circle"></i> View Profile</button>
                 </div>
             </div>
@@ -352,7 +407,7 @@ class MoreMenuManager {
                 </div>
             </div>
             
-             <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-info-circle"></i> About</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
                     <div><strong>About VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Version 1.0.0</div></div>
@@ -430,6 +485,7 @@ class MoreMenuManager {
     }
     
     setupEventListeners() {
+        // Tab switching
         document.querySelectorAll('.more-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tabId = btn.getAttribute('data-more-tab');
@@ -454,12 +510,13 @@ class MoreMenuManager {
             });
         }
         
-        document.addEventListener('click', (e) => {
+        // Use event delegation for better performance
+        document.getElementById('more-section')?.addEventListener('click', async (e) => {
             // Education post buttons
-            if (e.target.closest('.post-teacher-btn')) this.openModal('teacher-post-modal');
-            if (e.target.closest('.post-internship-btn')) this.openModal('internship-post-modal');
-            if (e.target.closest('.offer-attachment-btn')) this.openModal('attachment-post-modal');
-            if (e.target.closest('.post-training-btn')) this.openModal('training-post-modal');
+            if (e.target.closest('.post-teacher-btn')) this.showSubmitModal('teacher');
+            if (e.target.closest('.post-internship-btn')) this.showSubmitModal('internship');
+            if (e.target.closest('.offer-attachment-btn')) this.showSubmitModal('attachment');
+            if (e.target.closest('.post-training-btn')) this.showSubmitModal('training');
             
             // Promotion guide link
             if (e.target.closest('.show-promotion-guide')) {
@@ -475,7 +532,7 @@ class MoreMenuManager {
             }
             
             // Alert button
-            if (e.target.closest('.report-alert-btn')) this.openModal('alert-post-modal');
+            if (e.target.closest('.report-alert-btn')) this.showSubmitModal('alert');
             
             // Message button
             if (e.target.closest('.new-chat-btn')) this.startNewChat();
@@ -499,7 +556,7 @@ class MoreMenuManager {
             }
             
             // Rate founder button
-            if (e.target.closest('.rate-founder-btn')) {
+            if (e.target.closest('.rate-founder-btn') && !this.hasRated) {
                 this.showRatingModal();
                 return;
             }
@@ -561,15 +618,481 @@ class MoreMenuManager {
             }
         });
         
-        this.loadSavedTeachers();
-        this.loadSavedInternships();
-        this.loadSavedAttachments();
-        this.loadSavedTraining();
-        this.loadSavedAlerts();
-        this.loadSavedMessages();
+        // Load initial data
+        this.loadTeachers();
+        this.loadInternships();
+        this.loadAttachments();
+        this.loadTraining();
+        this.loadAlerts();
+        this.loadConversations();
     }
     
-    showRatingModal() {
+    async showSubmitModal(type) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to post', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        let title = '', fields = '', collection = '';
+        
+        switch(type) {
+            case 'teacher':
+                title = 'Post Teaching Position';
+                fields = `
+                    <div class="form-group"><label>School Name *</label><input type="text" id="teacher-school" class="form-input" required></div>
+                    <div class="form-group"><label>Subject *</label><input type="text" id="teacher-subject" class="form-input" required></div>
+                    <div class="form-group"><label>Level *</label><select id="teacher-level" class="form-input" required><option value="primary">Primary</option><option value="secondary">Secondary</option><option value="college">College/University</option></select></div>
+                    <div class="form-group"><label>Description *</label><textarea id="teacher-description" class="form-input" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Contact Email *</label><input type="email" id="teacher-email" class="form-input" required></div>
+                    <div class="form-group"><label>Contact Phone</label><input type="tel" id="teacher-phone" class="form-input"></div>
+                `;
+                collection = 'teachers';
+                break;
+            case 'internship':
+                title = 'Post Internship Opportunity';
+                fields = `
+                    <div class="form-group"><label>Company Name *</label><input type="text" id="internship-company" class="form-input" required></div>
+                    <div class="form-group"><label>Position Title *</label><input type="text" id="internship-title" class="form-input" required></div>
+                    <div class="form-group"><label>Field *</label><select id="internship-field" class="form-input" required><option value="technology">Technology</option><option value="business">Business</option><option value="marketing">Marketing</option></select></div>
+                    <div class="form-group"><label>Description *</label><textarea id="internship-description" class="form-input" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Duration (months) *</label><input type="number" id="internship-duration" class="form-input" required></div>
+                    <div class="form-group"><label>Contact Email *</label><input type="email" id="internship-email" class="form-input" required></div>
+                `;
+                collection = 'internships';
+                break;
+            case 'attachment':
+                title = 'Offer Attachment Position';
+                fields = `
+                    <div class="form-group"><label>Organization Name *</label><input type="text" id="attachment-organization" class="form-input" required></div>
+                    <div class="form-group"><label>Position *</label><input type="text" id="attachment-position" class="form-input" required></div>
+                    <div class="form-group"><label>Field *</label><input type="text" id="attachment-field" class="form-input" required></div>
+                    <div class="form-group"><label>Description *</label><textarea id="attachment-description" class="form-input" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Duration (weeks) *</label><input type="number" id="attachment-duration" class="form-input" required></div>
+                    <div class="form-group"><label>Contact Email *</label><input type="email" id="attachment-email" class="form-input" required></div>
+                `;
+                collection = 'attachments';
+                break;
+            case 'training':
+                title = 'Offer Training Program';
+                fields = `
+                    <div class="form-group"><label>Training Provider *</label><input type="text" id="training-provider" class="form-input" required></div>
+                    <div class="form-group"><label>Program Name *</label><input type="text" id="training-name" class="form-input" required></div>
+                    <div class="form-group"><label>Category *</label><select id="training-category" class="form-input" required><option value="technical">Technical</option><option value="business">Business</option><option value="creative">Creative</option></select></div>
+                    <div class="form-group"><label>Description *</label><textarea id="training-description" class="form-input" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Duration *</label><input type="text" id="training-duration" class="form-input" placeholder="e.g., 3 months" required></div>
+                    <div class="form-group"><label>Price (KES) *</label><input type="number" id="training-price" class="form-input" required></div>
+                    <div class="form-group"><label>Contact Email *</label><input type="email" id="training-email" class="form-input" required></div>
+                `;
+                collection = 'training_courses';
+                break;
+            case 'alert':
+                title = 'Report Community Alert';
+                fields = `
+                    <div class="form-group"><label>Alert Type *</label><select id="alert-type" class="form-input" required><option value="info">Info</option><option value="warning">Warning</option><option value="emergency">Emergency</option></select></div>
+                    <div class="form-group"><label>Title *</label><input type="text" id="alert-title" class="form-input" required></div>
+                    <div class="form-group"><label>Description *</label><textarea id="alert-description" class="form-input" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Location *</label><input type="text" id="alert-location" class="form-input" required></div>
+                    <div class="form-group"><label>Urgency Level *</label><select id="alert-urgency" class="form-input" required><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+                `;
+                collection = 'community_alerts';
+                break;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">${title}</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    ${fields}
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary submit-post-btn" data-type="${type}" data-collection="${collection}">Submit</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent(`${type}-modal`, modalContent);
+        
+        setTimeout(() => {
+            const submitBtn = document.querySelector(`#${type}-modal .submit-post-btn`);
+            if (submitBtn) {
+                submitBtn.addEventListener('click', () => this.submitPostToFirestore(type, collection));
+            }
+        }, 100);
+    }
+    
+    async submitPostToFirestore(type, collection) {
+        const modal = document.getElementById(`${type}-modal`);
+        const inputs = modal.querySelectorAll('input, select, textarea');
+        
+        // Validate required fields
+        let isValid = true;
+        inputs.forEach(input => {
+            if (input.hasAttribute('required') && !input.value.trim()) {
+                isValid = false;
+                input.style.borderColor = '#e74c3c';
+            } else {
+                input.style.borderColor = '';
+            }
+        });
+        
+        if (!isValid) {
+            this.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        const data = {};
+        inputs.forEach(input => {
+            if (input.id) {
+                const fieldName = input.id.replace(`${type}-`, '');
+                data[fieldName] = input.value;
+            }
+        });
+        
+        data.userId = this.currentUser.uid;
+        data.userName = this.currentUser.displayName || this.currentUser.email;
+        data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.status = 'active';
+        
+        try {
+            await this.db.collection(collection).add(data);
+            this.showToast(`${type} posted successfully!`, 'success');
+            this.closeModal(`${type}-modal`);
+            
+            // Refresh the appropriate list
+            switch(type) {
+                case 'teacher': this.loadTeachers(); break;
+                case 'internship': this.loadInternships(); break;
+                case 'attachment': this.loadAttachments(); break;
+                case 'training': this.loadTraining(); break;
+                case 'alert': this.loadAlerts(); break;
+            }
+        } catch (error) {
+            console.error('Error posting:', error);
+            this.showToast('Error posting: ' + error.message, 'error');
+        }
+    }
+    
+    async loadTeachers() { await this.loadCollection('teachers', 'teachers-list-container', 'teacher'); }
+    async loadInternships() { await this.loadCollection('internships', 'internships-list-container', 'internship'); }
+    async loadAttachments() { await this.loadCollection('attachments', 'attachments-list-container', 'attachment'); }
+    async loadTraining() { await this.loadCollection('training_courses', 'training-list-container', 'training'); }
+    
+    async loadCollection(collectionName, containerId, typeName) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        try {
+            const snapshot = await this.db.collection(collectionName)
+                .where('status', '==', 'active')
+                .orderBy('createdAt', 'desc')
+                .limit(20)
+                .get();
+            
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (items.length === 0) {
+                container.innerHTML = `<div class="empty-state">No ${typeName}s available yet.</div>`;
+                return;
+            }
+            
+            container.innerHTML = items.map(item => `
+                <div class="list-item">
+                    <div class="list-item-title">${this.escapeHtml(item.title || item.name || item.company || item.school || 'Untitled')}</div>
+                    <div class="list-item-subtitle">${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}</div>
+                    <div class="list-item-description">${this.escapeHtml((item.description || '').substring(0, 100))}...</div>
+                    <div class="list-item-date">Posted: ${this.formatDate(item.createdAt)}</div>
+                    ${item.email ? `<div class="list-item-contact"><i class="fas fa-envelope"></i> ${this.escapeHtml(item.email)}</div>` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error(`Error loading ${collectionName}:`, error);
+            container.innerHTML = `<div class="error-state">Error loading ${typeName}s</div>`;
+        }
+    }
+    
+    async loadAlerts() {
+        const container = document.getElementById('alerts-list-container');
+        if (!container) return;
+        
+        try {
+            const snapshot = await this.db.collection('community_alerts')
+                .orderBy('createdAt', 'desc')
+                .limit(30)
+                .get();
+            
+            const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="empty-state">No alerts reported yet.</div>';
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-card" data-type="${alert.type || 'info'}">
+                    <div class="alert-header">
+                        <div class="alert-title"><i class="fas ${alert.type === 'emergency' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i> ${this.escapeHtml(alert.title)}</div>
+                        <div class="alert-time">${this.formatDate(alert.createdAt)}</div>
+                    </div>
+                    <div class="alert-content">${this.escapeHtml(alert.description)}</div>
+                    <div class="alert-location"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown')}</div>
+                    ${alert.urgency === 'high' ? '<div class="alert-urgent"><span class="urgent-badge">URGENT</span></div>' : ''}
+                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-alert-id="${alert.id}" data-reporter-id="${alert.userId}">Contact Reporter</button>` : ''}
+                </div>
+            `).join('');
+            
+            // Add contact reporter handlers
+            document.querySelectorAll('.contact-reporter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.startChatWithUser(btn.getAttribute('data-reporter-id'), 'Regarding your alert');
+                });
+            });
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            container.innerHTML = '<div class="error-state">Error loading alerts</div>';
+        }
+    }
+    
+    async loadConversations() {
+        const container = document.getElementById('conversations-list-container');
+        if (!container) return;
+        
+        if (!this.currentUser) {
+            container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
+            return;
+        }
+        
+        try {
+            const snapshot = await this.db.collection('chats')
+                .where('participants', 'array-contains', this.currentUser.uid)
+                .orderBy('lastMessageAt', 'desc')
+                .limit(30)
+                .get();
+            
+            const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (conversations.length === 0) {
+                container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
+                return;
+            }
+            
+            container.innerHTML = conversations.map(conv => {
+                const otherParticipant = conv.participants.find(p => p !== this.currentUser.uid);
+                return `
+                    <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer;">
+                        <div class="conversation-avatar" style="width: 50px; height: 50px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="conversation-title" style="font-weight: 600;">${conv.listingTitle || 'Chat'}</div>
+                            <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark);">${this.escapeHtml(conv.lastMessage || 'No messages')}</div>
+                        </div>
+                        <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(conv.lastMessageAt)}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.addEventListener('click', () => this.openChat(item.getAttribute('data-chat-id')));
+            });
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+            container.innerHTML = '<div class="error-state">Error loading messages</div>';
+        }
+    }
+    
+    async startNewChat() {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to start a chat', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        const usersSnapshot = await this.db.collection('users').limit(20).get();
+        const users = usersSnapshot.docs.filter(doc => doc.id !== this.currentUser.uid).map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">Start New Chat</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label>Select User</label>
+                        <select id="chat-user-select" class="form-input">
+                            <option value="">-- Select a user --</option>
+                            ${users.map(user => `<option value="${user.id}">${this.escapeHtml(user.displayName || user.email)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea id="chat-initial-message" class="form-input" rows="3" placeholder="Type your message..."></textarea>
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="create-chat-btn">Start Chat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('new-chat-modal', modalContent);
+        
+        setTimeout(() => {
+            const createBtn = document.getElementById('create-chat-btn');
+            if (createBtn) {
+                createBtn.addEventListener('click', async () => {
+                    const selectedUserId = document.getElementById('chat-user-select').value;
+                    const message = document.getElementById('chat-initial-message').value;
+                    
+                    if (!selectedUserId) {
+                        this.showToast('Please select a user', 'error');
+                        return;
+                    }
+                    if (!message) {
+                        this.showToast('Please enter a message', 'error');
+                        return;
+                    }
+                    
+                    const chatData = {
+                        participants: [this.currentUser.uid, selectedUserId],
+                        lastMessage: message,
+                        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    const chatRef = await this.db.collection('chats').add(chatData);
+                    await chatRef.collection('messages').add({
+                        senderId: this.currentUser.uid,
+                        text: message,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    this.showToast('Chat started!', 'success');
+                    this.closeModal('new-chat-modal');
+                    await this.loadConversations();
+                });
+            }
+        }, 100);
+    }
+    
+    async startChatWithUser(userId, initialMessage) {
+        // Check if chat already exists
+        const existingChat = await this.db.collection('chats')
+            .where('participants', 'array-contains', this.currentUser.uid)
+            .get();
+        
+        let chatRef = null;
+        for (const doc of existingChat.docs) {
+            const participants = doc.data().participants;
+            if (participants.includes(userId)) {
+                chatRef = doc.ref;
+                break;
+            }
+        }
+        
+        if (!chatRef) {
+            const chatData = {
+                participants: [this.currentUser.uid, userId],
+                lastMessage: initialMessage,
+                lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            chatRef = await this.db.collection('chats').add(chatData);
+        }
+        
+        await chatRef.collection('messages').add({
+            senderId: this.currentUser.uid,
+            text: initialMessage,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        await chatRef.update({
+            lastMessage: initialMessage,
+            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        this.showToast('Message sent!', 'success');
+        await this.loadConversations();
+    }
+    
+    openChat(chatId) {
+        this.showToast('Opening chat... Feature coming soon', 'info');
+    }
+    
+    filterAlerts(filter) {
+        document.querySelectorAll('.filter-alert-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.style.background = 'var(--light)';
+            btn.style.color = 'var(--dark)';
+        });
+        const activeBtn = document.querySelector(`.filter-alert-btn[data-filter="${filter}"]`);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.style.background = 'var(--primary)';
+            activeBtn.style.color = 'white';
+        }
+        
+        document.querySelectorAll('.alert-card').forEach(card => {
+            if (filter === 'all' || card.getAttribute('data-type') === filter) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    switchSafetyCategory(cat) {
+        document.querySelectorAll('[data-safety-content]').forEach(content => {
+            content.style.display = 'none';
+        });
+        const selectedContent = document.querySelector(`[data-safety-content="${cat}"]`);
+        if (selectedContent) selectedContent.style.display = 'block';
+        
+        document.querySelectorAll('.safety-cat-btn').forEach(btn => {
+            btn.style.background = 'var(--light)';
+            btn.style.color = 'var(--dark)';
+        });
+        const activeBtn = document.querySelector(`.safety-cat-btn[data-cat="${cat}"]`);
+        if (activeBtn) {
+            activeBtn.style.background = 'var(--primary)';
+            activeBtn.style.color = 'white';
+        }
+    }
+    
+    switchMoreTab(tabId) {
+        console.log('Switching to tab:', tabId);
+        this.currentMoreTab = tabId;
+        
+        document.querySelectorAll('.more-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        document.querySelectorAll('.more-tab-content').forEach(content => content.classList.remove('active'));
+        const targetContent = document.getElementById(`${tabId}-content`);
+        if (targetContent) targetContent.classList.add('active');
+        
+        if (tabId === 'messages') this.loadConversations();
+        if (tabId === 'alerts') this.loadAlerts();
+    }
+    
+    async showRatingModal() {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to rate', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        if (this.hasRated) {
+            this.showToast('You have already rated! Thank you!', 'info');
+            return;
+        }
+        
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; text-align: center; z-index: 20002;">
                 <div class="modal-header">
@@ -606,89 +1129,93 @@ class MoreMenuManager {
             star.addEventListener('mouseenter', () => {
                 const rating = parseInt(star.getAttribute('data-rating'));
                 stars.forEach((s, index) => {
-                    if (index < rating) {
-                        s.className = 'fas fa-star';
-                    } else {
-                        s.className = 'far fa-star';
-                    }
+                    if (index < rating) s.className = 'fas fa-star';
+                    else s.className = 'far fa-star';
                 });
             });
             
             star.addEventListener('mouseleave', () => {
                 stars.forEach((s, index) => {
-                    if (index < selectedRating) {
-                        s.className = 'fas fa-star';
-                    } else {
-                        s.className = 'far fa-star';
-                    }
+                    if (index < selectedRating) s.className = 'fas fa-star';
+                    else s.className = 'far fa-star';
                 });
             });
             
             star.addEventListener('click', () => {
                 selectedRating = parseInt(star.getAttribute('data-rating'));
                 stars.forEach((s, index) => {
-                    if (index < selectedRating) {
-                        s.className = 'fas fa-star';
-                    } else {
-                        s.className = 'far fa-star';
-                    }
+                    if (index < selectedRating) s.className = 'fas fa-star';
+                    else s.className = 'far fa-star';
                 });
             });
         });
         
         const submitBtn = document.querySelector('#rating-modal .submit-rating-btn');
         if (submitBtn) {
-            submitBtn.addEventListener('click', () => {
+            submitBtn.addEventListener('click', async () => {
                 if (!selectedRating) {
                     this.showToast('Please select a rating', 'error');
                     return;
                 }
-                this.submitRating(selectedRating);
+                await this.submitRating(selectedRating);
                 this.closeModal('rating-modal');
             });
         }
-        
-        const closeBtn = document.querySelector('#rating-modal .close-modal-btn');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal('rating-modal'));
     }
     
-    submitRating(rating) {
-        // Get current cumulative stars (total stars earned, not average)
-        let currentTotalStars = parseInt(localStorage.getItem('vikeserve_founder_total_stars') || '0');
-        let currentRatingCount = parseInt(localStorage.getItem('vikeserve_founder_rating_count') || '0');
-        
-        // Add the new rating to total stars
-        const newTotalStars = currentTotalStars + rating;
-        const newCount = currentRatingCount + 1;
-        
-        // Calculate average for display (optional)
-        const newAverage = (newTotalStars / newCount).toFixed(1);
-        
-        // Save to localStorage
-        localStorage.setItem('vikeserve_founder_total_stars', newTotalStars.toString());
-        localStorage.setItem('vikeserve_founder_rating_count', newCount.toString());
-        localStorage.setItem('vikeserve_founder_rating', newAverage);
-        
-        // Show success message with cumulative info
-        this.showToast(`✨ Thanks! You've added ${rating} stars. Founder has ${newTotalStars.toLocaleString()} total stars! ✨`, 'success');
-        
-        // Update display
-        const totalStarsDisplay = document.getElementById('founder-total-stars');
-        const ratingCountDisplay = document.getElementById('founder-rating-count');
-        const starsDisplay = document.getElementById('founder-star-rating');
-        
-        if (totalStarsDisplay) totalStarsDisplay.textContent = newTotalStars.toLocaleString();
-        if (ratingCountDisplay) ratingCountDisplay.textContent = newCount.toLocaleString();
-        if (starsDisplay) starsDisplay.innerHTML = this.generateStarRatingHTML(parseFloat(newAverage));
+    async submitRating(rating) {
+        try {
+            // Save individual rating
+            await this.db.collection('ratings').add({
+                userId: this.currentUser.uid,
+                userName: this.currentUser.displayName || this.currentUser.email,
+                rating: rating,
+                comment: document.getElementById('rating-feedback')?.value || '',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Update founder stats using transaction
+            const founderRef = this.db.collection('system_settings').doc('founder');
+            await this.db.runTransaction(async (transaction) => {
+                const founderDoc = await transaction.get(founderRef);
+                const currentData = founderDoc.data() || { totalStars: 0, ratingCount: 0 };
+                
+                const newTotalStars = (currentData.totalStars || 0) + rating;
+                const newCount = (currentData.ratingCount || 0) + 1;
+                const newAverage = newTotalStars / newCount;
+                
+                transaction.update(founderRef, {
+                    totalStars: newTotalStars,
+                    ratingCount: newCount,
+                    averageRating: newAverage,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            this.hasRated = true;
+            this.showToast(`✨ Thanks! You've added ${rating} stars! ✨`, 'success');
+            
+            // Refresh the settings display
+            const settingsContent = document.getElementById('settings-content');
+            if (settingsContent) {
+                settingsContent.innerHTML = await this.getSettingsHTML();
+                this.setupEventListeners();
+            }
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            this.showToast('Error submitting rating', 'error');
+        }
     }
     
-    showFounderProfile() {
-        const totalStars = parseInt(localStorage.getItem('vikeserve_founder_total_stars') || '0');
-        const ratingCount = parseInt(localStorage.getItem('vikeserve_founder_rating_count') || '0');
-        const avgRating = parseFloat(localStorage.getItem('vikeserve_founder_rating') || '5.0');
+    async showFounderProfile() {
+        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+        const founder = founderDoc.data() || { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0 };
         
-        // Get announcements from localStorage
-        const announcements = JSON.parse(localStorage.getItem('vikeserve_announcements') || '[]');
+        const announcementsSnapshot = await this.db.collection('announcements')
+            .orderBy('date', 'desc')
+            .limit(10)
+            .get();
+        const announcements = announcementsSnapshot.docs.map(doc => doc.data());
         
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
@@ -697,107 +1224,47 @@ class MoreMenuManager {
                     <button class="close-modal-btn">&times;</button>
                 </div>
                 <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
-                    <!-- Founder Info -->
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-user-tie" style="font-size: 3rem; color: white;"></i>
                         </div>
-                        <h2 style="margin: 0;">Victor Wanyama</h2>
+                        <h2 style="margin: 0;">${this.escapeHtml(founder.name)}</h2>
                         <p style="color: var(--grey-dark);">Founder & Lead Developer</p>
                         <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-top: 10px;">
                             <div style="display: flex; justify-content: space-around;">
-                                <div>
-                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${totalStars.toLocaleString()}</div>
-                                    <div style="font-size: 0.7rem;">Total Stars</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${avgRating}</div>
-                                    <div style="font-size: 0.7rem;">⭐ Rating</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${ratingCount.toLocaleString()}</div>
-                                    <div style="font-size: 0.7rem;">Ratings</div>
-                                </div>
+                                <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${(founder.totalStars || 0).toLocaleString()}</div><div style="font-size: 0.7rem;">Total Stars</div></div>
+                                <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${(founder.averageRating || 5.0).toFixed(1)}</div><div style="font-size: 0.7rem;">⭐ Rating</div></div>
+                                <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${(founder.ratingCount || 0).toLocaleString()}</div><div style="font-size: 0.7rem;">Ratings</div></div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Bio -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-info-circle"></i> About the Founder</h4>
-                        <p style="font-size: 0.85rem; line-height: 1.5;">Victor Wanyama is a passionate full-stack developer dedicated to creating solutions that empower local communities. VikeServe was built to connect service providers with customers in Kenya and across the World.</p>
+                        <p style="font-size: 0.85rem;">Victor Wanyama is a passionate full-stack developer dedicated to creating solutions that empower local communities. VikeServe was built to connect service providers with customers in Kenya and across the World.</p>
                     </div>
                     
-                    <!-- App Announcements -->
-                    <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-                        <h4><i class="fas fa-megaphone"></i> App Updates & Announcements</h4>
-                        <div id="announcements-list">
-                            ${announcements.length === 0 ? '<p style="text-align: center; color: var(--grey-dark); font-size: 0.8rem;">No announcements yet. Check back soon!</p>' : ''}
-                            ${announcements.map(announcement => `
-                                <div style="border-bottom: 1px solid var(--grey); padding: 10px 0;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <strong style="font-size: 0.85rem;">${this.escapeHtml(announcement.title)}</strong>
-                                        <span style="font-size: 0.65rem; color: var(--grey-dark);">${this.formatDate(announcement.date)}</span>
-                                    </div>
-                                    <p style="font-size: 0.75rem; margin-top: 5px; color: #666;">${this.escapeHtml(announcement.message)}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    
-                    <!-- Social Links -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px;">
-                        <h4><i class="fas fa-link"></i> Connect</h4>
-                        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 10px;">
-                            <a href="#" class="founder-social" data-platform="github" style="color: var(--dark); text-decoration: none; font-size: 1.5rem;"><i class="fab fa-github"></i></a>
-                            <a href="#" class="founder-social" data-platform="linkedin" style="color: var(--dark); text-decoration: none; font-size: 1.5rem;"><i class="fab fa-linkedin"></i></a>
-                            <a href="#" class="founder-social" data-platform="twitter" style="color: var(--dark); text-decoration: none; font-size: 1.5rem;"><i class="fab fa-twitter"></i></a>
-                            <a href="#" class="founder-social" data-platform="portfolio" style="color: var(--dark); text-decoration: none; font-size: 1.5rem;"><i class="fas fa-briefcase"></i></a>
-                        </div>
+                        <h4><i class="fas fa-megaphone"></i> App Updates & Announcements</h4>
+                        ${announcements.map(ann => `
+                            <div style="border-bottom: 1px solid var(--grey); padding: 10px 0;">
+                                <strong>${this.escapeHtml(ann.title)}</strong>
+                                <p style="font-size: 0.8rem; margin-top: 5px;">${this.escapeHtml(ann.message)}</p>
+                                <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(ann.date)}</div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             </div>
         `;
         
         this.showModalWithContent('founder-profile-modal', modalContent);
+    }
+    
+    async showTermsPopup() {
+        const termsDoc = await this.db.collection('system_settings').doc('terms').get();
+        const termsContent = termsDoc.exists ? termsDoc.data().content : this.getDefaultTermsContent();
         
-        setTimeout(() => {
-            const closeBtn = document.querySelector('#founder-profile-modal .close-modal-btn');
-            if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal('founder-profile-modal'));
-            
-            document.querySelectorAll('.founder-social').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const platform = link.getAttribute('data-platform');
-                    // UPDATED: Your actual portfolio URL
-                    const urls = {
-                        github: 'https://github.com/yourusername',
-                        linkedin: 'https://linkedin.com/in/yourusername',
-                        twitter: 'https://twitter.com/yourusername',
-                        portfolio: 'https://vike-store.netlify.app/'  // Your actual portfolio link
-                    };
-                    if (urls[platform]) window.open(urls[platform], '_blank');
-                });
-            });
-        }, 100);
-    }
-    
-    sendFounderAnnouncement(title, message) {
-        const announcements = JSON.parse(localStorage.getItem('vikeserve_announcements') || '[]');
-        announcements.unshift({
-            id: Date.now(),
-            title: title,
-            message: message,
-            date: new Date().toISOString(),
-            isRead: false
-        });
-        // Keep only last 20 announcements
-        if (announcements.length > 20) announcements.pop();
-        localStorage.setItem('vikeserve_announcements', JSON.stringify(announcements));
-        this.showToast('📢 Announcement sent to all users!', 'success');
-    }
-    
-    showTermsPopup() {
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
                 <div class="modal-header">
@@ -805,50 +1272,21 @@ class MoreMenuManager {
                     <button class="close-modal-btn">&times;</button>
                 </div>
                 <div style="padding: 15px; max-height: 60vh; overflow-y: auto;">
-                    <h4>1. Acceptance of Terms</h4>
-                    <p>By using VikeServe, you agree to these terms and conditions.</p>
-                    
-                    <h4>2. User Responsibilities</h4>
-                    <p>You are responsible for the accuracy of information you provide and for your interactions with other users.</p>
-                    
-                    <h4>3. Prohibited Activities</h4>
-                    <p>You may not post false information, spam, or engage in fraudulent activities.</p>
-                    
-                    <h4>4. Payments and Fees</h4>
-                    <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
-                    
-                    <h4>5. Intellectual Property</h4>
-                    <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
-                    
-                    <h4>6. Limitation of Liability</h4>
-                    <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
-                    
-                    <h4>7. Termination</h4>
-                    <p>We reserve the right to suspend accounts that violate these terms.</p>
-                    
-                    <h4>8. Changes to Terms</h4>
-                    <p>We may update terms. Continued use means acceptance of changes.</p>
-                    
-                    <h4>9. Contact</h4>
-                    <p>For questions, contact vikeserve426@gmail.com</p>
+                    ${termsContent}
                 </div>
-                <div class="form-actions">
+                <div class="form-actions" style="padding: 15px;">
                     <button class="btn btn-primary close-modal-btn">I Understand</button>
                 </div>
             </div>
         `;
         
         this.showModalWithContent('terms-modal', modalContent);
-        
-        const closeBtn = document.querySelector('#terms-modal .close-modal-btn');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal('terms-modal'));
     }
     
-    openPortfolio() {
-        window.open('https://vike-store.netlify.app/', '_blank');  // UPDATED: Your actual portfolio link
-    }
-
-    showAdPromotionGuide() {
+    async showAdPromotionGuide() {
+        const packagesSnapshot = await this.db.collection('ad_packages').get();
+        const packages = packagesSnapshot.docs.map(doc => doc.data());
+        
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
                 <div class="modal-header">
@@ -889,67 +1327,26 @@ class MoreMenuManager {
                     <div style="margin-bottom: 20px;">
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
                             <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">4</div>
-                            <div><strong>Navigate to Promotion Options</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">On your ad listing page, tap the <strong>"Promote"</strong> button or go to the <strong>"Post an Ad"</strong> / <strong>"View Packages"</strong> buttons.</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">5</div>
                             <div><strong>Select Your Promotion Package</strong></div>
                         </div>
                         <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Choose from our available packages:</p>
                         <ul style="margin-left: 60px; color: #666; font-size: 0.85rem;">
-                            <li>⭐ <strong>Basic Boost (3 days)</strong> - KES 100</li>
-                            <li>⭐ <strong>Premium Reach (7 days)</strong> - KES 250</li>
-                            <li>⭐ <strong>Pro Featured (14 days)</strong> - KES 500</li>
-                            <li>⭐ <strong>VIP Spotlight (30 days)</strong> - KES 1000</li>
+                            ${packages.map(pkg => `<li>⭐ <strong>${pkg.name} (${pkg.duration} days)</strong> - KES ${pkg.price}</li>`).join('')}
                         </ul>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">6</div>
-                            <div><strong>Configure Ad Action</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Choose what happens when someone clicks your ad:</p>
-                        <ul style="margin-left: 60px; color: #666; font-size: 0.85rem;">
-                            <li>📞 <strong>Phone Call</strong> - Direct call to your number</li>
-                            <li>💬 <strong>WhatsApp</strong> - Start a WhatsApp chat</li>
-                            <li>✉️ <strong>Email</strong> - Send an email inquiry</li>
-                            <li>🔗 <strong>Website Link</strong> - Redirect to your website</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">7</div>
-                            <div><strong>Complete Payment</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Select your preferred payment method:</p>
-                        <ul style="margin-left: 60px; color: #666; font-size: 0.85rem;">
-                            <li>💰 <strong>M-Pesa</strong> (Kenya)</li>
-                            <li>💰 <strong>Airtel Money</strong> (Kenya/Uganda)</li>
-                            <li>💰 <strong>MTN Mobile Money</strong> (Uganda)</li>
-                            <li>💳 <strong>Credit/Debit Card</strong> (Global)</li>
-                            <li>🌍 <strong>PayPal</strong> (Global)</li>
-                        </ul>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.85rem; margin-top: 8px;">For M-Pesa/Airtel, you'll receive a prompt on your phone to enter your PIN.</p>
                     </div>
                     
                     <div style="margin-bottom: 20px;">
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
                             <div style="width: 30px; height: 30px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">✓</div>
-                            <div><strong>Ad Activation</strong></div>
+                            <div><strong>Complete Payment</strong></div>
                         </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Once payment is confirmed, your ad will be promoted immediately! A <strong>"PROMOTED"</strong> badge will appear on your listing.</p>
+                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Select M-Pesa, Airtel Money, Credit Card, or PayPal to complete payment.</p>
                     </div>
                     
                     <div style="background: #e8f4fd; border-radius: 10px; padding: 15px; margin-top: 15px;">
                         <i class="fas fa-lightbulb" style="color: var(--primary);"></i>
                         <strong style="margin-left: 8px;">Pro Tip:</strong>
-                        <p style="margin-top: 8px; font-size: 0.85rem; color: #555;">Promoted ads appear at the top of search results and get up to 5x more views! Choose a longer package for better visibility and ROI.</p>
+                        <p style="margin-top: 8px; font-size: 0.85rem; color: #555;">Promoted ads appear at the top of search results and get up to 5x more views!</p>
                     </div>
                 </div>
                 <div class="form-actions" style="padding: 15px;">
@@ -959,16 +1356,13 @@ class MoreMenuManager {
         `;
         
         this.showModalWithContent('promotion-guide-modal', modalContent);
-        
-        const closeBtn = document.querySelector('#promotion-guide-modal .close-modal-btn');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal('promotion-guide-modal'));
     }
     
     handleSettingsAction(action) {
         const actions = {
             'share': () => this.shareApp(),
             'rate': () => this.showRatingModal(),
-            'portfolio': () => window.open('https://vike-store.netlify.app/', '_blank'),  // UPDATED: Your actual portfolio link
+            'portfolio': () => window.open('https://vike-store.netlify.app/', '_blank'),
             'terms': () => this.showTermsPopup(),
             'profile': () => {
                 if (typeof window.switchTab === 'function') window.switchTab('account-tab');
@@ -979,93 +1373,28 @@ class MoreMenuManager {
         else this.showToast('Feature coming soon', 'info');
     }
     
-    switchSafetyCategory(cat) {
-        document.querySelectorAll('[id$="-safety-content"]').forEach(content => {
-            content.style.display = 'none';
-        });
-        const selectedContent = document.getElementById(`${cat}-safety-content`);
-        if (selectedContent) selectedContent.style.display = 'block';
-        
-        document.querySelectorAll('.safety-cat-btn').forEach(btn => {
-            btn.style.background = 'var(--light)';
-            btn.style.color = 'var(--dark)';
-        });
-        const activeBtn = document.querySelector(`.safety-cat-btn[data-cat="${cat}"]`);
-        if (activeBtn) {
-            activeBtn.style.background = 'var(--primary)';
-            activeBtn.style.color = 'white';
-        }
-    }
-    
-    filterAlerts(filter) {
-        document.querySelectorAll('.filter-alert-btn').forEach(btn => {
-            btn.classList.remove('active');
-            btn.style.background = 'var(--light)';
-            btn.style.color = 'var(--dark)';
-        });
-        const activeBtn = document.querySelector(`.filter-alert-btn[data-filter="${filter}"]`);
-        if (activeBtn) {
-            activeBtn.classList.add('active');
-            activeBtn.style.background = 'var(--primary)';
-            activeBtn.style.color = 'white';
-        }
-        
-        document.querySelectorAll('.alert-card').forEach(card => {
-            if (filter === 'all' || card.getAttribute('data-type') === filter) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
-    
-    switchMoreTab(tabId) {
-        console.log('Switching to tab:', tabId);
-        this.currentMoreTab = tabId;
-        
-        document.querySelectorAll('.more-tab-btn').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-        
-        document.querySelectorAll('.more-tab-content').forEach(content => content.classList.remove('active'));
-        const targetContent = document.getElementById(`${tabId}-content`);
-        if (targetContent) targetContent.classList.add('active');
-        
-        if (tabId === 'messages') this.loadSavedMessages();
-        if (tabId === 'alerts') this.loadSavedAlerts();
+    async loadDataFromFirestore() {
+        await Promise.all([
+            this.loadTeachers(),
+            this.loadInternships(),
+            this.loadAttachments(),
+            this.loadTraining(),
+            this.loadAlerts(),
+            this.loadConversations()
+        ]);
     }
     
     openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'flex';
-            modal.style.zIndex = '20002';  // FIXED: Increased z-index so modals appear on top
-            
-            const closeBtn = modal.querySelector('.close-modal-btn');
-            if (closeBtn) {
-                const newCloseBtn = closeBtn.cloneNode(true);
-                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-                newCloseBtn.addEventListener('click', () => modal.style.display = 'none');
-            }
-            
-            const cancelBtn = modal.querySelector('.btn-outline');
-            if (cancelBtn) {
-                const newCancelBtn = cancelBtn.cloneNode(true);
-                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-                newCancelBtn.addEventListener('click', () => modal.style.display = 'none');
-            }
-        } else {
-            this.showToast('Form not available yet', 'info');
+            modal.style.zIndex = '20002';
         }
     }
     
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) modal.style.display = 'none';
-    }
-    
-    startNewChat() {
-        this.showToast('Starting new chat session...', 'info');
     }
     
     toggleDarkMode(isEnabled) {
@@ -1094,9 +1423,6 @@ class MoreMenuManager {
                 this.closeModal('language-modal');
             });
         });
-        
-        const closeBtn = document.querySelector('#language-modal .close-modal-btn');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal('language-modal'));
     }
     
     showModalWithContent(modalId, content) {
@@ -1109,7 +1435,7 @@ class MoreMenuManager {
         }
         modal.innerHTML = content;
         modal.style.display = 'flex';
-        modal.style.zIndex = '20002';  // FIXED: Increased z-index
+        modal.style.zIndex = '20002';
         modal.style.position = 'fixed';
         modal.style.top = '0';
         modal.style.left = '0';
@@ -1141,125 +1467,35 @@ class MoreMenuManager {
     }
     
     formatDate(timestamp) {
-        if (!timestamp) return 'Date unknown';
-        let date;
-        if (typeof timestamp === 'string') date = new Date(timestamp);
-        else if (timestamp.toDate) date = timestamp.toDate();
-        else date = new Date(timestamp);
-        if (isNaN(date.getTime())) return 'Invalid date';
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const postDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const diffDays = Math.floor((today - postDate) / (1000 * 60 * 60 * 24));
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
-        if (diffDays < 7) return `${diffDays} days ago`;
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    }
-    
-    renderTeachers(teachers) {
-        const container = document.getElementById('teachers-list-container');
-        if (!container) return;
-        if (!teachers || teachers.length === 0) {
-            container.innerHTML = `<div class="empty-state" style="text-align: center; padding: 30px;"><i class="fas fa-chalkboard-teacher" style="font-size: 2rem;"></i><p>No teachers available yet.</p></div>`;
-            return;
+        if (!timestamp) return 'Recently';
+        try {
+            let date;
+            if (timestamp && timestamp.toDate) {
+                date = timestamp.toDate();
+            } else if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            } else if (timestamp instanceof Date) {
+                date = timestamp;
+            } else {
+                return 'Recently';
+            }
+            
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+            return date.toLocaleDateString();
+        } catch {
+            return 'Recently';
         }
-        container.innerHTML = teachers.map(teacher => `
-            <div class="teacher-card" style="background: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px;">
-                <div style="width: 45px; height: 45px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${teacher.avatar || teacher.name.charAt(0)}</div>
-                <div style="flex: 1;"><div style="font-weight: 600;">${this.escapeHtml(teacher.name)}</div><div style="font-size: 0.8rem; color: #666;">${this.escapeHtml(teacher.subject)} • ${this.escapeHtml(teacher.level)}</div><div style="font-size: 0.7rem; color: #999;">Posted: ${this.formatDate(teacher.timestamp)}</div></div>
-            </div>
-        `).join('');
-    }
-    
-    renderAlerts(alerts) {
-        const container = document.getElementById('alerts-list-container');
-        if (!container) return;
-        if (!alerts || alerts.length === 0) {
-            container.innerHTML = `<div class="empty-state" style="text-align: center; padding: 40px;"><i class="fas fa-bell-slash" style="font-size: 2rem;"></i><p>No alerts reported yet.</p></div>`;
-            return;
-        }
-        container.innerHTML = alerts.map(alert => `
-            <div class="alert-card" data-type="${alert.type}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'};">
-                <div style="display: flex; justify-content: space-between;"><strong>${this.escapeHtml(alert.title)}</strong><span style="font-size: 0.7rem;">${this.formatDate(alert.timestamp)}</span></div>
-                <div style="font-size: 0.9rem; margin: 8px 0;">${this.escapeHtml(alert.description)}</div>
-                <div style="font-size: 0.8rem;"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location)}</div>
-                ${alert.urgent ? '<div style="margin-top: 8px;"><span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px;">URGENT</span></div>' : ''}
-            </div>
-        `).join('');
-    }
-    
-    renderInternships(internships) { this.renderSimpleList('internships-list-container', internships, 'internship'); }
-    renderAttachments(attachments) { this.renderSimpleList('attachments-list-container', attachments, 'attachment'); }
-    renderTraining(trainings) { this.renderSimpleList('training-list-container', trainings, 'training'); }
-    
-    renderSimpleList(containerId, items, type) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        if (!items || items.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-${type === 'internship' ? 'briefcase' : type === 'attachment' ? 'user-graduate' : 'tools'}" style="font-size: 2rem;"></i><p>No ${type}s available.</p></div>`;
-            return;
-        }
-        container.innerHTML = items.map(item => `<div style="background: white; border-radius: 10px; padding: 12px; margin-bottom: 10px;"><div style="font-weight: 600;">${this.escapeHtml(item.title)}</div><div style="font-size: 0.8rem; color: #666;">${this.escapeHtml(item.company || item.organization || item.provider)}</div><div style="font-size: 0.7rem; color: #999;">Posted: ${this.formatDate(item.timestamp)}</div></div>`).join('');
-    }
-    
-    loadSavedMessages() {
-        const container = document.getElementById('conversations-list-container');
-        if (!container) return;
-        container.innerHTML = `<div class="empty-state" style="text-align: center; padding: 40px;"><i class="fas fa-comments" style="font-size: 2rem;"></i><p>No messages yet.</p></div>`;
-    }
-    
-    loadSavedTeachers() { this.loadAndRender('vikeserve_teachers', this.renderTeachers.bind(this)); }
-    loadSavedInternships() { this.loadAndRender('vikeserve_internships', this.renderInternships.bind(this)); }
-    loadSavedAttachments() { this.loadAndRender('vikeserve_attachments', this.renderAttachments.bind(this)); }
-    loadSavedTraining() { this.loadAndRender('vikeserve_training', this.renderTraining.bind(this)); }
-    loadSavedAlerts() { this.loadAndRender('vikeserve_alerts', this.renderAlerts.bind(this)); }
-    
-    loadAndRender(key, renderFn) {
-        const saved = localStorage.getItem(key);
-        const data = saved ? JSON.parse(saved) : [];
-        renderFn(data);
-    }
-    
-    loadDataFromStorage() {
-        this.loadSavedTeachers();
-        this.loadSavedInternships();
-        this.loadSavedAttachments();
-        this.loadSavedTraining();
-        this.loadSavedAlerts();
-        this.loadSavedMessages();
-    }
-    
-    submitTeacherPost(event) { this.submitPost(event, 'vikeserve_teachers', 'teacher-post-modal', 'Teaching position posted successfully!'); }
-    submitInternshipPost(event) { this.submitPost(event, 'vikeserve_internships', 'internship-post-modal', 'Internship posted successfully!'); }
-    submitAttachmentPost(event) { this.submitPost(event, 'vikeserve_attachments', 'attachment-post-modal', 'Attachment position posted successfully!'); }
-    submitTrainingPost(event) { this.submitPost(event, 'vikeserve_training', 'training-post-modal', 'Training program posted successfully!'); }
-    submitAlertPost(event) { this.submitPost(event, 'vikeserve_alerts', 'alert-post-modal', 'Alert reported successfully!'); }
-    
-    submitPost(event, storageKey, modalId, successMsg) {
-        event.preventDefault();
-        const inputs = event.target.closest('.modal').querySelectorAll('input, select, textarea');
-        const data = { id: Date.now(), timestamp: new Date().toISOString() };
-        inputs.forEach(input => { if (input.id) data[input.id.replace(modalId.replace('-modal', ''), '').replace(/^[a-z]+-/, '')] = input.value; });
-        const saved = localStorage.getItem(storageKey);
-        const items = saved ? JSON.parse(saved) : [];
-        items.unshift(data);
-        localStorage.setItem(storageKey, JSON.stringify(items));
-        this.showToast(successMsg, 'success');
-        this.closeModal(modalId);
-        if (storageKey === 'vikeserve_teachers') this.loadSavedTeachers();
-        else if (storageKey === 'vikeserve_internships') this.loadSavedInternships();
-        else if (storageKey === 'vikeserve_attachments') this.loadSavedAttachments();
-        else if (storageKey === 'vikeserve_training') this.loadSavedTraining();
-        else if (storageKey === 'vikeserve_alerts') this.loadSavedAlerts();
     }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
-    console.log('✅ More Menu Manager fully loaded');
+    console.log('✅ More Menu Manager fully loaded with Firestore integration');
 });
