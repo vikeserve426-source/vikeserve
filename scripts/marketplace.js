@@ -55,6 +55,24 @@ function formatPrice(item) {
     }
 }
 
+// ========== GENERATE STAR RATING ==========
+function generateStarRating(rating) {
+    if (!rating || rating === 0) return '';
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+        if (i <= fullStars) {
+            stars += '<i class="fas fa-star" style="font-size: 0.65rem;"></i>';
+        } else if (i === fullStars + 1 && hasHalfStar) {
+            stars += '<i class="fas fa-star-half-alt" style="font-size: 0.65rem;"></i>';
+        } else {
+            stars += '<i class="far fa-star" style="font-size: 0.65rem;"></i>';
+        }
+    }
+    return stars;
+}
+
 // ========== UPLOAD IMAGES TO FIREBASE STORAGE ==========
 async function uploadMarketplaceImages(files, itemId) {
     const imageUrls = [];
@@ -96,12 +114,12 @@ async function isAdPromoted(adId) {
     }
 }
 
-// ========== CREATE MARKETPLACE ITEM ELEMENT ==========
+// ========== CREATE MARKETPLACE ITEM ELEMENT (WITH SELLER PROFILE & RATINGS) ==========
 function createMarketplaceItemElement(item) {
     const div = document.createElement('div');
     div.className = 'market-item';
     div.setAttribute('data-ad-id', item.id);
-    div.setAttribute('data-category', item.category); // For filtering
+    div.setAttribute('data-category', item.category);
     
     let isPromoted = item.promoted === true;
     let daysLeft = 0;
@@ -123,6 +141,11 @@ function createMarketplaceItemElement(item) {
     const priceText = formatPrice(item);
     const daysLeftHtml = isPromoted && daysLeft > 0 ? `<div class="promoted-badge" style="margin-top: 4px;"><i class="fas fa-crown"></i> PROMOTED (${daysLeft}d left)</div>` : '';
     
+    // Generate seller rating stars
+    const sellerRating = item.sellerRating || item.rating || 0;
+    const sellerRatingCount = item.sellerRatingCount || item.ratingCount || 0;
+    const ratingStars = generateStarRating(sellerRating);
+    
     div.innerHTML = `
         <div class="market-item-img">
             ${item.images && item.images.length > 0 ? 
@@ -139,6 +162,18 @@ function createMarketplaceItemElement(item) {
             <div class="market-item-price">${priceText}</div>
             <div class="market-item-location">
                 <i class="fas fa-map-marker-alt"></i> ${escapeHtml(item.location || 'Location not specified')}
+            </div>
+            <!-- SELLER PROFILE SECTION - ADDED -->
+            <div class="market-item-seller" style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 0; border-top: 1px solid var(--grey); border-bottom: 1px solid var(--grey);">
+                <div class="seller-avatar" style="width: 28px; height: 28px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; font-weight: bold;">
+                    ${(item.userName || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div class="seller-info" style="flex: 1;">
+                    <div class="seller-name" style="font-size: 0.75rem; font-weight: 500;">${escapeHtml(item.userName || 'Unknown Seller')}</div>
+                    <div class="seller-rating" style="font-size: 0.65rem; color: var(--warning);">
+                        ${ratingStars} ${sellerRating > 0 ? `<span style="color: var(--grey-dark);">(${sellerRatingCount})</span>` : '<span style="color: var(--grey-dark);">No ratings</span>'}
+                    </div>
+                </div>
             </div>
             <div class="market-item-actions">
                 <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="width:100%;">
@@ -159,7 +194,7 @@ function createMarketplaceItemElement(item) {
     return div;
 }
 
-// ========== LOAD MARKETPLACE ITEMS FROM FIRESTORE ==========
+// ========== LOAD MARKETPLACE ITEMS FROM FIRESTORE (WITH SELLER RATINGS) ==========
 let lastVisibleItem = null;
 let isLoadingMore = false;
 let currentCategory = 'all';
@@ -193,11 +228,29 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
         const snapshot = await query.get();
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
+        // Fetch seller ratings for each item
+        const itemsWithRatings = await Promise.all(items.map(async (item) => {
+            if (item.userId) {
+                try {
+                    const userDoc = await firebase.firestore().collection('users').doc(item.userId).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        item.sellerRating = userData.averageRating || userData.rating || 0;
+                        item.sellerRatingCount = userData.totalReviews || userData.ratingCount || 0;
+                        item.userName = userData.displayName || userData.userName || item.userName;
+                    }
+                } catch (err) {
+                    console.error('Error fetching seller rating:', err);
+                }
+            }
+            return item;
+        }));
+        
         if (snapshot.docs.length > 0) {
             lastVisibleItem = snapshot.docs[snapshot.docs.length - 1];
         }
         
-        if (items.length === 0 && !loadMore) {
+        if (itemsWithRatings.length === 0 && !loadMore) {
             container.innerHTML = `
                 <div class="empty-marketplace" style="text-align: center; padding: 60px 20px; grid-column: span 2;">
                     <i class="fas fa-store-slash" style="font-size: 3rem; color: var(--grey-dark); margin-bottom: 15px;"></i>
@@ -221,7 +274,7 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
             container.innerHTML = '';
         }
         
-        items.forEach(item => {
+        itemsWithRatings.forEach(item => {
             container.appendChild(createMarketplaceItemElement(item));
         });
         
@@ -254,7 +307,7 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
     }
 }
 
-// ========== VIEW LISTING DETAILS ==========
+// ========== VIEW LISTING DETAILS (WITH SELLER PROFILE) ==========
 async function viewListingDetails(itemId) {
     try {
         const doc = await firebase.firestore().collection('marketplace_items').doc(itemId).get();
@@ -265,6 +318,25 @@ async function viewListingDetails(itemId) {
         
         const item = { id: doc.id, ...doc.data() };
         
+        // Fetch seller details
+        let sellerRating = 0;
+        let sellerRatingCount = 0;
+        let sellerName = item.userName || 'Unknown Seller';
+        
+        if (item.userId) {
+            try {
+                const userDoc = await firebase.firestore().collection('users').doc(item.userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    sellerRating = userData.averageRating || userData.rating || 0;
+                    sellerRatingCount = userData.totalReviews || userData.ratingCount || 0;
+                    sellerName = userData.displayName || userData.userName || sellerName;
+                }
+            } catch (err) {
+                console.error('Error fetching seller details:', err);
+            }
+        }
+        
         let isPromoted = item.promoted === true;
         let daysLeft = 0;
         
@@ -273,6 +345,8 @@ async function viewListingDetails(itemId) {
             daysLeft = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
             if (daysLeft <= 0) isPromoted = false;
         }
+        
+        const ratingStars = generateStarRating(sellerRating);
         
         const modalContent = `
             <div class="modal-content" style="max-width: 500px;">
@@ -289,6 +363,21 @@ async function viewListingDetails(itemId) {
                             ${item.images.map(img => `<img src="${img}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('')}
                         </div>
                     ` : ''}
+                    
+                    <!-- SELLER PROFILE SECTION IN MODAL -->
+                    <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px;">
+                        <div class="seller-avatar" style="width: 45px; height: 45px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;">
+                            ${sellerName.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="seller-info" style="flex: 1;">
+                            <div class="seller-name" style="font-weight: 600;">${escapeHtml(sellerName)}</div>
+                            <div class="seller-rating" style="font-size: 0.8rem; color: var(--warning);">
+                                ${ratingStars} ${sellerRating > 0 ? `<span style="color: var(--grey-dark);">(${sellerRatingCount} reviews)</span>` : '<span style="color: var(--grey-dark);">No ratings yet</span>'}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" style="padding: 6px 12px;">View Profile</button>
+                    </div>
+                    
                     <div style="background: var(--light); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
                         <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${formatPrice(item)}</div>
                         <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
@@ -329,6 +418,13 @@ async function viewListingDetails(itemId) {
                 whatsappBtn.addEventListener('click', () => whatsappSeller(whatsappBtn.getAttribute('data-phone')));
             }
             
+            const profileBtn = document.querySelector('#item-details-modal .view-seller-profile-btn');
+            if (profileBtn) {
+                profileBtn.addEventListener('click', () => {
+                    viewSellerProfile(profileBtn.getAttribute('data-seller-id'));
+                });
+            }
+            
             const editBtn = document.querySelector('#item-details-modal .edit-item-btn');
             if (editBtn) {
                 editBtn.addEventListener('click', () => editMarketplaceItem(editBtn.getAttribute('data-id')));
@@ -352,6 +448,70 @@ function contactSeller(phone) {
 function whatsappSeller(phone) {
     let formattedPhone = phone.replace(/^0/, '254').replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${formattedPhone}`, '_blank');
+}
+
+// ========== VIEW SELLER PROFILE ==========
+async function viewSellerProfile(sellerId) {
+    if (!sellerId) return;
+    
+    try {
+        const userDoc = await firebase.firestore().collection('users').doc(sellerId).get();
+        if (!userDoc.exists) {
+            showToast('Seller profile not found', 'error');
+            return;
+        }
+        
+        const seller = userDoc.data();
+        const ratingStars = generateStarRating(seller.averageRating || seller.rating || 0);
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-user-circle"></i> Seller Profile</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px; text-align: center;">
+                    <div class="seller-avatar" style="width: 80px; height: 80px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; margin: 0 auto 15px;">
+                        ${(seller.displayName || seller.userName || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <h3>${escapeHtml(seller.displayName || seller.userName || 'Unknown Seller')}</h3>
+                    <div class="seller-rating" style="margin: 10px 0;">
+                        ${ratingStars} ${(seller.averageRating || seller.rating || 0).toFixed(1)} (${seller.totalReviews || seller.ratingCount || 0} reviews)
+                    </div>
+                    ${seller.bio ? `<p style="margin: 10px 0; color: var(--grey-dark);">${escapeHtml(seller.bio)}</p>` : ''}
+                    ${seller.location ? `<p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(seller.location)}</p>` : ''}
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary contact-seller-from-profile-btn" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(seller.displayName || seller.userName)}">Contact Seller</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('seller-profile-modal', modalContent);
+        }
+        
+        setTimeout(() => {
+            const contactBtn = document.querySelector('#seller-profile-modal .contact-seller-from-profile-btn');
+            if (contactBtn) {
+                contactBtn.addEventListener('click', () => {
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('seller-profile-modal');
+                    }
+                    // Start chat with seller
+                    if (typeof window.startChatWithUser === 'function') {
+                        window.startChatWithUser(sellerId, `Hi! I'm interested in your items on VikeServe.`);
+                    } else {
+                        showToast('Chat feature coming soon', 'info');
+                    }
+                });
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading seller profile:', error);
+        showToast('Error loading seller profile', 'error');
+    }
 }
 
 // ========== EDIT AND DELETE FUNCTIONS ==========
@@ -945,5 +1105,6 @@ window.submitProperty = submitProperty;
 window.showLandPostModal = showLandPostModal;
 window.submitLandListing = submitLandListing;
 window.setupFilterButtons = setupFilterButtons;
+window.viewSellerProfile = viewSellerProfile;
 
 console.log('✅ Marketplace.js fully loaded with Firebase Storage integration');

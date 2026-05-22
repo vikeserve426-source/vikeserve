@@ -1,5 +1,6 @@
-// ========== INTASEND PAYMENT SYSTEM - COMPLETE FIXED VERSION ==========
+// ========== INTASEND PAYMENT SYSTEM - COMPLETE WITH WEBHOOK ==========
 // Supports: M-Pesa, Airtel Money, MTN Uganda, Visa/Mastercard, PayPal
+// Includes: Webhook verification, manual activation, payment status check
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -31,6 +32,7 @@ class VikeServeGlobalPayments {
                     this.userId = user.uid;
                     this.userEmail = user.email;
                     this.userPhone = user.phoneNumber || '';
+                    this.checkPendingPromotions(); // Check for pending promotions on login
                 } else {
                     this.userId = null;
                 }
@@ -39,6 +41,7 @@ class VikeServeGlobalPayments {
         
         await this.detectUserCountry();
         await this.loadPaymentHistoryFromFirestore();
+        await this.setupPaymentStatusListener();
         
         console.log('✅ Payment system ready! Country:', this.userCountry, 'Currency:', this.userCurrency);
     }
@@ -640,13 +643,11 @@ class VikeServeGlobalPayments {
     }
 
     async loadIntaSendCardElement() {
-        // Check if IntaSend script is loaded
         if (typeof IntaSend === 'undefined') {
             console.log('Loading IntaSend script...');
             await this.loadIntaSendScript();
         }
         
-        // Initialize IntaSend card element
         if (typeof IntaSend !== 'undefined') {
             try {
                 const intasend = new IntaSend({
@@ -692,7 +693,6 @@ class VikeServeGlobalPayments {
         expiresAt.setDate(expiresAt.getDate() + pkg.duration);
         
         try {
-            // Create payment record in Firestore
             const paymentRecord = {
                 transactionId: transactionId,
                 adId: ad.id,
@@ -709,7 +709,6 @@ class VikeServeGlobalPayments {
                 expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt)
             };
             
-            // For M-Pesa/Airtel, create STK push
             if (paymentMethod.type === 'mobile_money') {
                 const mpesaResult = await this.initiateMpesaPayment(paymentDetails.phone, pkg.price, transactionId);
                 if (mpesaResult.success) {
@@ -721,7 +720,6 @@ class VikeServeGlobalPayments {
                     throw new Error(mpesaResult.error || 'M-Pesa payment failed');
                 }
             } 
-            // For card payments via IntaSend
             else if (paymentMethod.id === 'card' && window.intasendCardElement) {
                 const intasend = new IntaSend({
                     publicAPIKey: this.config.intasend.publicKey,
@@ -745,7 +743,6 @@ class VikeServeGlobalPayments {
                     throw new Error(result.message || 'Card payment failed');
                 }
             }
-            // For PayPal - redirect to IntaSend checkout
             else if (paymentMethod.id === 'paypal') {
                 const intasend = new IntaSend({
                     publicAPIKey: this.config.intasend.publicKey,
@@ -762,8 +759,6 @@ class VikeServeGlobalPayments {
                 
                 paymentRecord.checkoutUrl = checkoutUrl;
                 await firebase.firestore().collection('transactions').add(paymentRecord);
-                
-                // Redirect to IntaSend checkout
                 window.location.href = checkoutUrl;
             }
             
@@ -808,7 +803,7 @@ class VikeServeGlobalPayments {
 
     async pollMpesaPaymentStatus(checkoutId, transactionId, ad, pkg, actionDetails) {
         let attempts = 0;
-        const maxAttempts = 30; // 30 seconds
+        const maxAttempts = 60; // 60 seconds
         
         const interval = setInterval(async () => {
             attempts++;
@@ -828,7 +823,7 @@ class VikeServeGlobalPayments {
                 } else if (result.status === 'FAILED' || attempts >= maxAttempts) {
                     clearInterval(interval);
                     if (typeof window.showToast === 'function') {
-                        window.showToast('Payment failed or timed out. Please try again.', 'error');
+                        window.showToast('Payment pending. You can activate manually from your dashboard.', 'warning');
                     }
                 }
             } catch (error) {
@@ -898,6 +893,187 @@ class VikeServeGlobalPayments {
         }
     }
 
+    // ========== NEW: SETUP PAYMENT STATUS LISTENER ==========
+    async setupPaymentStatusListener() {
+        // Listen for URL parameters (after PayPal/card redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
+        const status = urlParams.get('status') || urlParams.get('intasend_status');
+        
+        if (transactionRef && (status === 'complete' || status === 'SUCCESS')) {
+            console.log('Payment webhook detected for:', transactionRef);
+            await this.verifyAndActivatePayment(transactionRef);
+            // Remove query params from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    // ========== NEW: VERIFY PAYMENT AND ACTIVATE ==========
+    async verifyAndActivatePayment(transactionId) {
+        try {
+            // Find the transaction
+            const transactionQuery = await firebase.firestore()
+                .collection('transactions')
+                .where('transactionId', '==', transactionId)
+                .get();
+            
+            if (transactionQuery.empty) {
+                console.log('Transaction not found:', transactionId);
+                return false;
+            }
+            
+            const transactionDoc = transactionQuery.docs[0];
+            const transaction = transactionDoc.data();
+            
+            if (transaction.status === 'completed') {
+                console.log('Transaction already completed');
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Your ad is already activated!', 'success');
+                }
+                return true;
+            }
+            
+            // Verify with IntaSend API
+            const verificationResult = await this.verifyPaymentWithIntaSend(transactionId);
+            
+            if (verificationResult.verified) {
+                // Activate the promotion
+                await this.activatePromotion(
+                    transaction.adId,
+                    transaction.adTitle,
+                    {
+                        name: transaction.packageName,
+                        duration: transaction.duration,
+                        price: transaction.amount
+                    },
+                    transaction.action,
+                    transactionId,
+                    { name: transaction.paymentMethod }
+                );
+                
+                await transactionDoc.ref.update({
+                    status: 'verified',
+                    verifiedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                return true;
+            } else {
+                console.log('Payment verification failed');
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Payment verification pending. Please check back soon.', 'warning');
+                }
+                return false;
+            }
+            
+        } catch (error) {
+            console.error('Error verifying payment:', error);
+            return false;
+        }
+    }
+
+    // ========== NEW: VERIFY PAYMENT WITH INTASEND API ==========
+    async verifyPaymentWithIntaSend(transactionId) {
+        try {
+            // Check via IntaSend API
+            const response = await fetch(`https://api.intasend.com/v1/payment/status/${transactionId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${this.config.intasend.publicKey}`
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'COMPLETE' || result.state === 'SUCCESS') {
+                return { verified: true, data: result };
+            } else {
+                return { verified: false, data: result };
+            }
+        } catch (error) {
+            console.error('Error verifying with IntaSend:', error);
+            return { verified: false, error: error.message };
+        }
+    }
+
+    // ========== NEW: MANUAL ACTIVATION BUTTON (For User Dashboard) ==========
+    async showManualActivationModal() {
+        // Get user's pending transactions
+        const pendingTransactions = await firebase.firestore()
+            .collection('transactions')
+            .where('userId', '==', this.userId)
+            .where('status', 'in', ['pending', 'pending_mpesa'])
+            .get();
+        
+        const pendingList = pendingTransactions.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (pendingList.length === 0) {
+            if (typeof window.showToast === 'function') {
+                window.showToast('No pending payments to activate', 'info');
+            }
+            return;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-hourglass-half"></i> Pending Activations</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <p>Select a payment to activate:</p>
+                    <div class="pending-list">
+                        ${pendingList.map(tx => `
+                            <div class="pending-item" style="padding: 12px; border-bottom: 1px solid var(--grey); margin-bottom: 10px;">
+                                <div><strong>${this.escapeHtml(tx.adTitle)}</strong></div>
+                                <div>Package: ${tx.packageName} (${tx.duration} days)</div>
+                                <div>Amount: KES ${tx.amount}</div>
+                                <div>Payment: ${tx.paymentMethod}</div>
+                                <div>Status: ${tx.status}</div>
+                                <button class="btn btn-sm btn-primary activate-now-btn" data-tx-id="${tx.transactionId}" style="margin-top: 8px;">Activate Now</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('manual-activation-modal', modalContent);
+        }
+        
+        setTimeout(() => {
+            document.querySelectorAll('.activate-now-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const txId = btn.getAttribute('data-tx-id');
+                    await this.verifyAndActivatePayment(txId);
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('manual-activation-modal');
+                    }
+                });
+            });
+        }, 100);
+    }
+
+    // ========== NEW: CHECK PENDING PROMOTIONS ON LOGIN ==========
+    async checkPendingPromotions() {
+        if (!this.userId) return;
+        
+        const pendingTransactions = await firebase.firestore()
+            .collection('transactions')
+            .where('userId', '==', this.userId)
+            .where('status', 'in', ['pending', 'pending_mpesa'])
+            .get();
+        
+        if (pendingTransactions.size > 0) {
+            if (typeof window.showToast === 'function') {
+                window.showToast(`You have ${pendingTransactions.size} pending activation(s). Click here to activate.`, 'warning');
+            }
+            // You can add a click handler to show the manual activation modal
+        }
+    }
+
     async loadPaymentHistoryFromFirestore() {
         if (!this.userId) return;
         
@@ -947,13 +1123,22 @@ function showAdPackagesModal(adId = null) {
     payments.showAdPackagesModal(adId);
 }
 
-// Handle IntaSend webhook redirect (for card/PayPal payments)
+// NEW: Manual activation function for users
+function showManualActivationModal() {
+    const payments = getPaymentSystem();
+    payments.showManualActivationModal();
+}
+
+// Handle IntaSend webhook redirect
 if (window.location.search.includes('payment_status=success') || window.location.search.includes('intasend_status=complete')) {
     const urlParams = new URLSearchParams(window.location.search);
     const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
     if (transactionRef) {
         console.log('Payment webhook detected for:', transactionRef);
-        showToast('Payment successful! Your ad is being activated.', 'success');
+        setTimeout(() => {
+            const payments = getPaymentSystem();
+            payments.verifyAndActivatePayment(transactionRef);
+        }, 1000);
     }
 }
 
@@ -961,5 +1146,6 @@ if (window.location.search.includes('payment_status=success') || window.location
 window.VikeServeGlobalPayments = VikeServeGlobalPayments;
 window.getPaymentSystem = getPaymentSystem;
 window.showAdPackagesModal = showAdPackagesModal;
+window.showManualActivationModal = showManualActivationModal;
 
-console.log('✅ intasend-global.js with full IntaSend integration loaded');
+console.log('✅ intasend-global.js with full IntaSend integration and manual activation loaded');

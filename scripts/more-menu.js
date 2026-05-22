@@ -1,5 +1,5 @@
-// more-menu.js - COMPLETE FIXED VERSION with ALL Features Preserved
-// Issues fixed: Firebase integration, message tab, ratings, announcements, validation, etc.
+// more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
+// Issues fixed: Firebase integration, message tab, ratings, announcements, validation, FULL CHAT SYSTEM
 
 class MoreMenuManager {
     constructor() {
@@ -8,6 +8,9 @@ class MoreMenuManager {
         this.auth = firebase.auth();
         this.currentUser = null;
         this.hasRated = false;
+        this.currentChatUnsubscribe = null;
+        this.typingUnsubscribe = null;
+        this.lastMessageDoc = null;
         this.init();
     }
     
@@ -848,7 +851,7 @@ class MoreMenuManager {
             // Add contact reporter handlers
             document.querySelectorAll('.contact-reporter-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    this.startChatWithUser(btn.getAttribute('data-reporter-id'), 'Regarding your alert');
+                    this.startChatWithUser(btn.getAttribute('data-reporter-id'), 'Regarding your alert: ' + btn.closest('.alert-card')?.querySelector('.alert-title')?.innerText);
                 });
             });
         } catch (error) {
@@ -856,6 +859,8 @@ class MoreMenuManager {
             container.innerHTML = '<div class="error-state">Error loading alerts</div>';
         }
     }
+    
+    // ========== ENHANCED CHAT IMPLEMENTATION ==========
     
     async loadConversations() {
         const container = document.getElementById('conversations-list-container');
@@ -880,29 +885,560 @@ class MoreMenuManager {
                 return;
             }
             
+            // Get unread counts for each conversation
+            const unreadCounts = {};
+            for (const conv of conversations) {
+                const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
+                    .where('senderId', '!=', this.currentUser.uid)
+                    .where('read', '==', false)
+                    .get();
+                unreadCounts[conv.id] = unreadSnapshot.size;
+            }
+            
             container.innerHTML = conversations.map(conv => {
-                const otherParticipant = conv.participants.find(p => p !== this.currentUser.uid);
+                const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
+                const otherParticipant = conv.otherUserName || 'User';
+                const unreadCount = unreadCounts[conv.id] || 0;
+                const hasUnread = unreadCount > 0;
+                
                 return `
-                    <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer;">
+                    <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
                         <div class="conversation-avatar" style="width: 50px; height: 50px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
                             <i class="fas fa-user"></i>
                         </div>
                         <div style="flex: 1;">
-                            <div class="conversation-title" style="font-weight: 600;">${conv.listingTitle || 'Chat'}</div>
+                            <div class="conversation-title" style="font-weight: 600;">${this.escapeHtml(otherParticipant)}</div>
                             <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark);">${this.escapeHtml(conv.lastMessage || 'No messages')}</div>
                         </div>
-                        <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(conv.lastMessageAt)}</div>
+                        <div style="text-align: right;">
+                            <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(conv.lastMessageAt)}</div>
+                            ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
+                        </div>
                     </div>
                 `;
             }).join('');
             
+            // Add click handlers for conversations
             document.querySelectorAll('.conversation-item').forEach(item => {
-                item.addEventListener('click', () => this.openChat(item.getAttribute('data-chat-id')));
+                item.addEventListener('click', () => {
+                    this.openChat(item.getAttribute('data-chat-id'));
+                });
             });
+            
         } catch (error) {
             console.error('Error loading conversations:', error);
             container.innerHTML = '<div class="error-state">Error loading messages</div>';
         }
+    }
+    
+    async openChat(chatId) {
+        await this.loadChat(chatId);
+    }
+    
+    async loadChat(chatId) {
+        try {
+            // Get chat details
+            const chatDoc = await this.db.collection('chats').doc(chatId).get();
+            if (!chatDoc.exists) {
+                this.showToast('Chat not found', 'error');
+                return;
+            }
+            
+            const chatData = chatDoc.data();
+            const otherParticipantId = chatData.participants.find(p => p !== this.currentUser?.uid);
+            
+            // Get other participant's info
+            let otherParticipant = null;
+            if (otherParticipantId) {
+                const userDoc = await this.db.collection('users').doc(otherParticipantId).get();
+                if (userDoc.exists) {
+                    otherParticipant = userDoc.data();
+                } else {
+                    otherParticipant = { displayName: 'User', email: 'user@example.com' };
+                }
+            }
+            
+            this.showChatWindow(chatId, chatData, otherParticipant);
+            
+            // Mark messages as read
+            await this.markMessagesAsRead(chatId);
+            
+            // Set up real-time listener
+            this.setupChatListener(chatId);
+            
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            this.showToast('Error loading chat', 'error');
+        }
+    }
+    
+    showChatWindow(chatId, chatData, otherParticipant) {
+        // Remove existing chat container if any
+        const existingContainer = document.getElementById('chat-window-container');
+        if (existingContainer) {
+            existingContainer.remove();
+        }
+        
+        const otherName = otherParticipant?.displayName || otherParticipant?.email || 'User';
+        const otherAvatar = otherParticipant?.displayName?.charAt(0) || 'U';
+        
+        const chatHTML = `
+            <div id="chat-window-container" class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-header-info">
+                        <div class="chat-header-avatar">${this.escapeHtml(otherAvatar)}</div>
+                        <div class="chat-header-details">
+                            <h3>${this.escapeHtml(otherName)}</h3>
+                            <p id="chat-typing-status" style="font-size: 0.7rem; opacity: 0.8; margin: 0;"></p>
+                        </div>
+                    </div>
+                    <button class="chat-header-close" onclick="moreMenuManager.closeChatWindow()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="chat-messages-area" class="chat-messages-area">
+                    <div class="loading-spinner">Loading messages...</div>
+                </div>
+                
+                <div class="chat-input-area">
+                    <button class="chat-attach-btn" id="chat-attach-btn">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <textarea id="chat-message-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button class="chat-send-btn" id="chat-send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.createElementFromHTML(chatHTML));
+        
+        // Setup event listeners
+        setTimeout(() => {
+            const input = document.getElementById('chat-message-input');
+            const sendBtn = document.getElementById('chat-send-btn');
+            const attachBtn = document.getElementById('chat-attach-btn');
+            
+            if (input) {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendChatMessage(chatId);
+                    }
+                });
+                
+                // Auto-resize textarea
+                input.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+                });
+                
+                // Typing indicator
+                let typingTimeout;
+                input.addEventListener('input', () => {
+                    this.sendTypingIndicator(chatId, true);
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        this.sendTypingIndicator(chatId, false);
+                    }, 1000);
+                });
+            }
+            
+            if (sendBtn) {
+                sendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
+            }
+            
+            if (attachBtn) {
+                attachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
+            }
+        }, 100);
+        
+        // Load messages
+        this.loadChatMessages(chatId);
+    }
+    
+    createElementFromHTML(htmlString) {
+        const div = document.createElement('div');
+        div.innerHTML = htmlString.trim();
+        return div.firstChild;
+    }
+    
+    closeChatWindow() {
+        const container = document.getElementById('chat-window-container');
+        if (container) {
+            container.remove();
+        }
+        // Remove chat listener
+        if (this.currentChatUnsubscribe) {
+            this.currentChatUnsubscribe();
+            this.currentChatUnsubscribe = null;
+        }
+        if (this.typingUnsubscribe) {
+            this.typingUnsubscribe();
+            this.typingUnsubscribe = null;
+        }
+    }
+    
+    async loadChatMessages(chatId, loadMore = false) {
+        const messagesContainer = document.getElementById('chat-messages-area');
+        if (!messagesContainer) return;
+        
+        try {
+            let query = this.db.collection('chats').doc(chatId).collection('messages')
+                .orderBy('timestamp', 'desc')
+                .limit(50);
+            
+            if (loadMore && this.lastMessageDoc) {
+                query = query.startAfter(this.lastMessageDoc);
+            }
+            
+            const snapshot = await query.get();
+            
+            if (snapshot.empty && !loadMore) {
+                messagesContainer.innerHTML = `
+                    <div class="empty-state" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-comments" style="font-size: 2rem;"></i>
+                        <p>No messages yet. Start the conversation!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            this.lastMessageDoc = snapshot.docs[snapshot.docs.length - 1];
+            const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).reverse();
+            
+            if (!loadMore) {
+                messagesContainer.innerHTML = '';
+            } else {
+                // Preserve scroll position when loading older messages
+                const oldScrollHeight = messagesContainer.scrollHeight;
+                const oldScrollTop = messagesContainer.scrollTop;
+                
+                messages.forEach(msg => {
+                    const msgElement = this.createMessageElement(msg);
+                    messagesContainer.insertBefore(msgElement, messagesContainer.firstChild);
+                });
+                
+                // Adjust scroll position
+                const newScrollHeight = messagesContainer.scrollHeight;
+                messagesContainer.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+                return;
+            }
+            
+            messages.forEach(msg => {
+                messagesContainer.appendChild(this.createMessageElement(msg));
+            });
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Add load more button if there are more messages
+            if (snapshot.docs.length === 50) {
+                let loadMoreBtn = document.getElementById('chat-load-more-btn');
+                if (!loadMoreBtn) {
+                    loadMoreBtn = document.createElement('button');
+                    loadMoreBtn.id = 'chat-load-more-btn';
+                    loadMoreBtn.className = 'btn btn-sm btn-outline';
+                    loadMoreBtn.style.margin = '10px auto';
+                    loadMoreBtn.style.display = 'block';
+                    loadMoreBtn.innerHTML = '<i class="fas fa-arrow-up"></i> Load Older Messages';
+                    loadMoreBtn.addEventListener('click', () => this.loadChatMessages(chatId, true));
+                    messagesContainer.insertBefore(loadMoreBtn, messagesContainer.firstChild);
+                }
+            } else {
+                const loadMoreBtn = document.getElementById('chat-load-more-btn');
+                if (loadMoreBtn) loadMoreBtn.remove();
+            }
+            
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            messagesContainer.innerHTML = '<div class="error-state">Error loading messages</div>';
+        }
+    }
+    
+    createMessageElement(message) {
+        const isCurrentUser = message.senderId === this.currentUser?.uid;
+        const isSystem = message.senderId === 'system';
+        
+        const div = document.createElement('div');
+        div.className = `chat-message ${isSystem ? 'system' : (isCurrentUser ? 'sent' : 'received')}`;
+        
+        let attachmentsHtml = '';
+        if (message.attachments && message.attachments.length > 0) {
+            attachmentsHtml = message.attachments.map(att => {
+                if (att.type?.startsWith('image/')) {
+                    return `<div class="message-attachment" onclick="window.open('${att.url}', '_blank')">
+                        <img src="${att.url}" alt="${this.escapeHtml(att.name)}" style="max-width: 200px; max-height: 150px; border-radius: 12px; cursor: pointer;">
+                    </div>`;
+                } else {
+                    return `<div class="message-attachment file" onclick="window.open('${att.url}', '_blank')" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(0,0,0,0.1); border-radius: 8px; cursor: pointer;">
+                        <div class="attachment-icon"><i class="fas fa-file"></i></div>
+                        <div class="attachment-info" style="flex: 1;">
+                            <div class="attachment-name" style="font-size: 0.8rem; font-weight: 500;">${this.escapeHtml(att.name)}</div>
+                            <div class="attachment-size" style="font-size: 0.6rem; opacity: 0.7;">${this.formatFileSize(att.size)}</div>
+                        </div>
+                        <i class="fas fa-download"></i>
+                    </div>`;
+                }
+            }).join('');
+        }
+        
+        div.innerHTML = `
+            <div class="message-bubble">
+                ${attachmentsHtml}
+                ${message.text ? `<div class="message-text">${this.escapeHtml(message.text)}</div>` : ''}
+            </div>
+            <div class="message-time">
+                ${this.formatChatTime(message.timestamp)}
+                ${isCurrentUser ? `<span class="message-status"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check delivered'}"></i></span>` : ''}
+            </div>
+        `;
+        
+        return div;
+    }
+    
+    async sendChatMessage(chatId) {
+        const input = document.getElementById('chat-message-input');
+        const message = input?.value.trim();
+        
+        if (!message) return;
+        
+        // Disable send button while sending
+        const sendBtn = document.getElementById('chat-send-btn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px;"></div>';
+        }
+        
+        try {
+            const messageData = {
+                senderId: this.currentUser.uid,
+                senderName: this.currentUser.displayName || this.currentUser.email,
+                text: message,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                read: false
+            };
+            
+            await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
+            
+            // Update chat last message
+            await this.db.collection('chats').doc(chatId).update({
+                lastMessage: message,
+                lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastMessageBy: this.currentUser.uid
+            });
+            
+            // Clear input
+            input.value = '';
+            input.style.height = 'auto';
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            this.showToast('Error sending message', 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
+        }
+    }
+    
+    async uploadChatAttachment(chatId) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*,application/pdf,.doc,.docx,.txt';
+        input.multiple = true;
+        
+        input.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            this.showToast('Uploading attachments...', 'info');
+            
+            const attachments = [];
+            for (const file of files) {
+                try {
+                    const fileExtension = file.name.split('.').pop();
+                    const filename = `chat/${chatId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+                    const storageRef = firebase.storage().ref(filename);
+                    const snapshot = await storageRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    
+                    attachments.push({
+                        name: file.name,
+                        url: downloadURL,
+                        type: file.type,
+                        size: file.size
+                    });
+                } catch (error) {
+                    console.error('Error uploading attachment:', error);
+                    this.showToast(`Failed to upload ${file.name}`, 'error');
+                }
+            }
+            
+            if (attachments.length > 0) {
+                const messageData = {
+                    senderId: this.currentUser.uid,
+                    senderName: this.currentUser.displayName || this.currentUser.email,
+                    attachments: attachments,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false
+                };
+                
+                await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
+                
+                await this.db.collection('chats').doc(chatId).update({
+                    lastMessage: `📎 ${attachments.length} attachment(s)`,
+                    lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastMessageBy: this.currentUser.uid
+                });
+                
+                this.showToast(`${attachments.length} file(s) uploaded`, 'success');
+            }
+        };
+        
+        input.click();
+    }
+    
+    setupChatListener(chatId) {
+        // Remove existing listener
+        if (this.currentChatUnsubscribe) {
+            this.currentChatUnsubscribe();
+        }
+        
+        // Listen for new messages
+        this.currentChatUnsubscribe = this.db.collection('chats').doc(chatId).collection('messages')
+            .orderBy('timestamp', 'asc')
+            .onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'added') {
+                        const message = { id: change.doc.id, ...change.doc.data() };
+                        this.appendNewMessage(message);
+                        
+                        // Mark as read if not from current user
+                        if (message.senderId !== this.currentUser?.uid && !message.read) {
+                            this.markMessageAsRead(chatId, change.doc.id);
+                        }
+                    }
+                });
+            }, (error) => {
+                console.error('Chat listener error:', error);
+            });
+        
+        // Listen for typing indicators
+        const typingRef = this.db.collection('chats').doc(chatId).collection('typing').doc('status');
+        this.typingUnsubscribe = typingRef.onSnapshot((doc) => {
+            const typingStatus = document.getElementById('chat-typing-status');
+            if (typingStatus && doc.exists && doc.data().isTyping && doc.data().userId !== this.currentUser?.uid) {
+                typingStatus.textContent = 'typing...';
+                typingStatus.style.opacity = '0.7';
+                setTimeout(() => {
+                    if (typingStatus.textContent === 'typing...') {
+                        typingStatus.textContent = '';
+                    }
+                }, 1500);
+            } else if (typingStatus) {
+                typingStatus.textContent = '';
+            }
+        });
+    }
+    
+    async sendTypingIndicator(chatId, isTyping) {
+        if (!this.currentUser) return;
+        
+        const typingRef = this.db.collection('chats').doc(chatId).collection('typing').doc('status');
+        await typingRef.set({
+            userId: this.currentUser.uid,
+            isTyping: isTyping,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Auto-reset after 3 seconds
+        if (isTyping) {
+            setTimeout(async () => {
+                const doc = await typingRef.get();
+                if (doc.exists && doc.data().isTyping === true) {
+                    await typingRef.set({
+                        userId: this.currentUser.uid,
+                        isTyping: false,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }, 3000);
+        }
+    }
+    
+    async markMessagesAsRead(chatId) {
+        if (!this.currentUser) return;
+        
+        const messagesRef = this.db.collection('chats').doc(chatId).collection('messages');
+        const unreadSnapshot = await messagesRef
+            .where('senderId', '!=', this.currentUser.uid)
+            .where('read', '==', false)
+            .get();
+        
+        const batch = this.db.batch();
+        unreadSnapshot.forEach(doc => {
+            batch.update(doc.ref, { read: true });
+        });
+        await batch.commit();
+    }
+    
+    async markMessageAsRead(chatId, messageId) {
+        if (!this.currentUser) return;
+        
+        await this.db.collection('chats').doc(chatId).collection('messages').doc(messageId).update({
+            read: true
+        });
+    }
+    
+    appendNewMessage(message) {
+        const messagesContainer = document.getElementById('chat-messages-area');
+        if (!messagesContainer) return;
+        
+        // Remove empty state if present
+        if (messagesContainer.querySelector('.empty-state')) {
+            messagesContainer.innerHTML = '';
+        }
+        
+        const msgElement = this.createMessageElement(message);
+        messagesContainer.appendChild(msgElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    formatChatTime(timestamp) {
+        if (!timestamp) return '';
+        
+        let date;
+        if (timestamp && timestamp.toDate) {
+            date = timestamp.toDate();
+        } else if (typeof timestamp === 'string') {
+            date = new Date(timestamp);
+        } else if (timestamp instanceof Date) {
+            date = timestamp;
+        } else {
+            return '';
+        }
+        
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        
+        if (msgDate.getTime() === today.getTime()) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
     
     async startNewChat() {
@@ -912,8 +1448,16 @@ class MoreMenuManager {
             return;
         }
         
-        const usersSnapshot = await this.db.collection('users').limit(20).get();
-        const users = usersSnapshot.docs.filter(doc => doc.id !== this.currentUser.uid).map(doc => ({ id: doc.id, ...doc.data() }));
+        // Get users from Firestore (exclude current user)
+        const usersSnapshot = await this.db.collection('users').limit(30).get();
+        const users = usersSnapshot.docs
+            .filter(doc => doc.id !== this.currentUser.uid)
+            .map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (users.length === 0) {
+            this.showToast('No other users found', 'info');
+            return;
+        }
         
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002;">
@@ -959,29 +1503,63 @@ class MoreMenuManager {
                         return;
                     }
                     
-                    const chatData = {
-                        participants: [this.currentUser.uid, selectedUserId],
-                        lastMessage: message,
-                        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
+                    // Check if chat already exists
+                    const existingChat = await this.db.collection('chats')
+                        .where('participants', 'array-contains', this.currentUser.uid)
+                        .get();
                     
-                    const chatRef = await this.db.collection('chats').add(chatData);
+                    let chatRef = null;
+                    for (const doc of existingChat.docs) {
+                        const participants = doc.data().participants;
+                        if (participants.includes(selectedUserId)) {
+                            chatRef = doc.ref;
+                            break;
+                        }
+                    }
+                    
+                    if (!chatRef) {
+                        const chatData = {
+                            participants: [this.currentUser.uid, selectedUserId],
+                            lastMessage: message,
+                            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        chatRef = await this.db.collection('chats').add(chatData);
+                    }
+                    
+                    // Add the message
                     await chatRef.collection('messages').add({
                         senderId: this.currentUser.uid,
+                        senderName: this.currentUser.displayName || this.currentUser.email,
                         text: message,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    });
+                    
+                    await chatRef.update({
+                        lastMessage: message,
+                        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastMessageBy: this.currentUser.uid
                     });
                     
                     this.showToast('Chat started!', 'success');
                     this.closeModal('new-chat-modal');
                     await this.loadConversations();
+                    
+                    // Open the chat immediately
+                    this.loadChat(chatRef.id);
                 });
             }
         }, 100);
     }
     
     async startChatWithUser(userId, initialMessage) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to start a chat', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
         // Check if chat already exists
         const existingChat = await this.db.collection('chats')
             .where('participants', 'array-contains', this.currentUser.uid)
@@ -1001,28 +1579,32 @@ class MoreMenuManager {
                 participants: [this.currentUser.uid, userId],
                 lastMessage: initialMessage,
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                otherUserName: null
             };
             chatRef = await this.db.collection('chats').add(chatData);
         }
         
+        // Add the message
         await chatRef.collection('messages').add({
             senderId: this.currentUser.uid,
+            senderName: this.currentUser.displayName || this.currentUser.email,
             text: initialMessage,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            read: false
         });
         
         await chatRef.update({
             lastMessage: initialMessage,
-            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
+            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessageBy: this.currentUser.uid
         });
         
         this.showToast('Message sent!', 'success');
         await this.loadConversations();
-    }
-    
-    openChat(chatId) {
-        this.showToast('Opening chat... Feature coming soon', 'info');
+        
+        // Open the chat
+        this.loadChat(chatRef.id);
     }
     
     filterAlerts(filter) {
