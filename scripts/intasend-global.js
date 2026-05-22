@@ -2,6 +2,7 @@
 // Supports: M-Pesa, Airtel Money, MTN Uganda, Visa/Mastercard, PayPal
 // Includes: Webhook verification, manual activation, payment status check
 // FIXED: Dynamic payment methods based on country selection
+// FIXED: Currency conversion (KES to UGX, TZS, USD, GBP, etc.)
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -87,6 +88,41 @@ class VikeServeGlobalPayments {
         return currencies[country] || 'USD';
     }
 
+    // ========== EXCHANGE RATE CONVERSION ==========
+    async getExchangeRate(fromCurrency, toCurrency) {
+        // Base rates from KES
+        const rates = {
+            'KES': 1,
+            'UGX': 28.5,   // 1 KES = 28.5 UGX
+            'TZS': 18.2,   // 1 KES = 18.2 TZS
+            'NGN': 1.8,    // 1 KES = 1.8 NGN
+            'GHS': 0.019,  // 1 KES = 0.019 GHS
+            'ZAR': 0.14,   // 1 KES = 0.14 ZAR
+            'USD': 0.0076, // 1 KES = 0.0076 USD
+            'GBP': 0.006,  // 1 KES = 0.006 GBP
+            'EUR': 0.007   // 1 KES = 0.007 EUR
+        };
+        
+        if (fromCurrency === toCurrency) return 1;
+        
+        const fromRate = rates[fromCurrency] || 1;
+        const toRate = rates[toCurrency] || 1;
+        
+        // Convert via KES as base
+        if (fromCurrency === 'KES') {
+            return toRate;
+        }
+        if (toCurrency === 'KES') {
+            return 1 / fromRate;
+        }
+        return toRate / fromRate;
+    }
+
+    async convertAmount(amount, fromCurrency, toCurrency) {
+        const rate = await this.getExchangeRate(fromCurrency, toCurrency);
+        return Math.round(amount * rate);
+    }
+
     getAvailablePaymentMethods(country = null) {
         const activeCountry = country || this.userCountry;
         
@@ -131,7 +167,6 @@ class VikeServeGlobalPayments {
             ]
         };
         
-        // For OTHER countries, just show global payment methods
         if (activeCountry === 'OTHER' || !methods[activeCountry]) {
             return [
                 { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
@@ -402,11 +437,26 @@ class VikeServeGlobalPayments {
         `;
     }
 
-    // ========== DYNAMIC PAYMENT METHOD UPDATE ==========
-    updatePaymentMethodsForCountry(country) {
+    // ========== DYNAMIC PAYMENT METHOD UPDATE WITH CURRENCY CONVERSION ==========
+    async updatePaymentMethodsForCountry(country) {
         console.log('Updating payment methods for country:', country);
+        
+        const oldCurrency = this.userCurrency;
         this.userCountry = country;
         this.userCurrency = this.getCurrencyForCountry(country);
+        
+        // Convert the selected package price
+        const selectedPackage = window.selectedPackage;
+        if (selectedPackage && selectedPackage.originalPriceKES) {
+            const convertedAmount = await this.convertAmount(selectedPackage.originalPriceKES, 'KES', this.userCurrency);
+            selectedPackage.price = convertedAmount;
+            
+            // Update the summary display
+            const summaryPrice = document.getElementById('summary-package-price');
+            if (summaryPrice) {
+                summaryPrice.textContent = `${this.userCurrency} ${convertedAmount.toLocaleString()}`;
+            }
+        }
         
         const newMethods = this.getAvailablePaymentMethods(country);
         const methodsContainer = document.getElementById('payment-methods-grid');
@@ -459,14 +509,8 @@ class VikeServeGlobalPayments {
             });
         }
         
-        // Update summary price to show correct currency
-        const summaryPrice = document.getElementById('summary-package-price');
-        if (summaryPrice && window.selectedPackage) {
-            summaryPrice.textContent = `${this.userCurrency} ${window.selectedPackage.price || 0}`;
-        }
-        
         if (typeof window.showToast === 'function') {
-            window.showToast(`Payment methods updated for ${country}`, 'success');
+            window.showToast(`Amount: ${this.userCurrency} ${selectedPackage?.price || 0}`, 'success');
         }
     }
 
@@ -538,7 +582,8 @@ class VikeServeGlobalPayments {
                     id: card.getAttribute('data-package-id'),
                     name: card.getAttribute('data-package-name'),
                     price: parseInt(card.getAttribute('data-package-price')),
-                    duration: parseInt(card.getAttribute('data-package-duration'))
+                    duration: parseInt(card.getAttribute('data-package-duration')),
+                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))  // Store original KES price
                 };
                 window.selectedPackage = selectedPackage;
                 
@@ -767,7 +812,6 @@ class VikeServeGlobalPayments {
 
     async loadIntaSendScript() {
         return new Promise((resolve, reject) => {
-            // Check if script already loaded
             if (typeof IntaSend !== 'undefined') {
                 resolve();
                 return;
@@ -779,7 +823,6 @@ class VikeServeGlobalPayments {
             script.onerror = reject;
             document.head.appendChild(script);
             
-            // Timeout after 10 seconds
             setTimeout(() => {
                 if (typeof IntaSend === 'undefined') {
                     reject(new Error('IntaSend script load timeout'));
@@ -798,7 +841,6 @@ class VikeServeGlobalPayments {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + pkg.duration);
 
-        // Get selected country from dropdown
         const selectedCountryElem = document.getElementById('payment-country');
         if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
             this.userCountry = selectedCountryElem.value;
@@ -806,14 +848,22 @@ class VikeServeGlobalPayments {
             console.log(`Country updated to: ${this.userCountry}, Currency: ${this.userCurrency}`);
         }
         
+        // Convert price if needed (ensure price is in correct currency)
+        let finalPrice = pkg.price;
+        let finalCurrency = this.userCurrency;
+        
+        if (pkg.originalPriceKES && this.userCurrency !== 'KES') {
+            finalPrice = await this.convertAmount(pkg.originalPriceKES, 'KES', this.userCurrency);
+        }
+        
         try {
-            // Save transaction record first
             const paymentRecord = {
                 transactionId: transactionId,
                 adId: ad.id,
                 adTitle: ad.title,
                 packageName: pkg.name,
-                amount: pkg.price,
+                amount: finalPrice,
+                originalAmountKES: pkg.originalPriceKES || pkg.price,
                 duration: pkg.duration,
                 paymentMethod: paymentMethod.name,
                 status: 'pending',
@@ -823,12 +873,11 @@ class VikeServeGlobalPayments {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
                 userCountry: this.userCountry,
-                userCurrency: this.userCurrency
+                userCurrency: finalCurrency
             };
             
             await firebase.firestore().collection('transactions').add(paymentRecord);
             
-            // Load IntaSend script
             await this.loadIntaSendScript();
             
             const intasend = new IntaSend({
@@ -836,33 +885,28 @@ class VikeServeGlobalPayments {
                 live: this.config.intasend.environment === 'live'
             });
             
-            // Prepare checkout data
             const checkoutData = {
-                amount: pkg.price,
-                currency: this.userCurrency,
+                amount: finalPrice,
+                currency: finalCurrency,
                 email: this.userEmail,
                 reference: transactionId,
                 api_ref: transactionId
             };
             
-            // Add phone number for mobile money if provided
             if (paymentDetails.phone) {
                 checkoutData.phone = paymentDetails.phone;
             }
             
-            // Add country code for better payment routing
             if (this.userCountry && this.userCountry !== 'OTHER') {
                 checkoutData.country = this.userCountry;
             }
             
             console.log('Creating checkout with data:', checkoutData);
             
-            // Create checkout URL (this redirects to IntaSend's hosted page)
             const checkoutUrl = await intasend.createCheckout(checkoutData);
             
             console.log('Redirecting to:', checkoutUrl);
             
-            // Redirect to IntaSend payment page
             window.location.href = checkoutUrl;
             
         } catch (error) {
@@ -885,7 +929,7 @@ class VikeServeGlobalPayments {
 
     async activatePromotion(adId, adTitle, pkg, actionDetails, transactionId, paymentMethod) {
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + pkg.duration);
+        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
         
         try {
             await firebase.firestore().collection('promoted_ads').add({
@@ -1132,4 +1176,4 @@ window.getPaymentSystem = getPaymentSystem;
 window.showAdPackagesModal = showAdPackagesModal;
 window.showManualActivationModal = showManualActivationModal;
 
-console.log('✅ intasend-global.js with dynamic payment methods and global support loaded');
+console.log('✅ intasend-global.js with dynamic payment methods, currency conversion, and global support loaded');
