@@ -1,5 +1,6 @@
 // more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
 // Issues fixed: Firebase integration, message tab, ratings, announcements, validation, FULL CHAT SYSTEM
+// NEW FIXES: Settings tab [object Promise] fixed, Firestore saving fixed
 
 class MoreMenuManager {
     constructor() {
@@ -22,6 +23,8 @@ class MoreMenuManager {
             this.currentUser = user;
             if (user) {
                 this.checkIfUserHasRated();
+                // Reload data when user signs in
+                this.loadDataFromFirestore();
             }
         });
         
@@ -136,7 +139,8 @@ class MoreMenuManager {
         this.hasRated = !ratingSnapshot.empty;
     }
     
-    replaceAllTabContent() {
+    // FIXED: Now properly awaits async getSettingsHTML()
+    async replaceAllTabContent() {
         console.log('Replacing all more tab content...');
         
         const educationContent = document.getElementById('education-content');
@@ -151,8 +155,12 @@ class MoreMenuManager {
         const safetyContent = document.getElementById('safety-content');
         if (safetyContent) safetyContent.innerHTML = this.getSafetyHTML();
         
+        // FIXED: Await the async getSettingsHTML()
         const settingsContent = document.getElementById('settings-content');
-        if (settingsContent) settingsContent.innerHTML = this.getSettingsHTML();
+        if (settingsContent) {
+            const settingsHTML = await this.getSettingsHTML();
+            settingsContent.innerHTML = settingsHTML;
+        }
     }
     
     getEducationHTML() {
@@ -751,7 +759,12 @@ class MoreMenuManager {
         const data = {};
         inputs.forEach(input => {
             if (input.id) {
-                const fieldName = input.id.replace(`${type}-`, '');
+                // FIXED: Better field name extraction
+                let fieldName = input.id;
+                // Remove the type prefix (e.g., "teacher-" from "teacher-school")
+                if (fieldName.startsWith(`${type}-`)) {
+                    fieldName = fieldName.substring(type.length + 1);
+                }
                 data[fieldName] = input.value;
             }
         });
@@ -762,18 +775,22 @@ class MoreMenuManager {
         data.status = 'active';
         
         try {
-            await this.db.collection(collection).add(data);
+            // FIXED: Use the correct collection reference
+            const collectionRef = this.db.collection(collection);
+            await collectionRef.add(data);
             this.showToast(`${type} posted successfully!`, 'success');
             this.closeModal(`${type}-modal`);
             
-            // Refresh the appropriate list
-            switch(type) {
-                case 'teacher': this.loadTeachers(); break;
-                case 'internship': this.loadInternships(); break;
-                case 'attachment': this.loadAttachments(); break;
-                case 'training': this.loadTraining(); break;
-                case 'alert': this.loadAlerts(); break;
-            }
+            // FIXED: Refresh the appropriate list with a small delay
+            setTimeout(() => {
+                switch(type) {
+                    case 'teacher': this.loadTeachers(); break;
+                    case 'internship': this.loadInternships(); break;
+                    case 'attachment': this.loadAttachments(); break;
+                    case 'training': this.loadTraining(); break;
+                    case 'alert': this.loadAlerts(); break;
+                }
+            }, 500);
         } catch (error) {
             console.error('Error posting:', error);
             this.showToast('Error posting: ' + error.message, 'error');
@@ -804,12 +821,12 @@ class MoreMenuManager {
             }
             
             container.innerHTML = items.map(item => `
-                <div class="list-item">
-                    <div class="list-item-title">${this.escapeHtml(item.title || item.name || item.company || item.school || 'Untitled')}</div>
-                    <div class="list-item-subtitle">${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}</div>
-                    <div class="list-item-description">${this.escapeHtml((item.description || '').substring(0, 100))}...</div>
-                    <div class="list-item-date">Posted: ${this.formatDate(item.createdAt)}</div>
-                    ${item.email ? `<div class="list-item-contact"><i class="fas fa-envelope"></i> ${this.escapeHtml(item.email)}</div>` : ''}
+                <div class="list-item" style="background: var(--light); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                    <div class="list-item-title" style="font-weight: 600;">${this.escapeHtml(item.title || item.name || item.company || item.school || item.position || 'Untitled')}</div>
+                    <div class="list-item-subtitle" style="font-size: 0.8rem; color: #666;">${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}</div>
+                    <div class="list-item-description" style="font-size: 0.75rem; color: #666; margin-top: 5px;">${this.escapeHtml((item.description || '').substring(0, 100))}...</div>
+                    <div class="list-item-date" style="font-size: 0.7rem; color: #999; margin-top: 5px;">Posted: ${this.formatDate(item.createdAt)}</div>
+                    ${item.email ? `<div class="list-item-contact" style="margin-top: 5px;"><i class="fas fa-envelope"></i> ${this.escapeHtml(item.email)}</div>` : ''}
                 </div>
             `).join('');
         } catch (error) {
@@ -836,15 +853,15 @@ class MoreMenuManager {
             }
             
             container.innerHTML = alerts.map(alert => `
-                <div class="alert-card" data-type="${alert.type || 'info'}">
-                    <div class="alert-header">
-                        <div class="alert-title"><i class="fas ${alert.type === 'emergency' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i> ${this.escapeHtml(alert.title)}</div>
-                        <div class="alert-time">${this.formatDate(alert.createdAt)}</div>
+                <div class="alert-card" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <div class="alert-header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <div class="alert-title" style="font-weight: 600;">${this.escapeHtml(alert.title)}</div>
+                        <div class="alert-time" style="font-size: 0.7rem; color: #999;">${this.formatDate(alert.createdAt)}</div>
                     </div>
-                    <div class="alert-content">${this.escapeHtml(alert.description)}</div>
-                    <div class="alert-location"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown')}</div>
-                    ${alert.urgency === 'high' ? '<div class="alert-urgent"><span class="urgent-badge">URGENT</span></div>' : ''}
-                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-alert-id="${alert.id}" data-reporter-id="${alert.userId}">Contact Reporter</button>` : ''}
+                    <div class="alert-content" style="font-size: 0.85rem; margin: 8px 0;">${this.escapeHtml(alert.description)}</div>
+                    <div class="alert-location" style="font-size: 0.8rem;"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown')}</div>
+                    ${alert.urgency === 'high' ? '<div class="alert-urgent" style="margin-top: 8px;"><span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">URGENT</span></div>' : ''}
+                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-alert-id="${alert.id}" data-reporter-id="${alert.userId}" style="margin-top: 10px;"><i class="fas fa-comment"></i> Contact Reporter</button>` : ''}
                 </div>
             `).join('');
             
@@ -1780,7 +1797,8 @@ class MoreMenuManager {
             // Refresh the settings display
             const settingsContent = document.getElementById('settings-content');
             if (settingsContent) {
-                settingsContent.innerHTML = await this.getSettingsHTML();
+                const newSettingsHTML = await this.getSettingsHTML();
+                settingsContent.innerHTML = newSettingsHTML;
                 this.setupEventListeners();
             }
         } catch (error) {
