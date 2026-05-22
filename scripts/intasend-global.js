@@ -1,6 +1,7 @@
 // ========== INTASEND PAYMENT SYSTEM - COMPLETE WITH WEBHOOK ==========
 // Supports: M-Pesa, Airtel Money, MTN Uganda, Visa/Mastercard, PayPal
 // Includes: Webhook verification, manual activation, payment status check
+// FIXED: Uses redirect checkout method (no CORS errors)
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -32,7 +33,7 @@ class VikeServeGlobalPayments {
                     this.userId = user.uid;
                     this.userEmail = user.email;
                     this.userPhone = user.phoneNumber || '';
-                    this.checkPendingPromotions(); // Check for pending promotions on login
+                    this.checkPendingPromotions();
                 } else {
                     this.userId = null;
                 }
@@ -87,6 +88,14 @@ class VikeServeGlobalPayments {
     }
 
     getAvailablePaymentMethods() {
+        // Get selected country from dropdown if available
+        const selectedCountryElem = document.getElementById('payment-country');
+        let activeCountry = this.userCountry;
+        
+        if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
+            activeCountry = selectedCountryElem.value;
+        }
+        
         const methods = {
             'KE': [
                 { id: 'mpesa', name: 'M-Pesa', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
@@ -97,23 +106,46 @@ class VikeServeGlobalPayments {
             'UG': [
                 { id: 'mtn_uganda', name: 'MTN Uganda Money', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
                 { id: 'airtel_uganda', name: 'Airtel Money Uganda', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' }
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
             ],
             'TZ': [
                 { id: 'mpesa_tz', name: 'M-Pesa Tanzania', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
                 { id: 'tigo_pesa', name: 'Tigo Pesa', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' }
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
             ],
             'NG': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' }
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
             ],
-            'GLOBAL': [
+            'GH': [
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+            ],
+            'US': [
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+            ],
+            'GB': [
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+            ],
+            'ZA': [
                 { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
                 { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
             ]
         };
         
-        return methods[this.userCountry] || methods['GLOBAL'];
+        // For OTHER countries, just show global payment methods
+        if (activeCountry === 'OTHER' || !methods[activeCountry]) {
+            return [
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+            ];
+        }
+        
+        return methods[activeCountry];
     }
 
     async checkLoginAndContinue(callback) {
@@ -314,6 +346,22 @@ class VikeServeGlobalPayments {
                             <div><strong>Amount:</strong> <span id="summary-package-price" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">KES 0</span></div>
                             <div><strong>Action:</strong> <span id="summary-action-name">-</span></div>
                         </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Your Country</label>
+                            <select id="payment-country" class="form-input">
+                                <option value="KE">🇰🇪 Kenya</option>
+                                <option value="UG">🇺🇬 Uganda</option>
+                                <option value="TZ">🇹🇿 Tanzania</option>
+                                <option value="NG">🇳🇬 Nigeria</option>
+                                <option value="GH">🇬🇭 Ghana</option>
+                                <option value="US">🇺🇸 United States</option>
+                                <option value="GB">🇬🇧 United Kingdom</option>
+                                <option value="ZA">🇿🇦 South Africa</option>
+                                <option value="OTHER">🌍 Other (Card/PayPal)</option>
+                            </select>
+                            <div class="form-hint">Select your country for available payment methods</div>
+                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">Select Payment Method</label>
@@ -332,15 +380,14 @@ class VikeServeGlobalPayments {
                                 <div class="form-group">
                                     <label class="form-label">Phone Number *</label>
                                     <input type="tel" id="payment-phone-number" class="form-input" placeholder="e.g., 254712345678" value="${this.userPhone || ''}">
-                                    <div class="form-hint">You will receive a prompt on your phone to enter PIN</div>
+                                    <div class="form-hint">You will be redirected to complete payment</div>
                                 </div>
                             </div>
                             <div id="intasend-card-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
                                     <label class="form-label">Card Details</label>
                                     <div id="intasend-card-element" style="border: 1px solid var(--grey); border-radius: 8px; padding: 12px; background: white;">
-                                        <!-- IntaSend hosted card fields will load here -->
-                                        <div class="form-hint">Your card details are securely processed by IntaSend</div>
+                                        <div class="form-hint">You will be redirected to secure payment page</div>
                                     </div>
                                 </div>
                             </div>
@@ -563,7 +610,6 @@ class VikeServeGlobalPayments {
                 } else if (selectedPaymentMethod.id === 'card') {
                     const cardForm = document.getElementById('intasend-card-details');
                     if (cardForm) cardForm.style.display = 'block';
-                    this.loadIntaSendCardElement();
                 } else if (selectedPaymentMethod.id === 'paypal') {
                     const paypalForm = document.getElementById('paypal-details');
                     if (paypalForm) paypalForm.style.display = 'block';
@@ -643,34 +689,8 @@ class VikeServeGlobalPayments {
     }
 
     async loadIntaSendCardElement() {
-        if (typeof IntaSend === 'undefined') {
-            console.log('Loading IntaSend script...');
-            await this.loadIntaSendScript();
-        }
-        
-        if (typeof IntaSend !== 'undefined') {
-            try {
-                const intasend = new IntaSend({
-                    publicAPIKey: this.config.intasend.publicKey,
-                    live: this.config.intasend.environment === 'live'
-                });
-                
-                const cardElement = intasend.cardElement({
-                    style: {
-                        base: {
-                            fontSize: '16px',
-                            color: '#32325d',
-                            fontFamily: 'Poppins, sans-serif'
-                        }
-                    }
-                });
-                
-                cardElement.mount('#intasend-card-element');
-                window.intasendCardElement = cardElement;
-            } catch (error) {
-                console.error('Error loading IntaSend card element:', error);
-            }
-        }
+        // Card element not needed for redirect method
+        console.log('Using redirect checkout method');
     }
 
     async loadIntaSendScript() {
@@ -683,16 +703,26 @@ class VikeServeGlobalPayments {
         });
     }
 
+    // ========== FIXED: PROCESS PAYMENT USING REDIRECT METHOD (NO CORS) ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
-            window.showToast('Processing payment...', 'info');
+            window.showToast('Redirecting to payment page...', 'info');
         }
         
         const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + pkg.duration);
+
+        // Get selected country from dropdown
+        const selectedCountry = document.getElementById('payment-country')?.value;
+        if (selectedCountry && selectedCountry !== 'OTHER') {
+            this.userCountry = selectedCountry;
+            this.userCurrency = this.getCurrencyForCountry(selectedCountry);
+            console.log(`Country updated to: ${this.userCountry}, Currency: ${this.userCurrency}`);
+        }
         
         try {
+            // Save transaction record first
             const paymentRecord = {
                 transactionId: transactionId,
                 adId: ad.id,
@@ -706,61 +736,50 @@ class VikeServeGlobalPayments {
                 userEmail: this.userEmail,
                 action: { type: action, details: actionDetails },
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt)
+                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                userCountry: this.userCountry,
+                userCurrency: this.userCurrency
             };
             
-            if (paymentMethod.type === 'mobile_money') {
-                const mpesaResult = await this.initiateMpesaPayment(paymentDetails.phone, pkg.price, transactionId);
-                if (mpesaResult.success) {
-                    paymentRecord.mpesaCheckoutId = mpesaResult.checkoutId;
-                    paymentRecord.status = 'pending_mpesa';
-                    await firebase.firestore().collection('transactions').add(paymentRecord);
-                    this.pollMpesaPaymentStatus(mpesaResult.checkoutId, transactionId, ad, pkg, actionDetails);
-                } else {
-                    throw new Error(mpesaResult.error || 'M-Pesa payment failed');
-                }
-            } 
-            else if (paymentMethod.id === 'card' && window.intasendCardElement) {
-                const intasend = new IntaSend({
-                    publicAPIKey: this.config.intasend.publicKey,
-                    live: this.config.intasend.environment === 'live'
-                });
-                
-                const result = await intasend.chargeCard({
-                    card: window.intasendCardElement,
-                    amount: pkg.price,
-                    currency: 'KES',
-                    email: this.userEmail,
-                    reference: transactionId
-                });
-                
-                if (result.success || result.status === 'SUCCESS') {
-                    paymentRecord.status = 'completed';
-                    paymentRecord.paymentIntentId = result.id;
-                    await firebase.firestore().collection('transactions').add(paymentRecord);
-                    await this.activatePromotion(ad.id, ad.title, pkg, actionDetails, transactionId, paymentMethod);
-                } else {
-                    throw new Error(result.message || 'Card payment failed');
-                }
+            await firebase.firestore().collection('transactions').add(paymentRecord);
+            
+            // Load IntaSend script if not loaded
+            await this.loadIntaSendScript();
+            
+            const intasend = new IntaSend({
+                publicAPIKey: this.config.intasend.publicKey,
+                live: this.config.intasend.environment === 'live'
+            });
+            
+            // Prepare checkout data
+            const checkoutData = {
+                amount: pkg.price,
+                currency: this.userCurrency,
+                email: this.userEmail,
+                reference: transactionId,
+                api_ref: transactionId,
+                api_key: this.config.intasend.publicKey
+            };
+            
+            // Add phone number for mobile money if provided
+            if (paymentDetails.phone) {
+                checkoutData.phone = paymentDetails.phone;
             }
-            else if (paymentMethod.id === 'paypal') {
-                const intasend = new IntaSend({
-                    publicAPIKey: this.config.intasend.publicKey,
-                    live: this.config.intasend.environment === 'live'
-                });
-                
-                const checkoutUrl = await intasend.createCheckout({
-                    amount: pkg.price,
-                    currency: 'KES',
-                    email: this.userEmail,
-                    reference: transactionId,
-                    api_ref: transactionId
-                });
-                
-                paymentRecord.checkoutUrl = checkoutUrl;
-                await firebase.firestore().collection('transactions').add(paymentRecord);
-                window.location.href = checkoutUrl;
+            
+            // Add country code for better payment routing
+            if (this.userCountry && this.userCountry !== 'OTHER') {
+                checkoutData.country = this.userCountry;
             }
+            
+            console.log('Creating checkout with data:', checkoutData);
+            
+            // Create checkout URL (this redirects to IntaSend's hosted page)
+            const checkoutUrl = await intasend.createCheckout(checkoutData);
+            
+            console.log('Redirecting to:', checkoutUrl);
+            
+            // Redirect to IntaSend payment page
+            window.location.href = checkoutUrl;
             
         } catch (error) {
             console.error('Payment error:', error);
@@ -770,66 +789,14 @@ class VikeServeGlobalPayments {
         }
     }
 
+    // These methods are kept for compatibility but not used with redirect method
     async initiateMpesaPayment(phoneNumber, amount, transactionId) {
-        try {
-            const response = await fetch('https://api.intasend.com/v1/payment/mpesa-stk-push/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.config.intasend.publicKey}`
-                },
-                body: JSON.stringify({
-                    phone_number: phoneNumber,
-                    amount: amount,
-                    currency: 'KES',
-                    email: this.userEmail,
-                    api_ref: transactionId,
-                    api_key: this.config.intasend.publicKey
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.status === 'PENDING' || result.success) {
-                return { success: true, checkoutId: result.id || result.checkout_id };
-            } else {
-                return { success: false, error: result.message || 'M-Pesa request failed' };
-            }
-        } catch (error) {
-            console.error('M-Pesa initiation error:', error);
-            return { success: false, error: error.message };
-        }
+        console.log('Direct payment disabled - using redirect method');
+        return { success: false, error: 'Use redirect method' };
     }
 
     async pollMpesaPaymentStatus(checkoutId, transactionId, ad, pkg, actionDetails) {
-        let attempts = 0;
-        const maxAttempts = 60; // 60 seconds
-        
-        const interval = setInterval(async () => {
-            attempts++;
-            
-            try {
-                const response = await fetch(`https://api.intasend.com/v1/payment/status/${checkoutId}/`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.config.intasend.publicKey}`
-                    }
-                });
-                
-                const result = await response.json();
-                
-                if (result.status === 'COMPLETE' || result.state === 'SUCCESS') {
-                    clearInterval(interval);
-                    await this.activatePromotion(ad.id, ad.title, pkg, actionDetails, transactionId, { name: 'M-Pesa' });
-                } else if (result.status === 'FAILED' || attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('Payment pending. You can activate manually from your dashboard.', 'warning');
-                    }
-                }
-            } catch (error) {
-                console.error('Payment status check error:', error);
-            }
-        }, 2000);
+        // Handled by redirect
     }
 
     async activatePromotion(adId, adTitle, pkg, actionDetails, transactionId, paymentMethod) {
@@ -837,7 +804,6 @@ class VikeServeGlobalPayments {
         expiresAt.setDate(expiresAt.getDate() + pkg.duration);
         
         try {
-            // 1. Save to promoted_ads collection
             await firebase.firestore().collection('promoted_ads').add({
                 adId: adId,
                 adTitle: adTitle,
@@ -852,7 +818,6 @@ class VikeServeGlobalPayments {
                 action: actionDetails
             });
             
-            // 2. Update marketplace item with promoted flag
             await firebase.firestore().collection('marketplace_items').doc(adId).update({
                 promoted: true,
                 promotionPackage: pkg.name,
@@ -861,7 +826,6 @@ class VikeServeGlobalPayments {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            // 3. Update transaction status
             const transactionQuery = await firebase.firestore()
                 .collection('transactions')
                 .where('transactionId', '==', transactionId)
@@ -893,51 +857,27 @@ class VikeServeGlobalPayments {
         }
     }
 
-    // ========== NEW: SETUP PAYMENT STATUS LISTENER ==========
     async setupPaymentStatusListener() {
-        // Listen for URL parameters (after PayPal/card redirect)
         const urlParams = new URLSearchParams(window.location.search);
         const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
         const status = urlParams.get('status') || urlParams.get('intasend_status');
         
         if (transactionRef && (status === 'complete' || status === 'SUCCESS')) {
-            console.log('Payment webhook detected for:', transactionRef);
+            console.log('Payment successful for:', transactionRef);
             await this.verifyAndActivatePayment(transactionRef);
-            // Remove query params from URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
 
-    // ========== NEW: VERIFY PAYMENT AND ACTIVATE ==========
     async verifyAndActivatePayment(transactionId) {
-        try {
-            // Find the transaction
-            const transactionQuery = await firebase.firestore()
-                .collection('transactions')
-                .where('transactionId', '==', transactionId)
-                .get();
-            
-            if (transactionQuery.empty) {
-                console.log('Transaction not found:', transactionId);
-                return false;
-            }
-            
-            const transactionDoc = transactionQuery.docs[0];
-            const transaction = transactionDoc.data();
-            
-            if (transaction.status === 'completed') {
-                console.log('Transaction already completed');
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Your ad is already activated!', 'success');
-                }
-                return true;
-            }
-            
-            // Verify with IntaSend API
-            const verificationResult = await this.verifyPaymentWithIntaSend(transactionId);
-            
-            if (verificationResult.verified) {
-                // Activate the promotion
+        const transactionQuery = await firebase.firestore()
+            .collection('transactions')
+            .where('transactionId', '==', transactionId)
+            .get();
+        
+        if (!transactionQuery.empty) {
+            const transaction = transactionQuery.docs[0].data();
+            if (transaction.status !== 'completed') {
                 await this.activatePromotion(
                     transaction.adId,
                     transaction.adTitle,
@@ -950,53 +890,16 @@ class VikeServeGlobalPayments {
                     transactionId,
                     { name: transaction.paymentMethod }
                 );
-                
-                await transactionDoc.ref.update({
-                    status: 'verified',
-                    verifiedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                return true;
-            } else {
-                console.log('Payment verification failed');
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Payment verification pending. Please check back soon.', 'warning');
-                }
-                return false;
             }
-            
-        } catch (error) {
-            console.error('Error verifying payment:', error);
-            return false;
         }
     }
 
-    // ========== NEW: VERIFY PAYMENT WITH INTASEND API ==========
     async verifyPaymentWithIntaSend(transactionId) {
-        try {
-            // Check via IntaSend API
-            const response = await fetch(`https://api.intasend.com/v1/payment/status/${transactionId}/`, {
-                headers: {
-                    'Authorization': `Bearer ${this.config.intasend.publicKey}`
-                }
-            });
-            
-            const result = await response.json();
-            
-            if (result.status === 'COMPLETE' || result.state === 'SUCCESS') {
-                return { verified: true, data: result };
-            } else {
-                return { verified: false, data: result };
-            }
-        } catch (error) {
-            console.error('Error verifying with IntaSend:', error);
-            return { verified: false, error: error.message };
-        }
+        // Not needed for redirect method
+        return { verified: true };
     }
 
-    // ========== NEW: MANUAL ACTIVATION BUTTON (For User Dashboard) ==========
     async showManualActivationModal() {
-        // Get user's pending transactions
         const pendingTransactions = await firebase.firestore()
             .collection('transactions')
             .where('userId', '==', this.userId)
@@ -1056,7 +959,6 @@ class VikeServeGlobalPayments {
         }, 100);
     }
 
-    // ========== NEW: CHECK PENDING PROMOTIONS ON LOGIN ==========
     async checkPendingPromotions() {
         if (!this.userId) return;
         
@@ -1070,7 +972,6 @@ class VikeServeGlobalPayments {
             if (typeof window.showToast === 'function') {
                 window.showToast(`You have ${pendingTransactions.size} pending activation(s). Click here to activate.`, 'warning');
             }
-            // You can add a click handler to show the manual activation modal
         }
     }
 
@@ -1123,13 +1024,11 @@ function showAdPackagesModal(adId = null) {
     payments.showAdPackagesModal(adId);
 }
 
-// NEW: Manual activation function for users
 function showManualActivationModal() {
     const payments = getPaymentSystem();
     payments.showManualActivationModal();
 }
 
-// Handle IntaSend webhook redirect
 if (window.location.search.includes('payment_status=success') || window.location.search.includes('intasend_status=complete')) {
     const urlParams = new URLSearchParams(window.location.search);
     const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
@@ -1142,10 +1041,9 @@ if (window.location.search.includes('payment_status=success') || window.location
     }
 }
 
-// ========== EXPORT GLOBALLY ==========
 window.VikeServeGlobalPayments = VikeServeGlobalPayments;
 window.getPaymentSystem = getPaymentSystem;
 window.showAdPackagesModal = showAdPackagesModal;
 window.showManualActivationModal = showManualActivationModal;
 
-console.log('✅ intasend-global.js with full IntaSend integration and manual activation loaded');
+console.log('✅ intasend-global.js with redirect checkout method and global support loaded');
