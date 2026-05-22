@@ -3,6 +3,7 @@
 // Includes: Webhook verification, manual activation, payment status check
 // FIXED: Dynamic payment methods based on country selection
 // FIXED: Currency conversion (KES to UGX, TZS, USD, GBP, etc.)
+// FIXED: IntaSend script loading with retry mechanism
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -22,6 +23,8 @@ class VikeServeGlobalPayments {
         this.userPhone = null;
         this.pendingVerifications = new Map();
         this.useFallbackMode = false;
+        this.intasendReady = false;
+        this.intasendLoadAttempts = 0;
         this.init();
     }
 
@@ -44,6 +47,9 @@ class VikeServeGlobalPayments {
         await this.detectUserCountry();
         await this.loadPaymentHistoryFromFirestore();
         await this.setupPaymentStatusListener();
+        
+        // Pre-load IntaSend script
+        await this.loadIntaSendScript();
         
         console.log('✅ Payment system ready! Country:', this.userCountry, 'Currency:', this.userCurrency);
     }
@@ -90,17 +96,16 @@ class VikeServeGlobalPayments {
 
     // ========== EXCHANGE RATE CONVERSION ==========
     async getExchangeRate(fromCurrency, toCurrency) {
-        // Base rates from KES
         const rates = {
             'KES': 1,
-            'UGX': 28.5,   // 1 KES = 28.5 UGX
-            'TZS': 18.2,   // 1 KES = 18.2 TZS
-            'NGN': 1.8,    // 1 KES = 1.8 NGN
-            'GHS': 0.019,  // 1 KES = 0.019 GHS
-            'ZAR': 0.14,   // 1 KES = 0.14 ZAR
-            'USD': 0.0076, // 1 KES = 0.0076 USD
-            'GBP': 0.006,  // 1 KES = 0.006 GBP
-            'EUR': 0.007   // 1 KES = 0.007 EUR
+            'UGX': 28.5,
+            'TZS': 18.2,
+            'NGN': 1.8,
+            'GHS': 0.019,
+            'ZAR': 0.14,
+            'USD': 0.0076,
+            'GBP': 0.006,
+            'EUR': 0.007
         };
         
         if (fromCurrency === toCurrency) return 1;
@@ -108,13 +113,8 @@ class VikeServeGlobalPayments {
         const fromRate = rates[fromCurrency] || 1;
         const toRate = rates[toCurrency] || 1;
         
-        // Convert via KES as base
-        if (fromCurrency === 'KES') {
-            return toRate;
-        }
-        if (toCurrency === 'KES') {
-            return 1 / fromRate;
-        }
+        if (fromCurrency === 'KES') return toRate;
+        if (toCurrency === 'KES') return 1 / fromRate;
         return toRate / fromRate;
     }
 
@@ -376,7 +376,6 @@ class VikeServeGlobalPayments {
                             <div><strong>Action:</strong> <span id="summary-action-name">-</span></div>
                         </div>
 
-                        <!-- Country Selection with Dynamic Payment Methods -->
                         <div class="form-group">
                             <label class="form-label">Your Country</label>
                             <select id="payment-country" class="form-input" onchange="window.paymentSystem?.updatePaymentMethodsForCountry(this.value)">
@@ -441,17 +440,14 @@ class VikeServeGlobalPayments {
     async updatePaymentMethodsForCountry(country) {
         console.log('Updating payment methods for country:', country);
         
-        const oldCurrency = this.userCurrency;
         this.userCountry = country;
         this.userCurrency = this.getCurrencyForCountry(country);
         
-        // Convert the selected package price
         const selectedPackage = window.selectedPackage;
         if (selectedPackage && selectedPackage.originalPriceKES) {
             const convertedAmount = await this.convertAmount(selectedPackage.originalPriceKES, 'KES', this.userCurrency);
             selectedPackage.price = convertedAmount;
             
-            // Update the summary display
             const summaryPrice = document.getElementById('summary-package-price');
             if (summaryPrice) {
                 summaryPrice.textContent = `${this.userCurrency} ${convertedAmount.toLocaleString()}`;
@@ -469,7 +465,6 @@ class VikeServeGlobalPayments {
                 </div>
             `).join('');
             
-            // Re-attach event listeners to new payment methods
             const paymentMethods = document.querySelectorAll('.payment-method');
             paymentMethods.forEach(method => {
                 const newMethod = method.cloneNode(true);
@@ -583,7 +578,7 @@ class VikeServeGlobalPayments {
                     name: card.getAttribute('data-package-name'),
                     price: parseInt(card.getAttribute('data-package-price')),
                     duration: parseInt(card.getAttribute('data-package-duration')),
-                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))  // Store original KES price
+                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))
                 };
                 window.selectedPackage = selectedPackage;
                 
@@ -696,11 +691,9 @@ class VikeServeGlobalPayments {
             step3Back.addEventListener('click', () => this.goToPromoStep(2));
         }
         
-        // Step 4: Payment Methods - using event delegation since methods are dynamic
         const submitPaymentBtn = document.getElementById('promo-submit-payment');
         const step4Back = document.getElementById('promo-step4-back');
         
-        // Use event delegation for payment methods
         document.getElementById('payment-methods-grid')?.addEventListener('click', (e) => {
             const method = e.target.closest('.payment-method');
             if (!method) return;
@@ -774,7 +767,6 @@ class VikeServeGlobalPayments {
             step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
         
-        // Store reference for country update
         window.paymentSystem = this;
     }
 
@@ -810,45 +802,87 @@ class VikeServeGlobalPayments {
         console.log('Using redirect checkout method');
     }
 
+    // ========== FIXED: INTELLIGENT INTASEND SCRIPT LOADING WITH RETRY ==========
     async loadIntaSendScript() {
         return new Promise((resolve, reject) => {
-            if (typeof IntaSend !== 'undefined') {
+            // If already loaded
+            if (typeof IntaSend !== 'undefined' && IntaSend) {
+                console.log('IntaSend already loaded');
+                this.intasendReady = true;
                 resolve();
                 return;
             }
             
+            // If script already exists but not loaded
+            const existingScript = document.querySelector('script[src*="js.intasend.com"]');
+            if (existingScript) {
+                console.log('IntaSend script already in document, waiting for load...');
+                existingScript.onload = () => {
+                    console.log('IntaSend script loaded from existing');
+                    this.intasendReady = true;
+                    resolve();
+                };
+                existingScript.onerror = () => {
+                    console.log('IntaSend script failed, removing and retrying');
+                    existingScript.remove();
+                    this.loadIntaSendScript().then(resolve).catch(reject);
+                };
+                return;
+            }
+            
+            console.log('Loading IntaSend script...');
             const script = document.createElement('script');
             script.src = 'https://js.intasend.com/v1/';
-            script.onload = resolve;
-            script.onerror = reject;
+            script.async = true;
+            script.defer = true;
+            
+            script.onload = () => {
+                console.log('IntaSend script loaded successfully');
+                this.intasendReady = true;
+                resolve();
+            };
+            
+            script.onerror = () => {
+                console.error('IntaSend script failed to load');
+                if (this.intasendLoadAttempts < 3) {
+                    this.intasendLoadAttempts++;
+                    console.log(`Retrying (${this.intasendLoadAttempts}/3)...`);
+                    setTimeout(() => {
+                        this.loadIntaSendScript().then(resolve).catch(reject);
+                    }, 1000);
+                } else {
+                    reject(new Error('IntaSend script failed to load after 3 attempts. Please check your internet connection.'));
+                }
+            };
+            
             document.head.appendChild(script);
             
+            // Longer timeout for slow connections (30 seconds)
             setTimeout(() => {
-                if (typeof IntaSend === 'undefined') {
-                    reject(new Error('IntaSend script load timeout'));
+                if (!this.intasendReady) {
+                    console.error('IntaSend script timeout');
+                    reject(new Error('IntaSend script load timeout. Please check your internet connection.'));
                 }
-            }, 10000);
+            }, 30000);
         });
     }
 
     // ========== PROCESS PAYMENT USING REDIRECT METHOD ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
-            window.showToast('Redirecting to payment page...', 'info');
+            window.showToast('Preparing payment...', 'info');
         }
         
         const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + pkg.duration);
+        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
 
         const selectedCountryElem = document.getElementById('payment-country');
         if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
             this.userCountry = selectedCountryElem.value;
             this.userCurrency = this.getCurrencyForCountry(this.userCountry);
-            console.log(`Country updated to: ${this.userCountry}, Currency: ${this.userCurrency}`);
         }
         
-        // Convert price if needed (ensure price is in correct currency)
         let finalPrice = pkg.price;
         let finalCurrency = this.userCurrency;
         
@@ -878,7 +912,24 @@ class VikeServeGlobalPayments {
             
             await firebase.firestore().collection('transactions').add(paymentRecord);
             
-            await this.loadIntaSendScript();
+            if (typeof window.showToast === 'function') {
+                window.showToast('Loading payment gateway...', 'info');
+            }
+            
+            // Wait for IntaSend script to be ready with timeout
+            try {
+                await this.loadIntaSendScript();
+            } catch (scriptError) {
+                console.error('Script loading error:', scriptError);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Payment gateway unavailable. Please try again later.', 'error');
+                }
+                return;
+            }
+            
+            if (typeof IntaSend === 'undefined') {
+                throw new Error('IntaSend not available');
+            }
             
             const intasend = new IntaSend({
                 publicAPIKey: this.config.intasend.publicKey,
@@ -906,13 +957,18 @@ class VikeServeGlobalPayments {
             const checkoutUrl = await intasend.createCheckout(checkoutData);
             
             console.log('Redirecting to:', checkoutUrl);
-            
             window.location.href = checkoutUrl;
             
         } catch (error) {
             console.error('Payment error:', error);
             if (typeof window.showToast === 'function') {
-                window.showToast('Payment failed: ' + (error.message || 'Please try again'), 'error');
+                let errorMsg = error.message || 'Payment failed. Please try again.';
+                if (errorMsg.includes('timeout')) {
+                    errorMsg = 'Payment gateway timed out. Please check your internet and try again.';
+                } else if (errorMsg.includes('failed to load')) {
+                    errorMsg = 'Unable to load payment page. Please check your internet connection.';
+                }
+                window.showToast(errorMsg, 'error');
             }
         }
     }
@@ -1168,7 +1224,6 @@ if (window.location.search.includes('payment_status=success') || window.location
     }
 }
 
-// Make paymentSystem globally available for country dropdown
 window.paymentSystem = getPaymentSystem();
 
 window.VikeServeGlobalPayments = VikeServeGlobalPayments;
