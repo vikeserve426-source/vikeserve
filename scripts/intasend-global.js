@@ -1,7 +1,7 @@
 // ========== INTASEND PAYMENT SYSTEM - COMPLETE WITH WEBHOOK ==========
 // Supports: M-Pesa, Airtel Money, MTN Uganda, Visa/Mastercard, PayPal
 // Includes: Webhook verification, manual activation, payment status check
-// FIXED: Uses redirect checkout method (no CORS errors)
+// FIXED: Dynamic payment methods based on country selection
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -87,14 +87,8 @@ class VikeServeGlobalPayments {
         return currencies[country] || 'USD';
     }
 
-    getAvailablePaymentMethods() {
-        // Get selected country from dropdown if available
-        const selectedCountryElem = document.getElementById('payment-country');
-        let activeCountry = this.userCountry;
-        
-        if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
-            activeCountry = selectedCountryElem.value;
-        }
+    getAvailablePaymentMethods(country = null) {
+        const activeCountry = country || this.userCountry;
         
         const methods = {
             'KE': [
@@ -245,7 +239,7 @@ class VikeServeGlobalPayments {
             { id: 'vip', name: 'VIP Spotlight', price: 1000, duration: 30, color: '#e74c3c', tag: 'VIP' }
         ];
         
-        const paymentMethods = this.getAvailablePaymentMethods();
+        const currentMethods = this.getAvailablePaymentMethods();
         
         return `
             <div class="modal-content" style="max-width: 550px; max-height: 90vh; overflow-y: auto;">
@@ -347,26 +341,27 @@ class VikeServeGlobalPayments {
                             <div><strong>Action:</strong> <span id="summary-action-name">-</span></div>
                         </div>
 
+                        <!-- Country Selection with Dynamic Payment Methods -->
                         <div class="form-group">
                             <label class="form-label">Your Country</label>
-                            <select id="payment-country" class="form-input">
-                                <option value="KE">🇰🇪 Kenya</option>
-                                <option value="UG">🇺🇬 Uganda</option>
-                                <option value="TZ">🇹🇿 Tanzania</option>
-                                <option value="NG">🇳🇬 Nigeria</option>
-                                <option value="GH">🇬🇭 Ghana</option>
-                                <option value="US">🇺🇸 United States</option>
-                                <option value="GB">🇬🇧 United Kingdom</option>
-                                <option value="ZA">🇿🇦 South Africa</option>
-                                <option value="OTHER">🌍 Other (Card/PayPal)</option>
+                            <select id="payment-country" class="form-input" onchange="window.paymentSystem?.updatePaymentMethodsForCountry(this.value)">
+                                <option value="KE" ${this.userCountry === 'KE' ? 'selected' : ''}>🇰🇪 Kenya (M-Pesa, Airtel, Card, PayPal)</option>
+                                <option value="UG" ${this.userCountry === 'UG' ? 'selected' : ''}>🇺🇬 Uganda (MTN Money, Airtel, Card, PayPal)</option>
+                                <option value="TZ" ${this.userCountry === 'TZ' ? 'selected' : ''}>🇹🇿 Tanzania (M-Pesa, Tigo Pesa, Card, PayPal)</option>
+                                <option value="NG" ${this.userCountry === 'NG' ? 'selected' : ''}>🇳🇬 Nigeria (Card, PayPal)</option>
+                                <option value="GH" ${this.userCountry === 'GH' ? 'selected' : ''}>🇬🇭 Ghana (Card, PayPal)</option>
+                                <option value="US" ${this.userCountry === 'US' ? 'selected' : ''}>🇺🇸 United States (Card, PayPal)</option>
+                                <option value="GB" ${this.userCountry === 'GB' ? 'selected' : ''}>🇬🇧 United Kingdom (Card, PayPal)</option>
+                                <option value="ZA" ${this.userCountry === 'ZA' ? 'selected' : ''}>🇿🇦 South Africa (Card, PayPal)</option>
+                                <option value="OTHER" ${this.userCountry === 'OTHER' ? 'selected' : ''}>🌍 Other (Card/PayPal)</option>
                             </select>
-                            <div class="form-hint">Select your country for available payment methods</div>
+                            <div class="form-hint">Select your country to see available payment methods</div>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Select Payment Method</label>
-                            <div class="payment-methods-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-                                ${paymentMethods.map(method => `
+                            <div id="payment-methods-grid" class="payment-methods-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                ${currentMethods.map(method => `
                                     <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
                                         <i class="${method.icon}" style="font-size: 1.2rem;"></i>
                                         <div style="font-size: 0.8rem;">${method.name}</div>
@@ -407,12 +402,82 @@ class VikeServeGlobalPayments {
         `;
     }
 
+    // ========== DYNAMIC PAYMENT METHOD UPDATE ==========
+    updatePaymentMethodsForCountry(country) {
+        console.log('Updating payment methods for country:', country);
+        this.userCountry = country;
+        this.userCurrency = this.getCurrencyForCountry(country);
+        
+        const newMethods = this.getAvailablePaymentMethods(country);
+        const methodsContainer = document.getElementById('payment-methods-grid');
+        
+        if (methodsContainer) {
+            methodsContainer.innerHTML = newMethods.map(method => `
+                <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
+                    <i class="${method.icon}" style="font-size: 1.2rem;"></i>
+                    <div style="font-size: 0.8rem;">${method.name}</div>
+                </div>
+            `).join('');
+            
+            // Re-attach event listeners to new payment methods
+            const paymentMethods = document.querySelectorAll('.payment-method');
+            paymentMethods.forEach(method => {
+                const newMethod = method.cloneNode(true);
+                method.parentNode.replaceChild(newMethod, method);
+                
+                newMethod.addEventListener('click', () => {
+                    paymentMethods.forEach(m => {
+                        const existingM = document.querySelector(`.payment-method[data-method-id="${m.getAttribute('data-method-id')}"]`);
+                        if (existingM) existingM.style.borderColor = 'var(--grey)';
+                    });
+                    newMethod.style.borderColor = 'var(--primary)';
+                    
+                    window.selectedPaymentMethod = {
+                        id: newMethod.getAttribute('data-method-id'),
+                        name: newMethod.getAttribute('data-method-name'),
+                        type: newMethod.getAttribute('data-method-type')
+                    };
+                    
+                    const paymentDetailsContainer = document.getElementById('payment-details-container');
+                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
+                    
+                    if (window.selectedPaymentMethod.type === 'mobile_money') {
+                        const mobileForm = document.getElementById('mobile-money-details');
+                        if (mobileForm) mobileForm.style.display = 'block';
+                    } else if (window.selectedPaymentMethod.id === 'card') {
+                        const cardForm = document.getElementById('intasend-card-details');
+                        if (cardForm) cardForm.style.display = 'block';
+                    } else if (window.selectedPaymentMethod.id === 'paypal') {
+                        const paypalForm = document.getElementById('paypal-details');
+                        if (paypalForm) paypalForm.style.display = 'block';
+                    }
+                    
+                    const submitBtn = document.getElementById('promo-submit-payment');
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+            });
+        }
+        
+        // Update summary price to show correct currency
+        const summaryPrice = document.getElementById('summary-package-price');
+        if (summaryPrice && window.selectedPackage) {
+            summaryPrice.textContent = `${this.userCurrency} ${window.selectedPackage.price || 0}`;
+        }
+        
+        if (typeof window.showToast === 'function') {
+            window.showToast(`Payment methods updated for ${country}`, 'success');
+        }
+    }
+
     setupAdPromotionModalEvents(selectedAdId = null) {
         let selectedAd = null;
         let selectedPackage = null;
         let selectedAction = null;
         let selectedActionDetails = null;
-        let selectedPaymentMethod = null;
+        
+        window.selectedPackage = null;
+        window.selectedPaymentMethod = null;
         
         const step1Next = document.getElementById('promo-step1-next');
         const adSelect = document.getElementById('promo-ad-select');
@@ -475,6 +540,7 @@ class VikeServeGlobalPayments {
                     price: parseInt(card.getAttribute('data-package-price')),
                     duration: parseInt(card.getAttribute('data-package-duration'))
                 };
+                window.selectedPackage = selectedPackage;
                 
                 if (step2Next) step2Next.disabled = false;
             });
@@ -571,7 +637,7 @@ class VikeServeGlobalPayments {
                     if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
                     if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
                     if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
-                    if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
+                    if (summaryPrice) summaryPrice.textContent = `${this.userCurrency} ${selectedPackage?.price || 0}`;
                     
                     const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
                     if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
@@ -585,57 +651,61 @@ class VikeServeGlobalPayments {
             step3Back.addEventListener('click', () => this.goToPromoStep(2));
         }
         
-        const paymentMethods = document.querySelectorAll('.payment-method');
-        const paymentDetailsContainer = document.getElementById('payment-details-container');
+        // Step 4: Payment Methods - using event delegation since methods are dynamic
         const submitPaymentBtn = document.getElementById('promo-submit-payment');
         const step4Back = document.getElementById('promo-step4-back');
         
-        paymentMethods.forEach(method => {
-            method.addEventListener('click', () => {
-                paymentMethods.forEach(m => m.style.borderColor = 'var(--grey)');
-                method.style.borderColor = 'var(--primary)';
-                
-                selectedPaymentMethod = {
-                    id: method.getAttribute('data-method-id'),
-                    name: method.getAttribute('data-method-name'),
-                    type: method.getAttribute('data-method-type')
-                };
-                
-                if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-                document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
-                
-                if (selectedPaymentMethod.type === 'mobile_money') {
-                    const mobileForm = document.getElementById('mobile-money-details');
-                    if (mobileForm) mobileForm.style.display = 'block';
-                } else if (selectedPaymentMethod.id === 'card') {
-                    const cardForm = document.getElementById('intasend-card-details');
-                    if (cardForm) cardForm.style.display = 'block';
-                } else if (selectedPaymentMethod.id === 'paypal') {
-                    const paypalForm = document.getElementById('paypal-details');
-                    if (paypalForm) paypalForm.style.display = 'block';
-                }
-                
-                if (submitPaymentBtn) submitPaymentBtn.disabled = false;
+        // Use event delegation for payment methods
+        document.getElementById('payment-methods-grid')?.addEventListener('click', (e) => {
+            const method = e.target.closest('.payment-method');
+            if (!method) return;
+            
+            document.querySelectorAll('.payment-method').forEach(m => {
+                m.style.borderColor = 'var(--grey)';
             });
+            method.style.borderColor = 'var(--primary)';
+            
+            window.selectedPaymentMethod = {
+                id: method.getAttribute('data-method-id'),
+                name: method.getAttribute('data-method-name'),
+                type: method.getAttribute('data-method-type')
+            };
+            
+            const paymentDetailsContainer = document.getElementById('payment-details-container');
+            if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+            document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
+            
+            if (window.selectedPaymentMethod.type === 'mobile_money') {
+                const mobileForm = document.getElementById('mobile-money-details');
+                if (mobileForm) mobileForm.style.display = 'block';
+            } else if (window.selectedPaymentMethod.id === 'card') {
+                const cardForm = document.getElementById('intasend-card-details');
+                if (cardForm) cardForm.style.display = 'block';
+            } else if (window.selectedPaymentMethod.id === 'paypal') {
+                const paypalForm = document.getElementById('paypal-details');
+                if (paypalForm) paypalForm.style.display = 'block';
+            }
+            
+            if (submitPaymentBtn) submitPaymentBtn.disabled = false;
         });
         
         if (submitPaymentBtn) {
             submitPaymentBtn.addEventListener('click', async () => {
-                if (!selectedPaymentMethod) {
+                if (!window.selectedPaymentMethod) {
                     if (typeof window.showToast === 'function') window.showToast('Please select a payment method', 'warning');
                     return;
                 }
                 
                 let paymentDetails = {};
                 
-                if (selectedPaymentMethod.type === 'mobile_money') {
+                if (window.selectedPaymentMethod.type === 'mobile_money') {
                     const phone = document.getElementById('payment-phone-number')?.value;
                     if (!phone || phone.length < 10) {
                         if (typeof window.showToast === 'function') window.showToast('Please enter a valid phone number', 'error');
                         return;
                     }
                     paymentDetails.phone = phone;
-                } else if (selectedPaymentMethod.id === 'paypal') {
+                } else if (window.selectedPaymentMethod.id === 'paypal') {
                     const email = document.getElementById('payment-paypal-email')?.value;
                     if (!email || !email.includes('@')) {
                         if (typeof window.showToast === 'function') window.showToast('Please enter a valid PayPal email', 'error');
@@ -649,7 +719,7 @@ class VikeServeGlobalPayments {
                     selectedPackage,
                     selectedAction,
                     selectedActionDetails,
-                    selectedPaymentMethod,
+                    window.selectedPaymentMethod,
                     paymentDetails
                 );
             });
@@ -658,6 +728,9 @@ class VikeServeGlobalPayments {
         if (step4Back) {
             step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
+        
+        // Store reference for country update
+        window.paymentSystem = this;
     }
 
     goToPromoStep(step) {
@@ -689,21 +762,33 @@ class VikeServeGlobalPayments {
     }
 
     async loadIntaSendCardElement() {
-        // Card element not needed for redirect method
         console.log('Using redirect checkout method');
     }
 
     async loadIntaSendScript() {
         return new Promise((resolve, reject) => {
+            // Check if script already loaded
+            if (typeof IntaSend !== 'undefined') {
+                resolve();
+                return;
+            }
+            
             const script = document.createElement('script');
             script.src = 'https://js.intasend.com/v1/';
             script.onload = resolve;
             script.onerror = reject;
             document.head.appendChild(script);
+            
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                if (typeof IntaSend === 'undefined') {
+                    reject(new Error('IntaSend script load timeout'));
+                }
+            }, 10000);
         });
     }
 
-    // ========== FIXED: PROCESS PAYMENT USING REDIRECT METHOD (NO CORS) ==========
+    // ========== PROCESS PAYMENT USING REDIRECT METHOD ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
             window.showToast('Redirecting to payment page...', 'info');
@@ -714,10 +799,10 @@ class VikeServeGlobalPayments {
         expiresAt.setDate(expiresAt.getDate() + pkg.duration);
 
         // Get selected country from dropdown
-        const selectedCountry = document.getElementById('payment-country')?.value;
-        if (selectedCountry && selectedCountry !== 'OTHER') {
-            this.userCountry = selectedCountry;
-            this.userCurrency = this.getCurrencyForCountry(selectedCountry);
+        const selectedCountryElem = document.getElementById('payment-country');
+        if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
+            this.userCountry = selectedCountryElem.value;
+            this.userCurrency = this.getCurrencyForCountry(this.userCountry);
             console.log(`Country updated to: ${this.userCountry}, Currency: ${this.userCurrency}`);
         }
         
@@ -743,7 +828,7 @@ class VikeServeGlobalPayments {
             
             await firebase.firestore().collection('transactions').add(paymentRecord);
             
-            // Load IntaSend script if not loaded
+            // Load IntaSend script
             await this.loadIntaSendScript();
             
             const intasend = new IntaSend({
@@ -757,8 +842,7 @@ class VikeServeGlobalPayments {
                 currency: this.userCurrency,
                 email: this.userEmail,
                 reference: transactionId,
-                api_ref: transactionId,
-                api_key: this.config.intasend.publicKey
+                api_ref: transactionId
             };
             
             // Add phone number for mobile money if provided
@@ -784,12 +868,12 @@ class VikeServeGlobalPayments {
         } catch (error) {
             console.error('Payment error:', error);
             if (typeof window.showToast === 'function') {
-                window.showToast('Payment failed: ' + error.message, 'error');
+                window.showToast('Payment failed: ' + (error.message || 'Please try again'), 'error');
             }
         }
     }
 
-    // These methods are kept for compatibility but not used with redirect method
+    // Legacy methods kept for compatibility
     async initiateMpesaPayment(phoneNumber, amount, transactionId) {
         console.log('Direct payment disabled - using redirect method');
         return { success: false, error: 'Use redirect method' };
@@ -895,7 +979,6 @@ class VikeServeGlobalPayments {
     }
 
     async verifyPaymentWithIntaSend(transactionId) {
-        // Not needed for redirect method
         return { verified: true };
     }
 
@@ -928,7 +1011,7 @@ class VikeServeGlobalPayments {
                             <div class="pending-item" style="padding: 12px; border-bottom: 1px solid var(--grey); margin-bottom: 10px;">
                                 <div><strong>${this.escapeHtml(tx.adTitle)}</strong></div>
                                 <div>Package: ${tx.packageName} (${tx.duration} days)</div>
-                                <div>Amount: KES ${tx.amount}</div>
+                                <div>Amount: ${tx.userCurrency || 'KES'} ${tx.amount}</div>
                                 <div>Payment: ${tx.paymentMethod}</div>
                                 <div>Status: ${tx.status}</div>
                                 <button class="btn btn-sm btn-primary activate-now-btn" data-tx-id="${tx.transactionId}" style="margin-top: 8px;">Activate Now</button>
@@ -1041,9 +1124,12 @@ if (window.location.search.includes('payment_status=success') || window.location
     }
 }
 
+// Make paymentSystem globally available for country dropdown
+window.paymentSystem = getPaymentSystem();
+
 window.VikeServeGlobalPayments = VikeServeGlobalPayments;
 window.getPaymentSystem = getPaymentSystem;
 window.showAdPackagesModal = showAdPackagesModal;
 window.showManualActivationModal = showManualActivationModal;
 
-console.log('✅ intasend-global.js with redirect checkout method and global support loaded');
+console.log('✅ intasend-global.js with dynamic payment methods and global support loaded');
