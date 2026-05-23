@@ -3,7 +3,7 @@
 // Includes: Webhook verification, manual activation, payment status check
 // FIXED: Dynamic payment methods based on country selection
 // FIXED: Currency conversion (KES to UGX, TZS, USD, GBP, etc.)
-// FIXED: IntaSend script loading with retry mechanism
+// FIXED: IntaSend script loading with retry mechanism AND direct API fallback
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -48,8 +48,10 @@ class VikeServeGlobalPayments {
         await this.loadPaymentHistoryFromFirestore();
         await this.setupPaymentStatusListener();
         
-        // Pre-load IntaSend script
-        await this.loadIntaSendScript();
+        // Pre-load IntaSend script (non-blocking, will use fallback if fails)
+        this.loadIntaSendScript().catch(() => {
+            console.log('IntaSend script not available, will use direct API fallback');
+        });
         
         console.log('✅ Payment system ready! Country:', this.userCountry, 'Currency:', this.userCurrency);
     }
@@ -802,72 +804,84 @@ class VikeServeGlobalPayments {
         console.log('Using redirect checkout method');
     }
 
-    // ========== FIXED: INTELLIGENT INTASEND SCRIPT LOADING WITH RETRY ==========
+    // ========== IMPROVED: MULTI-CDN INTASEND SCRIPT LOADING WITH FALLBACK ==========
     async loadIntaSendScript() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             // If already loaded
             if (typeof IntaSend !== 'undefined' && IntaSend) {
                 console.log('IntaSend already loaded');
                 this.intasendReady = true;
-                resolve();
+                resolve(true);
                 return;
             }
             
-            // If script already exists but not loaded
-            const existingScript = document.querySelector('script[src*="js.intasend.com"]');
-            if (existingScript) {
-                console.log('IntaSend script already in document, waiting for load...');
-                existingScript.onload = () => {
-                    console.log('IntaSend script loaded from existing');
+            // Multiple CDN URLs to try
+            const scriptUrls = [
+                'https://js.intasend.com/v1/',
+                'https://cdn.jsdelivr.net/npm/@intasend/intasend-js@1.0.5/dist/intasend.umd.js',
+                'https://unpkg.com/@intasend/intasend-js@1.0.5/dist/intasend.umd.js'
+            ];
+            
+            let currentAttempt = 0;
+            let timeoutId = null;
+            
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+            };
+            
+            const tryLoadScript = (url) => {
+                console.log(`Attempting to load IntaSend from: ${url}`);
+                
+                // Remove any existing failed script
+                const existingScript = document.querySelector(`script[src="${url}"]`);
+                if (existingScript) existingScript.remove();
+                
+                const script = document.createElement('script');
+                script.src = url;
+                script.async = true;
+                script.defer = true;
+                
+                script.onload = () => {
+                    console.log('✅ IntaSend script loaded successfully from:', url);
+                    cleanup();
                     this.intasendReady = true;
-                    resolve();
+                    resolve(true);
                 };
-                existingScript.onerror = () => {
-                    console.log('IntaSend script failed, removing and retrying');
-                    existingScript.remove();
-                    this.loadIntaSendScript().then(resolve).catch(reject);
+                
+                script.onerror = () => {
+                    console.warn(`❌ Failed to load from: ${url}`);
+                    currentAttempt++;
+                    
+                    if (currentAttempt < scriptUrls.length) {
+                        console.log(`Trying next URL (${currentAttempt + 1}/${scriptUrls.length})...`);
+                        tryLoadScript(scriptUrls[currentAttempt]);
+                    } else {
+                        cleanup();
+                        console.error('All IntaSend script URLs failed, using fallback mode');
+                        this.useFallbackMode = true;
+                        this.intasendReady = false;
+                        resolve(false); // Resolve with false, we'll use direct API
+                    }
                 };
-                return;
-            }
-            
-            console.log('Loading IntaSend script...');
-            const script = document.createElement('script');
-            script.src = 'https://js.intasend.com/v1/';
-            script.async = true;
-            script.defer = true;
-            
-            script.onload = () => {
-                console.log('IntaSend script loaded successfully');
-                this.intasendReady = true;
-                resolve();
+                
+                document.head.appendChild(script);
             };
             
-            script.onerror = () => {
-                console.error('IntaSend script failed to load');
-                if (this.intasendLoadAttempts < 3) {
-                    this.intasendLoadAttempts++;
-                    console.log(`Retrying (${this.intasendLoadAttempts}/3)...`);
-                    setTimeout(() => {
-                        this.loadIntaSendScript().then(resolve).catch(reject);
-                    }, 1000);
-                } else {
-                    reject(new Error('IntaSend script failed to load after 3 attempts. Please check your internet connection.'));
-                }
-            };
-            
-            document.head.appendChild(script);
-            
-            // Longer timeout for slow connections (30 seconds)
-            setTimeout(() => {
+            // Set timeout for entire loading process (10 seconds)
+            timeoutId = setTimeout(() => {
                 if (!this.intasendReady) {
-                    console.error('IntaSend script timeout');
-                    reject(new Error('IntaSend script load timeout. Please check your internet connection.'));
+                    console.warn('IntaSend script timeout, using fallback mode');
+                    this.useFallbackMode = true;
+                    cleanup();
+                    resolve(false);
                 }
-            }, 30000);
+            }, 10000);
+            
+            tryLoadScript(scriptUrls[0]);
         });
     }
 
-    // ========== PROCESS PAYMENT USING REDIRECT METHOD ==========
+    // ========== IMPROVED: PROCESS PAYMENT WITH DIRECT API FALLBACK ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
             window.showToast('Preparing payment...', 'info');
@@ -916,48 +930,76 @@ class VikeServeGlobalPayments {
                 window.showToast('Loading payment gateway...', 'info');
             }
             
-            // Wait for IntaSend script to be ready with timeout
-            try {
-                await this.loadIntaSendScript();
-            } catch (scriptError) {
-                console.error('Script loading error:', scriptError);
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Payment gateway unavailable. Please try again later.', 'error');
+            // Try to load IntaSend script, but don't wait too long
+            const scriptLoaded = await this.loadIntaSendScript();
+            
+            // If script loaded successfully and IntaSend is available, use it
+            if (scriptLoaded && typeof IntaSend !== 'undefined' && IntaSend && !this.useFallbackMode) {
+                try {
+                    const intasend = new IntaSend({
+                        publicAPIKey: this.config.intasend.publicKey,
+                        live: this.config.intasend.environment === 'live'
+                    });
+                    
+                    const checkoutData = {
+                        amount: finalPrice,
+                        currency: finalCurrency,
+                        email: this.userEmail,
+                        reference: transactionId,
+                        api_ref: transactionId
+                    };
+                    
+                    if (paymentDetails.phone) {
+                        checkoutData.phone = paymentDetails.phone;
+                    }
+                    
+                    if (this.userCountry && this.userCountry !== 'OTHER') {
+                        checkoutData.country = this.userCountry;
+                    }
+                    
+                    console.log('Creating checkout with data:', checkoutData);
+                    const checkoutUrl = await intasend.createCheckout(checkoutData);
+                    console.log('Redirecting to:', checkoutUrl);
+                    window.location.href = checkoutUrl;
+                    return;
+                } catch (intasendError) {
+                    console.error('IntaSend checkout error:', intasendError);
+                    // Fall through to direct API method
                 }
-                return;
             }
             
-            if (typeof IntaSend === 'undefined') {
-                throw new Error('IntaSend not available');
-            }
+            // FALLBACK: Use direct API redirect (no script needed)
+            console.log('Using direct API redirect fallback');
             
-            const intasend = new IntaSend({
-                publicAPIKey: this.config.intasend.publicKey,
-                live: this.config.intasend.environment === 'live'
-            });
-            
-            const checkoutData = {
+            // Build direct checkout URL
+            const baseUrl = 'https://api.intasend.com/v1/payment/checkout/';
+            const params = new URLSearchParams({
+                public_api_key: this.config.intasend.publicKey,
                 amount: finalPrice,
                 currency: finalCurrency,
                 email: this.userEmail,
                 reference: transactionId,
                 api_ref: transactionId
-            };
+            });
             
             if (paymentDetails.phone) {
-                checkoutData.phone = paymentDetails.phone;
+                params.append('phone_number', paymentDetails.phone);
             }
             
             if (this.userCountry && this.userCountry !== 'OTHER') {
-                checkoutData.country = this.userCountry;
+                params.append('country', this.userCountry);
             }
             
-            console.log('Creating checkout with data:', checkoutData);
+            const checkoutUrl = `${baseUrl}?${params.toString()}`;
+            console.log('Redirecting to direct API:', checkoutUrl);
             
-            const checkoutUrl = await intasend.createCheckout(checkoutData);
+            if (typeof window.showToast === 'function') {
+                window.showToast('Redirecting to payment page...', 'info');
+            }
             
-            console.log('Redirecting to:', checkoutUrl);
-            window.location.href = checkoutUrl;
+            setTimeout(() => {
+                window.location.href = checkoutUrl;
+            }, 500);
             
         } catch (error) {
             console.error('Payment error:', error);
