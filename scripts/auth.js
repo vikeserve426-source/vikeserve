@@ -81,7 +81,7 @@ class AuthManager {
             });
         }
 
-        this.setupRoleSelection();
+        // No need for role selection setup anymore since we use text input
     }
 
     setupUserMenuButtons() {
@@ -387,7 +387,9 @@ class AuthManager {
         const password = form.querySelector('#register-password')?.value;
         const confirmPassword = form.querySelector('#register-confirm-password')?.value;
         const displayName = form.querySelector('#register-name')?.value;
-        const role = document.getElementById('user-role')?.value;
+        // Get role from text input instead of hidden field
+        const roleInput = document.getElementById('user-role-input');
+        const role = roleInput ? roleInput.value.trim() : 'general-user';
 
         if (!email || !password || !confirmPassword || !displayName) {
             this.showToast('Please fill in all fields', 'error');
@@ -404,13 +406,16 @@ class AuthManager {
             return;
         }
 
+        // Use default role if empty
+        const finalRole = role === '' ? 'general-user' : role;
+
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         submitBtn.innerHTML = '<div class="spinner"></div> Creating Account...';
         submitBtn.disabled = true;
 
         try {
-            const result = await this.registerWithEmail(email, password, displayName, role || 'general-user');
+            const result = await this.registerWithEmail(email, password, displayName, finalRole);
             
             if (result.success) {
                 this.showToast(`🎉 Welcome to VikeServe, ${displayName}! Please verify your email.`, 'success');
@@ -659,24 +664,7 @@ class AuthManager {
         }
     }
 
-    setupRoleSelection() {
-        const roleOptions = document.querySelectorAll('.role-option');
-        const roleInput = document.getElementById('user-role');
-        if (roleOptions.length > 0 && roleInput) {
-            roleOptions.forEach(option => {
-                const newOption = option.cloneNode(true);
-                option.parentNode.replaceChild(newOption, option);
-                newOption.addEventListener('click', function() {
-                    roleOptions.forEach(opt => {
-                        const existingOpt = document.querySelector(`.role-option[data-role="${opt.getAttribute('data-role')}"]`);
-                        if (existingOpt) existingOpt.classList.remove('selected');
-                    });
-                    this.classList.add('selected');
-                    roleInput.value = this.getAttribute('data-role');
-                });
-            });
-        }
-    }
+    // REMOVED: setupRoleSelection() - replaced with text input
 
     updateUIForAuthenticatedUser(user) {
         const userName = document.getElementById('user-name');
@@ -886,7 +874,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
-// Setup auth modal buttons
+// Setup auth modal buttons (updated for text input role)
 function setupAuthModalButtons() {
     const attachClick = (selector, handler, name) => {
         const element = document.querySelector(selector);
@@ -929,20 +917,7 @@ function setupAuthModalButtons() {
         });
     });
     
-    const roleOptions = document.querySelectorAll('.role-option');
-    roleOptions.forEach(option => {
-        const newOption = option.cloneNode(true);
-        option.parentNode.replaceChild(newOption, option);
-        newOption.addEventListener('click', function() {
-            document.querySelectorAll('.role-option').forEach(opt => {
-                const existingOpt = document.querySelector(`.role-option[data-role="${opt.getAttribute('data-role')}"]`);
-                if (existingOpt) existingOpt.classList.remove('selected');
-            });
-            this.classList.add('selected');
-            const roleInput = document.getElementById('user-role');
-            if (roleInput) roleInput.value = this.getAttribute('data-role');
-        });
-    });
+    // No role option setup needed - we use text input now
 }
 
 window.openAuthModal = function() {
@@ -988,4 +963,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 });
 
-console.log('✅ Auth.js fully loaded with all fixes');
+console.log('✅ Auth.js fully loaded with all fixes - Role selection changed to text input');
