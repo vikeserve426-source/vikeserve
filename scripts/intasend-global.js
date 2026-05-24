@@ -881,7 +881,7 @@ class VikeServeGlobalPayments {
         });
     }
 
-    // ========== IMPROVED: PROCESS PAYMENT WITH DIRECT API FALLBACK ==========
+    // ========== FIXED: PROCESS PAYMENT WITH CORRECT INTASEND URL ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
             window.showToast('Preparing payment...', 'info');
@@ -904,6 +904,34 @@ class VikeServeGlobalPayments {
             finalPrice = await this.convertAmount(pkg.originalPriceKES, 'KES', this.userCurrency);
         }
         
+        // FIXED: Ensure we have a valid email (use fallback if null)
+        let userEmailForPayment = this.userEmail;
+        if (!userEmailForPayment || userEmailForPayment === 'null' || userEmailForPayment === 'undefined') {
+            // Try to get from Firebase auth directly
+            if (firebase && firebase.auth && firebase.auth().currentUser) {
+                userEmailForPayment = firebase.auth().currentUser.email;
+            }
+            // If still null, use a fallback or prompt user
+            if (!userEmailForPayment || userEmailForPayment === 'null') {
+                userEmailForPayment = prompt('Please enter your email address for payment receipt:', 'customer@example.com');
+                if (!userEmailForPayment) {
+                    userEmailForPayment = 'customer@vikeserve.com';
+                }
+            }
+        }
+        
+        // Format phone number
+        let formattedPhone = paymentDetails.phone || this.userPhone || '';
+        if (formattedPhone) {
+            formattedPhone = formattedPhone.replace(/\D/g, '');
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = '254' + formattedPhone.substring(1);
+            }
+            if (!formattedPhone.startsWith('254') && formattedPhone.length === 9) {
+                formattedPhone = '254' + formattedPhone;
+            }
+        }
+        
         try {
             const paymentRecord = {
                 transactionId: transactionId,
@@ -916,7 +944,7 @@ class VikeServeGlobalPayments {
                 paymentMethod: paymentMethod.name,
                 status: 'pending',
                 userId: this.userId,
-                userEmail: this.userEmail,
+                userEmail: userEmailForPayment,
                 action: { type: action, details: actionDetails },
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
@@ -927,90 +955,38 @@ class VikeServeGlobalPayments {
             await firebase.firestore().collection('transactions').add(paymentRecord);
             
             if (typeof window.showToast === 'function') {
-                window.showToast('Loading payment gateway...', 'info');
+                window.showToast('Redirecting to payment...', 'info');
             }
             
-            // Try to load IntaSend script, but don't wait too long
-            const scriptLoaded = await this.loadIntaSendScript();
+            // ========== CORRECT INTASEND URL FORMAT ==========
+            // The correct format is: https://intasend.com/pay/PUBLIC_KEY?parameters
+            // NOT the API endpoint which returns 404
             
-            // If script loaded successfully and IntaSend is available, use it
-            if (scriptLoaded && typeof IntaSend !== 'undefined' && IntaSend && !this.useFallbackMode) {
-                try {
-                    const intasend = new IntaSend({
-                        publicAPIKey: this.config.intasend.publicKey,
-                        live: this.config.intasend.environment === 'live'
-                    });
-                    
-                    const checkoutData = {
-                        amount: finalPrice,
-                        currency: finalCurrency,
-                        email: this.userEmail,
-                        reference: transactionId,
-                        api_ref: transactionId
-                    };
-                    
-                    if (paymentDetails.phone) {
-                        checkoutData.phone = paymentDetails.phone;
-                    }
-                    
-                    if (this.userCountry && this.userCountry !== 'OTHER') {
-                        checkoutData.country = this.userCountry;
-                    }
-                    
-                    console.log('Creating checkout with data:', checkoutData);
-                    const checkoutUrl = await intasend.createCheckout(checkoutData);
-                    console.log('Redirecting to:', checkoutUrl);
-                    window.location.href = checkoutUrl;
-                    return;
-                } catch (intasendError) {
-                    console.error('IntaSend checkout error:', intasendError);
-                    // Fall through to direct API method
-                }
-            }
+            const correctCheckoutUrl = `https://intasend.com/pay/${this.config.intasend.publicKey}?amount=${finalPrice}&currency=${finalCurrency}&email=${encodeURIComponent(userEmailForPayment)}&reference=${transactionId}`;
             
-            // FALLBACK: Use direct API redirect (no script needed)
-            console.log('Using direct API redirect fallback');
+            console.log('Redirecting to IntaSend:', correctCheckoutUrl);
             
-            // Build direct checkout URL
-            const baseUrl = 'https://api.intasend.com/v1/payment/checkout/';
-            const params = new URLSearchParams({
-                public_api_key: this.config.intasend.publicKey,
-                amount: finalPrice,
-                currency: finalCurrency,
-                email: this.userEmail,
-                reference: transactionId,
-                api_ref: transactionId
-            });
-            
-            if (paymentDetails.phone) {
-                params.append('phone_number', paymentDetails.phone);
-            }
-            
-            if (this.userCountry && this.userCountry !== 'OTHER') {
-                params.append('country', this.userCountry);
-            }
-            
-            const checkoutUrl = `${baseUrl}?${params.toString()}`;
-            console.log('Redirecting to direct API:', checkoutUrl);
-            
-            if (typeof window.showToast === 'function') {
-                window.showToast('Redirecting to payment page...', 'info');
-            }
-            
+            // Small delay to ensure toast is seen
             setTimeout(() => {
-                window.location.href = checkoutUrl;
+                window.location.href = correctCheckoutUrl;
             }, 500);
             
         } catch (error) {
             console.error('Payment error:', error);
+            
+            // FALLBACK: Show manual payment instructions
             if (typeof window.showToast === 'function') {
-                let errorMsg = error.message || 'Payment failed. Please try again.';
-                if (errorMsg.includes('timeout')) {
-                    errorMsg = 'Payment gateway timed out. Please check your internet and try again.';
-                } else if (errorMsg.includes('failed to load')) {
-                    errorMsg = 'Unable to load payment page. Please check your internet connection.';
-                }
-                window.showToast(errorMsg, 'error');
+                window.showToast(`Payment setup failed. Please contact support with transaction ID: ${transactionId}`, 'error');
+            }
+            
+            // Update transaction status
+            const transactionsRef = firebase.firestore().collection('transactions');
+            const query = await transactionsRef.where('transactionId', '==', transactionId).get();
+            if (!query.empty) {
+                await query.docs[0].ref.update({
+                    status: 'pending_manual',
+                    error: error.message
+                });
             }
         }
     }
