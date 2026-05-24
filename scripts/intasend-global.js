@@ -881,7 +881,7 @@ class VikeServeGlobalPayments {
         });
     }
 
-    // ========== FIXED: PROCESS PAYMENT WITH CORRECT INTASEND URL ==========
+    // ========== FIXED: DIRECT STK PUSH FOR ALL SUPPORTED COUNTRIES ==========
     async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         if (typeof window.showToast === 'function') {
             window.showToast('Preparing payment...', 'info');
@@ -904,32 +904,57 @@ class VikeServeGlobalPayments {
             finalPrice = await this.convertAmount(pkg.originalPriceKES, 'KES', this.userCurrency);
         }
         
-        // FIXED: Ensure we have a valid email (use fallback if null)
+        // Get user email
         let userEmailForPayment = this.userEmail;
         if (!userEmailForPayment || userEmailForPayment === 'null' || userEmailForPayment === 'undefined') {
-            // Try to get from Firebase auth directly
             if (firebase && firebase.auth && firebase.auth().currentUser) {
                 userEmailForPayment = firebase.auth().currentUser.email;
             }
-            // If still null, use a fallback or prompt user
             if (!userEmailForPayment || userEmailForPayment === 'null') {
-                userEmailForPayment = prompt('Please enter your email address for payment receipt:', 'customer@example.com');
+                userEmailForPayment = prompt('Please enter your email for payment receipt:', '');
                 if (!userEmailForPayment) {
-                    userEmailForPayment = 'customer@vikeserve.com';
+                    userEmailForPayment = `${this.userId || 'customer'}@vikeserve.com`;
                 }
             }
         }
         
-        // Format phone number
-        let formattedPhone = paymentDetails.phone || this.userPhone || '';
-        if (formattedPhone) {
-            formattedPhone = formattedPhone.replace(/\D/g, '');
-            if (formattedPhone.startsWith('0')) {
-                formattedPhone = '254' + formattedPhone.substring(1);
+        // Get phone number (required for mobile money)
+        let phoneNumber = paymentDetails.phone || this.userPhone || '';
+        if (!phoneNumber && paymentMethod.type === 'mobile_money') {
+            phoneNumber = prompt(`Enter your ${paymentMethod.name} phone number:`, '');
+            if (!phoneNumber) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Phone number required for mobile money payment', 'error');
+                }
+                return;
             }
-            if (!formattedPhone.startsWith('254') && formattedPhone.length === 9) {
-                formattedPhone = '254' + formattedPhone;
-            }
+        }
+        
+        // Format phone number based on country
+        phoneNumber = phoneNumber.replace(/\D/g, '');
+        const countryCode = this.userCountry;
+        
+        if (countryCode === 'KE') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '254' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('254')) phoneNumber = '254' + phoneNumber;
+        } else if (countryCode === 'UG') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '256' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('256')) phoneNumber = '256' + phoneNumber;
+        } else if (countryCode === 'TZ') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '255' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('255')) phoneNumber = '255' + phoneNumber;
+        } else if (countryCode === 'RW') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '250' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('250')) phoneNumber = '250' + phoneNumber;
+        } else if (countryCode === 'NG') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '234' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('234')) phoneNumber = '234' + phoneNumber;
+        } else if (countryCode === 'GH') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '233' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('233')) phoneNumber = '233' + phoneNumber;
+        } else if (countryCode === 'ZA') {
+            if (phoneNumber.startsWith('0')) phoneNumber = '27' + phoneNumber.substring(1);
+            if (!phoneNumber.startsWith('27')) phoneNumber = '27' + phoneNumber;
         }
         
         try {
@@ -945,6 +970,7 @@ class VikeServeGlobalPayments {
                 status: 'pending',
                 userId: this.userId,
                 userEmail: userEmailForPayment,
+                userPhone: phoneNumber,
                 action: { type: action, details: actionDetails },
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
@@ -954,41 +980,143 @@ class VikeServeGlobalPayments {
             
             await firebase.firestore().collection('transactions').add(paymentRecord);
             
-            if (typeof window.showToast === 'function') {
-                window.showToast('Redirecting to payment...', 'info');
+            // For mobile money - send STK push (PIN prompt on phone)
+            if (paymentMethod.type === 'mobile_money') {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(`Sending payment request to ${phoneNumber}...`, 'info');
+                }
+                
+                // Map payment method to IntaSend provider
+                const providerMap = {
+                    'mpesa': 'SAFARICOM',
+                    'airtel_kenya': 'AIRTEL',
+                    'mtn_uganda': 'MTN',
+                    'airtel_uganda': 'AIRTEL',
+                    'mpesa_tz': 'VODACOM',
+                    'tigo_pesa': 'TIGO'
+                };
+                
+                const provider = providerMap[paymentMethod.id] || 'SAFARICOM';
+                
+                // IntaSend STK Push API
+                const apiUrl = 'https://api.intasend.com/api/v1/payments/mobile-money/';
+                
+                const payload = {
+                    public_key: this.config.intasend.publicKey,
+                    amount: finalPrice,
+                    currency: finalCurrency,
+                    email: userEmailForPayment,
+                    phone_number: phoneNumber,
+                    provider: provider,
+                    reference: transactionId,
+                    api_ref: transactionId,
+                    country: this.userCountry,
+                    narration: `VikeServe - ${pkg.name} Package`
+                };
+                
+                console.log('Sending STK push:', payload);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                console.log('STK Response:', result);
+                
+                if (result.success || result.checkout_id || result.id) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(`Check your phone for PIN prompt! Enter your PIN to complete payment.`, 'success');
+                    }
+                    
+                    // Poll for payment status
+                    const checkoutId = result.checkout_id || result.id;
+                    if (checkoutId) {
+                        await this.pollPaymentStatus(checkoutId, transactionId, ad, pkg, actionDetails, paymentMethod);
+                    }
+                } else {
+                    throw new Error(result.message || 'STK push failed');
+                }
+            } 
+            // For card and PayPal - redirect to hosted page
+            else {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Redirecting to payment page...', 'info');
+                }
+                
+                const checkoutUrl = `https://intasend.com/pay/${this.config.intasend.publicKey}?amount=${finalPrice}&currency=${finalCurrency}&email=${encodeURIComponent(userEmailForPayment)}&reference=${transactionId}`;
+                
+                console.log('Redirecting to:', checkoutUrl);
+                
+                setTimeout(() => {
+                    window.location.href = checkoutUrl;
+                }, 500);
             }
-            
-            // ========== CORRECT INTASEND URL FORMAT ==========
-            // The correct format is: https://intasend.com/pay/PUBLIC_KEY?parameters
-            // NOT the API endpoint which returns 404
-            
-            const correctCheckoutUrl = `https://intasend.com/pay/${this.config.intasend.publicKey}?amount=${finalPrice}&currency=${finalCurrency}&email=${encodeURIComponent(userEmailForPayment)}&reference=${transactionId}`;
-            
-            console.log('Redirecting to IntaSend:', correctCheckoutUrl);
-            
-            // Small delay to ensure toast is seen
-            setTimeout(() => {
-                window.location.href = correctCheckoutUrl;
-            }, 500);
             
         } catch (error) {
             console.error('Payment error:', error);
-            
-            // FALLBACK: Show manual payment instructions
             if (typeof window.showToast === 'function') {
-                window.showToast(`Payment setup failed. Please contact support with transaction ID: ${transactionId}`, 'error');
+                window.showToast(`Payment failed: ${error.message}. Please try again.`, 'error');
             }
             
-            // Update transaction status
             const transactionsRef = firebase.firestore().collection('transactions');
             const query = await transactionsRef.where('transactionId', '==', transactionId).get();
             if (!query.empty) {
                 await query.docs[0].ref.update({
-                    status: 'pending_manual',
+                    status: 'failed',
                     error: error.message
                 });
             }
         }
+    }
+    
+    // Add this helper method after processIntaSendPayment
+    async pollPaymentStatus(checkoutId, transactionId, ad, pkg, actionDetails, paymentMethod) {
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        const interval = setInterval(async () => {
+            attempts++;
+            
+            try {
+                const statusUrl = `https://api.intasend.com/api/v1/payments/status/${checkoutId}/?public_key=${this.config.intasend.publicKey}`;
+                const response = await fetch(statusUrl);
+                const result = await response.json();
+                
+                console.log(`Polling attempt ${attempts}:`, result);
+                
+                if (result.status === 'completed' || result.status === 'success' || result.state === 'completed') {
+                    clearInterval(interval);
+                    await this.activatePromotion(ad.id, ad.title, pkg, actionDetails, transactionId, paymentMethod);
+                    
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('✅ Payment successful! Your ad is now promoted.', 'success');
+                    }
+                    
+                    const modal = document.getElementById('ad-packages-full-modal');
+                    if (modal) modal.style.display = 'none';
+                    
+                } else if (result.status === 'failed' || result.state === 'failed') {
+                    clearInterval(interval);
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Payment failed. Please try again.', 'error');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+            
+            if (attempts >= maxAttempts) {
+                clearInterval(interval);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Payment pending. Check your transaction status later.', 'warning');
+                }
+            }
+        }, 1000);
     }
 
     // Legacy methods kept for compatibility
