@@ -1994,7 +1994,15 @@ class MoreMenuManager {
     
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            // Remove modal from DOM after closing to prevent memory leaks
+            setTimeout(() => {
+                if (modal.parentNode && modal.style.display === 'none') {
+                    modal.remove();
+                }
+            }, 300);
+        }
     }
     
     toggleDarkMode(isEnabled) {
@@ -2026,13 +2034,15 @@ class MoreMenuManager {
     }
     
     showModalWithContent(modalId, content) {
-        let modal = document.getElementById(modalId);
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = modalId;
-            modal.className = 'modal';
-            document.body.appendChild(modal);
+        // Remove existing modal if it exists
+        const existingModal = document.getElementById(modalId);
+        if (existingModal) {
+            existingModal.remove();
         }
+        
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal';
         modal.innerHTML = content;
         modal.style.display = 'flex';
         modal.style.zIndex = '20002';
@@ -2043,14 +2053,48 @@ class MoreMenuManager {
         modal.style.height = '100%';
         modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         modal.style.overflowY = 'auto';
+        document.body.appendChild(modal);
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeModal(modalId);
+            }
+        });
     }
     
-    shareApp() {
+        shareApp() {
         if (navigator.share) {
             navigator.share({ title: 'VikeServe', text: 'Check out VikeServe app!', url: 'https://vikeserve.com' });
         } else {
             navigator.clipboard.writeText('Check out VikeServe app!');
             this.showToast('Link copied!', 'success');
+        }
+    }
+    
+    onMenuOpen() {
+        // Refresh data when More menu is opened
+        if (this.currentMoreTab === 'messages') {
+            this.loadConversations();
+        } else if (this.currentMoreTab === 'alerts') {
+            this.loadAlerts();
+        } else if (this.currentMoreTab === 'education') {
+            this.loadTeachers();
+            this.loadInternships();
+            this.loadAttachments();
+            this.loadTraining();
+        }
+    }
+    
+    onMenuClose() {
+        // Clean up chat listener when menu closes
+        if (this.currentChatUnsubscribe) {
+            this.currentChatUnsubscribe();
+            this.currentChatUnsubscribe = null;
+        }
+        if (this.typingUnsubscribe) {
+            this.typingUnsubscribe();
+            this.typingUnsubscribe = null;
         }
     }
     
