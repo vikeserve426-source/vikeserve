@@ -1,0 +1,13 @@
+{
+  "background_color": "#f0fcff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "VikeServe",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "VikeServe",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "VikeServe",
+  "description": "Complete daily needs super app - services, jobs, marketplace, housing, and community alerts"
+}

@@ -1,0 +1,10 @@
+Error generating app package: 
+Cannot read properties of undefined (reading &#39;indexOf&#39;)
+stack: TypeError: Cannot read properties of undefined (reading &#39;indexOf&#39;)
+    at PackageCreator.createAppPackageWith403Fallback (file:///app/services/packageCreator.js:157:61)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async PackageCreator.createAppPackage (file:///app/services/packageCreator.js:88:20)
+    at async PackageCreator.create (file:///app/services/packageCreator.js:27:32)
+    at async PackageCreator.createZip (file:///app/services/packageCreator.js:48:28)
+    at async generatePackageZip (file:///app/routes/project.js:121:25)
+    at async file:///app/routes/project.js:67:86

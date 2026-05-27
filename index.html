@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VikeServe - Complete Daily Needs Super App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --primary: #2E86DE;
+            --primary-dark: #1A56B0;
+            --secondary: #341f97;
+            --emergency: #FF5E5E;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --dark: #01080f;
+            --light: #f9f9f9;
+            --grey: #ecf0f1;
+            --grey-dark: #bdc3c7;
+            --card-shadow: 0 5px 15px rgba(128, 92, 92, 0.08);
+            --transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] {
+            --primary: #3b8df1;
+            --primary-dark: #2a6ac8;
+            --secondary: #4a33c5;
+            --emergency: #ff7676;
+            --success: #32c971;
+            --warning: #f5b342;
+            --danger: #f66555;
+            --dark: #e0e6ed;
+            --light: #2a2e35;
+            --grey: #3a3f47;
+            --grey-dark: #5c626a;
+            --card-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background-color: #f5f8fa; color: var(--dark); line-height: 1.6; transition: var(--transition); }
+        [data-theme="dark"] body { background-color: #1e2126; }
+        
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding-bottom: 80px;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+            transition: var(--transition);
+        }
+        [data-theme="dark"] .container { background: #24282f; box-shadow: 0 0 20px rgba(0, 0, 0, 0.2); }
+        
+        /* App Header */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .logo { display: flex; align-items: center; }
+        .logo-icon { font-size: 1.8rem; margin-right: 12px; background: white; color: var(--primary); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .logo-text { font-weight: 700; font-size: 1.4rem; }
+        
+        .location-selector {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .location-selector:hover { background: rgba(255, 255, 255, 0.3); }
+        .location-selector i { margin-right: 8px; font-size: 0.9rem; }
+        .location-text { font-size: 0.9rem; font-weight: 500; }
+        
+        .user-profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+        .user-profile:hover { background: rgba(255, 255, 255, 0.3); }
+        
+        /* User Menu */
+        .user-menu {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 220px;
+            z-index: 150;
+            display: none;
+        }
+        [data-theme="dark"] .user-menu { background: #2d333b; }
+        .user-menu.show { display: block; animation: slideDown 0.3s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .user-menu-header { padding: 15px; border-bottom: 1px solid var(--grey); }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .user-details { flex: 1; overflow: hidden; }
+        .user-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-email { font-size: 0.75rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .user-menu-item { padding: 12px 15px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .user-menu-item:hover { background: var(--grey); }
+        .user-menu-item i { width: 20px; color: var(--primary); }
+        
+        /* Bottom Navigation - 4 Tabs Only */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            background: white;
+            box-shadow: 0 -2px 15px rgba(0,0,0,0.08);
+            z-index: 100;
+            border-top: 1px solid var(--grey);
+            padding: 8px 0;
+        }
+        [data-theme="dark"] .bottom-nav { background: #2d333b; box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3); border-top: 1px solid #3a3f47; }
+        
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px 2px;
+            color: var(--dark);
+            font-size: 0.65rem;
+            opacity: 0.6;
+            transition: var(--transition);
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-item.active { opacity: 1; color: var(--primary); }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 25px;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 0 0 3px 3px;
+        }
+        .nav-icon { font-size: 1.2rem; margin-bottom: 3px; }
+        
+        /* Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* App Content */
+        .app-content { padding: 20px; }
+        
+        /* Search Bar */
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: var(--grey);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+        }
+        .search-icon { margin-right: 10px; color: var(--grey-dark); }
+        .search-input { border: none; background: transparent; width: 100%; font-size: 1rem; color: var(--dark); }
+        .search-input:focus { outline: none; }
+        
+        /* Section Titles */
+        .section-title { font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .quick-action {
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .quick-action:hover { transform: translateY(-5px); }
+        .action-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--light);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+        .action-name { font-size: 0.8rem; font-weight: 500; }
+        
+        /* Module Cards */
+        .module-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--card-shadow);
+        }
+        [data-theme="dark"] .module-card { background: #2d333b; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .card-title { font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .see-all { color: var(--primary); font-size: 0.8rem; font-weight: 500; cursor: pointer; }
+        
+        /* Job Cards */
+        .job-card {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        [data-theme="dark"] .job-card { background: #353b44; }
+        .job-title { font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .job-poster { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.9rem; }
+        .job-poster-img { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; }
+        .job-detail { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 5px; color: var(--dark); }
+        .job-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+        .job-tag { background: var(--grey); padding: 3px 8px; border-radius: 5px; font-size: 0.7rem; font-weight: 500; }
+        .job-tag.urgent { background: var(--emergency); color: white; }
+        
+        /* Buttons */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        .btn-primary { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(46, 134, 222, 0.3); }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-sm { padding: 8px 12px; font-size: 0.75rem; }
+        .btn-danger { background: var(--danger); color: white; }
+        
+        /* Warning Items */
+        .warning-item {
+            background: rgba(243, 156, 18, 0.1);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--warning);
+        }
+        .warning-item.danger { background: rgba(231, 76, 60, 0.1); border-left-color: var(--danger); }
+        .warning-header { display: flex; align-items: center; margin-bottom: 8px; }
+        .warning-icon { color: var(--warning); margin-right: 10px; font-size: 1rem; }
+        .warning-item.danger .warning-icon { color: var(--danger); }
+        .warning-title { font-weight: 600; font-size: 0.85rem; }
+        .warning-content { font-size: 0.8rem; }
+        
+        /* Ad Container */
+        .ad-container {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+        }
+        .ad-label { position: absolute; top: 5px; right: 5px; background: var(--grey); color: var(--dark); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; }
+        .ad-title { font-weight: 600; margin-bottom: 8px; }
+        .ad-description { font-size: 0.8rem; margin-bottom: 10px; color: var(--grey-dark); }
+        .ad-cta { background: var(--primary); color: white; border: none; border-radius: 20px; padding: 8px 15px; font-size: 0.8rem; cursor: pointer; }
+        
+        /* Loading Spinner */
+        .loading-spinner { text-align: center; padding: 40px; color: var(--grey-dark); }
+        
+        /* Modal */
+        .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        [data-theme="dark"] .modal-content { background: #2d333b; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--grey); }
+        .modal-title { font-weight: 600; font-size: 1.1rem; }
+        .close-modal-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--dark); }
+        
+        /* Form Elements */
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: 500; }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--grey);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: white;
+            color: var(--dark);
+        }
+        [data-theme="dark"] .form-input { background: #353b44; border-color: #454c56; }
+        .form-input:focus { outline: none; border-color: var(--primary); }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .form-hint { font-size: 0.7rem; color: var(--grey-dark); margin-top: 5px; }
+        .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: white;
+            border-radius: 10px;
+            padding: 12px 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 2000;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast-success { border-left: 4px solid var(--success); }
+        .toast-error { border-left: 4px solid var(--danger); }
+        .toast-warning { border-left: 4px solid var(--warning); }
+        .toast-info { border-left: 4px solid var(--primary); }
+        
+        /* Market Items */
+        .market-items {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .market-item {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .market-item:hover { transform: translateY(-3px); }
+        [data-theme="dark"] .market-item { background: #2d333b; }
+        .market-item-img {
+            height: 120px;
+            background: var(--light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--primary);
+        }
+        .market-item-info { padding: 12px; }
+        .market-item-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 5px; }
+        .market-item-price { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+        .market-item-location { font-size: 0.7rem; color: var(--grey-dark); margin-top: 5px; }
+        
+        /* Service Categories */
+        .service-categories {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .service-category {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .service-category:hover { transform: translateY(-3px); }
+        [data-theme="dark"] .service-category { background: #2d333b; }
+        .service-category-icon { font-size: 1.5rem; margin-bottom: 8px; color: var(--primary); }
+        .service-category-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 3px; }
+        .service-category-desc { font-size: 0.7rem; color: var(--grey-dark); }
+        
+        /* Market Filters */
+        .market-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+        .filter-btn {
+            padding: 6px 12px;
+            background: var(--light);
+            border: none;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .filter-btn.active { background: var(--primary); color: white; }
+        
+        /* Promoted Badge */
+        .promoted-badge {
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #2c3e50;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+        
+        /* More Section */
+        .more-section {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            overflow-y: auto;
+        }
+        .more-section.active { display: block; }
+        [data-theme="dark"] .more-section { background: #24282f; }
+        
+        .more-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .more-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.1rem; }
+        .more-close { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        
+        .more-tab-nav {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--grey);
+            overflow-x: auto;
+            position: sticky;
+            top: 60px;
+            z-index: 10;
+        }
+        [data-theme="dark"] .more-tab-nav { background: #2d333b; border-bottom-color: #3a3f47; }
+        
+        .more-tab-btn {
+            flex: 1;
+            text-align: center;
+            padding: 12px 5px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 3px solid transparent;
+            font-size: 0.7rem;
+            opacity: 0.6;
+            min-width: 70px;
+        }
+        .more-tab-btn.active { border-bottom-color: var(--primary); color: var(--primary); opacity: 1; }
+        .more-tab-icon { font-size: 1.1rem; margin-bottom: 5px; }
+        
+        .more-tab-content { display: none; padding: 20px; padding-bottom: 100px; }
+        .more-tab-content.active { display: block; }
+        
+        .more-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            background: white;
+            z-index: 2001;
+            border-top: 1px solid var(--grey);
+            padding: 5px 0;
+        }
+        .more-bottom-nav .nav-item { flex: 1; text-align: center; padding: 8px 2px; cursor: pointer; }
+        .more-section.active ~ .more-bottom-nav { display: flex; }
+        .more-section.active ~ .bottom-nav { display: none; }
+        
+        /* Safety Tips */
+        .safety-tips-list { display: flex; flex-direction: column; gap: 10px; }
+        .safety-tip { display: flex; align-items: flex-start; gap: 12px; font-size: 0.85rem; }
+        .safety-tip-icon { color: var(--success); margin-top: 2px; }
+        
+        /* Settings Options */
+        .settings-section { margin-bottom: 20px; }
+        .settings-section-title { font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--grey); }
+        .settings-option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: var(--light);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .settings-option-icon { width: 40px; color: var(--primary); }
+        .settings-option-info { flex: 1; }
+        .settings-option-title { font-weight: 500; font-size: 0.85rem; }
+        .settings-option-desc { font-size: 0.7rem; color: var(--grey-dark); }
+        .settings-option-arrow { color: var(--grey-dark); }
+        
+        /* Switch Toggle */
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(26px); }
+        
+        /* Empty States */
+        .empty-marketplace { text-align: center; padding: 60px 20px; color: var(--grey-dark); }
+        .no-jobs { text-align: center; padding: 40px; color: var(--grey-dark); }
+        
+        /* Auth Modal */
+        .auth-providers { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .auth-provider-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid var(--grey);
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+        }
+        [data-theme="dark"] .auth-provider-btn { background: #353b44; }
+        .google-btn { color: #DB4437; }
+        .facebook-btn { color: #4267B2; }
+        .auth-divider { display: flex; align-items: center; margin: 20px 0; color: var(--grey-dark); }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--grey); }
+        .auth-divider span { padding: 0 15px; font-size: 0.8rem; }
+        .auth-footer { margin-top: 15px; text-align: center; font-size: 0.8rem; }
+        .auth-link { color: var(--primary); cursor: pointer; text-decoration: none; }
+        
+        /* Role Input - Required Field */
+        .role-error { color: var(--danger); font-size: 0.7rem; margin-top: 5px; display: none; }
+        
+        /* Password Container */
+        .password-container { position: relative; }
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--grey-dark);
+        }
+        
+        /* Image Preview */
+        .image-preview-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .image-preview-item { position: relative; display: inline-block; }
+        .remove-image-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Category Specific Fields */
+        .category-fields { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--grey); }
+        .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .feature-checkbox { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; }
+        
+        /* Image Upload Area */
+        .image-upload-area {
+            border: 2px dashed var(--grey);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .image-upload-area:hover { border-color: var(--primary); background: rgba(46, 134, 222, 0.05); }
+    </style>
+</head>
+<body>
+    <div class="container">
+<!-- App Header -->
+<div class="app-header">
+    <div class="logo">
+        <div class="logo-icon"><i class="fas fa-hands-helping"></i></div>
+        <div class="logo-text">VikeServe</div>
+    </div>
+    <div class="location-selector" id="location-selector">
+        <i class="fas fa-map-marker-alt"></i>
+        <div class="location-text" id="location-name">Select Location</div>
+    </div>
+    <div class="user-profile" id="user-profile">
+        <i class="fas fa-user"></i>
+    </div>
+</div>
+
+        <!-- User Menu -->
+        <div class="user-menu" id="user-menu">
+            <div class="user-menu-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar">G</div>
+                    <div class="user-details">
+                        <div class="user-name" id="user-name">Guest User</div>
+                        <div class="user-email" id="user-email">Sign in to access all features</div>
+                    </div>
+                </div>
+            </div>
+            <div class="user-menu-item" id="auth-button">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>Sign In / Register</span>
+            </div>
+            <div class="user-menu-item" id="profile-button" style="display: none;">
+                <i class="fas fa-user-circle"></i>
+                <span>My Profile</span>
+            </div>
+            <div class="user-menu-item" id="my-ads-button" style="display: none;">
+                <i class="fas fa-ad"></i>
+                <span>My Ads</span>
+            </div>
+            <div class="user-menu-item" id="my-bookings-button" style="display: none;">
+                <i class="fas fa-calendar-check"></i>
+                <span>My Bookings</span>
+            </div>
+            <div class="user-menu-item" id="settings-button">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+            <div class="user-menu-item" id="logout-button" style="display: none;">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Sign Out</span>
+            </div>
+        </div>
+
+        <!-- App Content -->
+        <div class="app-content">
+            <!-- Home Tab -->
+            <div id="home-tab" class="tab-content active">
+                <div class="search-bar">
+                    <div class="search-icon"><i class="fas fa-search"></i></div>
+                    <input type="text" class="search-input" placeholder="Search for services, jobs, items...">
+                </div>
+                
+                <div class="section-title"><i class="fas fa-bolt"></i> Quick Access</div>
+                <div class="quick-actions">
+    <!-- Existing services -->
+    <div class="quick-action" data-action="boda">
+        <div class="action-icon"><i class="fas fa-motorcycle"></i></div>
+        <div class="action-name">Boda Boda</div>
+    </div>
+    <div class="quick-action" data-action="construction">
+        <div class="action-icon"><i class="fas fa-hard-hat"></i></div>
+        <div class="action-name">Mjengo Work</div>
+    </div>
+    <div class="quick-action" data-action="daily">
+        <div class="action-icon"><i class="fas fa-briefcase"></i></div>
+        <div class="action-name">Daily Hustle</div>
+    </div>
+    <div class="quick-action" data-action="farm">
+        <div class="action-icon"><i class="fas fa-tractor"></i></div>
+        <div class="action-name">Farm Help</div>
+    </div>
+    <div class="quick-action" data-action="Marketplace">
+        <div class="action-icon"><i class="fas fa-shopping-cart"></i></div>
+        <div class="action-name">Marketplace</div>
+    </div>
+    <div class="quick-action" data-action="gas">
+        <div class="action-icon"><i class="fas fa-fire"></i></div>
+        <div class="action-name">Gas Refill</div>
+    </div>
+    <div class="quick-action" data-action="water">
+        <div class="action-icon"><i class="fas fa-tint"></i></div>
+        <div class="action-name">Water Delivery</div>
+    </div>
+    <div class="quick-action" data-action="electricity">
+        <div class="action-icon"><i class="fas fa-bolt"></i></div>
+        <div class="action-name">Electrician</div>
+    </div>
+    <div class="quick-action" data-action="house">
+        <div class="action-icon"><i class="fas fa-home"></i></div>
+        <div class="action-name">House Help</div>
+    </div>
+    <div class="quick-action" data-action="phone">
+        <div class="action-icon"><i class="fas fa-mobile-alt"></i></div>
+        <div class="action-name">Phone Repair</div>
+    </div>
+    
+    <!-- NEW: Education Quick Action (replaces More) -->
+    <div class="quick-action" data-action="education">
+        <div class="action-icon"><i class="fas fa-graduation-cap"></i></div>
+        <div class="action-name">Education</div>
+    </div>
+    
+    <!-- NEW: Alerts Quick Action -->
+    <div class="quick-action" data-action="alerts">
+        <div class="action-icon"><i class="fas fa-bell"></i></div>
+        <div class="action-name">Alerts</div>
+    </div>
+</div>
+                
+                <div class="module-card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fas fa-exclamation-triangle"></i> Safety Warnings</div>
+                    </div>
+                    <div class="warning-item">
+                        <div class="warning-header">
+                            <i class="fas fa-exclamation-circle warning-icon"></i>
+                            <div class="warning-title">Payment Safety</div>
+                        </div>
+                        <div class="warning-content">Do not send money before meeting in person. Verify services before payment.</div>
+                    </div>
+                    <div class="warning-item danger">
+                        <div class="warning-header">
+                            <i class="fas fa-skull-crossbones warning-icon"></i>
+                            <div class="warning-title">Personal Safety</div>
+                        </div>
+                        <div class="warning-content">Do not hire unknown technicians at night. Always meet in public places first.</div>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fas fa-briefcase"></i> Urgent Jobs Near You</div>
+                        <div class="see-all" data-tab="services-tab">View All <i class="fas fa-chevron-right"></i></div>
+                    </div>
+                    <div id="urgent-jobs-container">
+                        <div class="loading-spinner">Loading jobs...</div>
+                    </div>
+                </div>
+                
+                </div>  <!-- This closes the module-card that contains urgent jobs -->
+                
+                <div class="ad-container">
+                    <div class="ad-label">Ad</div>
+                    <div class="ad-title">Premium Advertising</div>
+                    <div class="ad-description">Reach thousands of customers with our affordable ad packages</div>
+                    <button class="ad-cta" id="view-packages-btn" data-action="show-ads">View Packages</button>
+                </div>
+                
+            </div>  <!-- This closes the home-tab content -->
+            
+            <!-- Services Tab -->
+            <div id="services-tab" class="tab-content">
+    <div class="search-bar">
+        <div class="search-icon"><i class="fas fa-search"></i></div>
+        <input type="text" class="search-input" placeholder="Search services or jobs...">
+    </div>
+
+    <div style="text-align: center; margin: 20px 0;">
+        <button class="btn btn-outline" id="service-post-btn" style="margin-right: 10px;">
+            <i class="fas fa-tools"></i> List Your Service
+        </button>
+        <button class="btn btn-primary" id="job-post-btn">
+            <i class="fas fa-briefcase"></i> Post a Job
+        </button>
+    </div>
+
+    <div id="services-list-container">
+        <div class="loading-spinner">Loading services and jobs...</div>
+    </div>
+</div>
+            
+            <!-- Marketplace Tab -->
+            <div id="marketplace-tab" class="tab-content">
+                <div class="search-bar">
+                    <div class="search-icon"><i class="fas fa-search"></i></div>
+                    <input type="text" class="search-input" placeholder="Search marketplace...">
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <button class="btn btn-primary" id="marketplace-post-btn">
+                        <i class="fas fa-plus-circle"></i> Sell an Item
+                    </button>
+                    <button class="btn btn-outline" id="gas-refill-post-btn">
+                        <i class="fas fa-fire"></i> Offer Gas Refill
+                    </button>
+                    <button class="btn btn-outline" id="water-delivery-post-btn">
+                        <i class="fas fa-tint"></i> Offer Water Delivery
+                    </button>
+                    <button class="btn btn-outline" id="hotel-post-btn">
+                        <i class="fas fa-hotel"></i> List Hotel
+                    </button>
+                    <button class="btn btn-outline" id="property-post-btn">
+                        <i class="fas fa-home"></i> List Property
+                    </button>
+                    <button class="btn btn-outline" id="land-post-btn">
+                        <i class="fas fa-vector-square"></i> List Land
+                    </button>
+                </div>
+                
+                <div class="market-filters">
+                    <button class="filter-btn active" data-category="all">All</button>
+                    <button class="filter-btn" data-category="mitumba">Mitumba</button>
+                    <button class="filter-btn" data-category="electronics">Electronics</button>
+                    <button class="filter-btn" data-category="furniture">Furniture</button>
+                    <button class="filter-btn" data-category="phones">Phones</button>
+                    <button class="filter-btn" data-category="home-appliances">Appliances</button>
+                    <button class="filter-btn" data-category="hotel">Hotels</button>
+                    <button class="filter-btn" data-category="gas-refill">Gas</button>
+                    <button class="filter-btn" data-category="water-delivery">Water</button>
+                    <button class="filter-btn" data-category="rooms">Rooms</button>
+                    <button class="filter-btn" data-category="bedsitters">Bedsitters</button>
+                    <button class="filter-btn" data-category="apartments">Apartments</button>
+                    <button class="filter-btn" data-category="houses">Houses</button>
+                    <button class="filter-btn" data-category="short-stays">Short Stays</button>
+                    <button class="filter-btn" data-category="land">Land/Plots</button>
+                    <button class="filter-btn" data-category="services">Services</button>
+                </div>
+
+<div id="marketplace-items-container">
+                    <div class="loading-spinner">Loading marketplace items...</div>
+                </div>
+                
+                <div class="ad-container">
+                    <div class="ad-label">Ad</div>
+                    <div class="ad-title">Sell Your Products</div>
+                    <div class="ad-description">List your items on our marketplace and reach thousands of buyers</div>
+                    <button class="ad-cta" id="post-ad-btn" data-action="post-ad">Post an Ad</button>
+                </div>
+                
+            </div>  <!-- This closes the marketplace-tab content -->
+            
+            <!-- My Account Tab (Guest Message) -->
+            <div id="account-tab" class="tab-content">
+                <div id="guest-message" class="module-card" style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;">
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <h3>Sign In Required</h3>
+                    <p style="color: var(--grey-dark); margin: 15px 0 25px 0;">
+                        Please sign in to view your profile, manage your ads, and access all features.
+                    </p>
+                    <button class="btn btn-primary" id="account-signin-btn" style="margin: 10px;">
+                        <i class="fas fa-sign-in-alt"></i> Sign In / Register
+                    </button>
+                    <button class="btn btn-outline" id="account-home-btn" style="margin: 10px;">
+                        <i class="fas fa-home"></i> Back to Home
+                    </button>
+                </div>
+                <div id="authenticated-content" style="display: none;">
+                    <div class="profile-header">
+                        <div class="profile-avatar" id="profile-avatar">G</div>
+                        <div class="profile-info">
+                            <h2 id="profile-name">Guest User</h2>
+                            <div class="rating" id="profile-rating">
+                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
+                                <span style="margin-left: 5px;">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-stats" id="profile-stats">
+                        <div class="profile-stat"><div class="profile-stat-value">0</div><div class="profile-stat-label">Active Ads</div></div>
+                        <div class="profile-stat"><div class="profile-stat-value">0</div><div class="profile-stat-label">Bookings</div></div>
+                        <div class="profile-stat"><div class="profile-stat-value">0</div><div class="profile-stat-label">Reviews</div></div>
+                        <div class="profile-stat"><div class="profile-stat-value">0</div><div class="profile-stat-label">Favorites</div></div>
+                    </div>
+                    <div class="module-card"><div class="card-header"><div class="card-title"><i class="fas fa-star"></i> Recent Reviews</div></div><div id="reviews-container"><p style="text-align: center; padding: 20px;">No reviews yet.</p></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation - 4 Tabs Only -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-tab="home-tab">
+                <div class="nav-icon"><i class="fas fa-home"></i></div>
+                <div>Home</div>
+            </div>
+            <div class="nav-item" data-tab="services-tab">
+                <div class="nav-icon"><i class="fas fa-concierge-bell"></i></div>
+                <div>Services</div>
+            </div>
+            <div class="nav-item" data-tab="marketplace-tab">
+                <div class="nav-icon"><i class="fas fa-store"></i></div>
+                <div>Market</div>
+            </div>
+            <div class="nav-item" data-tab="more-tab">
+                <div class="nav-icon"><i class="fas fa-ellipsis-h"></i></div>
+                <div>More</div>
+            </div>
+        </div>
+
+        <!-- More Section -->
+        <div id="more-section" class="more-section">
+            <div class="more-header">
+                <div class="more-title"><i class="fas fa-ellipsis-h"></i><span>More Options</span></div>
+                <button class="more-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="more-tab-nav">
+                <div class="more-tab-btn active" data-more-tab="education"><div class="more-tab-icon"><i class="fas fa-graduation-cap"></i></div><div>Education</div></div>
+                <div class="more-tab-btn" data-more-tab="alerts"><div class="more-tab-icon"><i class="fas fa-bell"></i></div><div>Alerts</div></div>
+                <div class="more-tab-btn" data-more-tab="messages"><div class="more-tab-icon"><i class="fas fa-comments"></i></div><div>Messages</div></div>
+                <div class="more-tab-btn" data-more-tab="safety"><div class="more-tab-icon"><i class="fas fa-shield-alt"></i></div><div>Safety</div></div>
+                <div class="more-tab-btn" data-more-tab="settings"><div class="more-tab-icon"><i class="fas fa-cog"></i></div><div>Settings</div></div>
+            </div>
+            
+            <!-- Education Tab Content -->
+            <div id="education-content" class="more-tab-content active"></div>
+            
+            <!-- Alerts Tab Content -->
+            <div id="alerts-content" class="more-tab-content"></div>
+            
+            <!-- Messages Tab Content -->
+            <div id="messages-content" class="more-tab-content"></div>
+            
+            <!-- Safety Tab Content -->
+            <div id="safety-content" class="more-tab-content"></div>
+            
+            <!-- Settings Tab Content -->
+            <div id="settings-content" class="more-tab-content"></div>
+        </div>
+
+        <div class="more-bottom-nav">
+            <div class="nav-item" data-tab="education-tab"><div class="nav-icon"><i class="fas fa-graduation-cap"></i></div><div>Education</div></div>
+            <div class="nav-item" data-tab="alerts-tab"><div class="nav-icon"><i class="fas fa-bell"></i></div><div>Alerts</div></div>
+            <div class="nav-item" data-tab="messages-tab"><div class="nav-icon"><i class="fas fa-comments"></i></div><div>Messages</div></div>
+            <div class="nav-item" data-tab="safety-tab"><div class="nav-icon"><i class="fas fa-shield-alt"></i></div><div>Safety</div></div>
+            <div class="nav-item" data-tab="settings-tab"><div class="nav-icon"><i class="fas fa-cog"></i></div><div>Settings</div></div>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"><i class="toast-icon"></i><div class="toast-message"></div></div>
+
+        <!-- Auth Modal -->
+        <div id="auth-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header"><div class="modal-title">Sign In to VikeServe</div><button class="close-modal-btn">&times;</button></div>
+                <div class="auth-providers">
+                    <button class="auth-provider-btn google-btn" id="google-signin"><i class="fab fa-google"></i> Continue with Google</button>
+                    <button class="auth-provider-btn facebook-btn" id="facebook-signin"><i class="fab fa-facebook"></i> Continue with Facebook</button>
+                </div>
+                <div class="auth-divider"><span>or sign in with email</span></div>
+                <form id="login-form">
+                    <div class="form-group"><label class="form-label">Email</label><input type="email" id="login-email" class="form-input" placeholder="your@email.com"></div>
+                    <div class="form-group"><label class="form-label">Password</label><div class="password-container"><input type="password" id="login-password" class="form-input" placeholder="Your password"><button type="button" class="password-toggle"><i class="fas fa-eye"></i></button></div></div>
+                    <div class="remember-me" style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;"><input type="checkbox" id="remember-me"><label>Remember me</label></div>
+                    <button type="submit" class="btn btn-primary">Sign In</button>
+                    <div class="auth-footer"><a href="#" id="forgot-password" class="auth-link">Forgot password?</a></div>
+                </form>
+                <form id="register-form" style="display: none;">
+                    <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="register-name" class="form-input" placeholder="Your full name"></div>
+                    <div class="form-group"><label class="form-label">Email</label><input type="email" id="register-email" class="form-input" placeholder="your@email.com"></div>
+                    <div class="form-group"><label class="form-label">Password</label><div class="password-container"><input type="password" id="register-password" class="form-input" placeholder="Create a password"><button type="button" class="password-toggle"><i class="fas fa-eye"></i></button></div></div>
+                    <div class="form-group"><label class="form-label">Confirm Password</label><div class="password-container"><input type="password" id="register-confirm-password" class="form-input" placeholder="Confirm password"><button type="button" class="password-toggle"><i class="fas fa-eye"></i></button></div></div>
+                    <div class="form-group"><label class="form-label">I am a... <span style="color: var(--danger);">*</span></label><input type="text" id="user-role-input" class="form-input" placeholder="e.g., Student, Service Provider, Business Owner, General User, Farmer, Driver" required><div class="form-hint">Tell us what brings you to VikeServe</div></div>
+                    <button type="submit" class="btn btn-primary">Create Account</button>
+                </form>
+                <div class="auth-footer"><span id="auth-switch-text">Don't have an account?</span><a class="auth-link" id="auth-switch-link">Sign Up</a></div>
+            </div>
+        </div>
+    </div>
+
+            <!-- ========== MODALS ========== -->
+
+        <!-- Service Post Modal -->
+        <div id="service-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">List Your Service</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Service Type</label>
+                        <select id="service-type" class="form-input">
+                            <option value="">Select Service Type</option>
+                            <option value="vehicle-hire">Vehicle Hire</option>
+                            <option value="movers">Movers & Transport</option>
+                            <option value="delivery">Delivery Services</option>
+                            <option value="boda">Boda Boda</option>
+                            <option value="construction">Construction Workers</option>
+                            <option value="tools">Tool Hire</option>
+                            <option value="fundis">Skilled Fundis</option>
+                            <option value="farm">Farm Workers</option>
+                            <option value="cleaning">Cleaning Services</option>
+                            <option value="other">Other Service</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Service Title</label>
+                        <input type="text" id="service-title" class="form-input" placeholder="e.g., Toyota Noah for Hire">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="service-description" class="form-input" rows="4" placeholder="Describe your service..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES)</label>
+                            <input type="number" id="service-price" class="form-input" placeholder="e.g., 1000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location</label>
+                            <input type="text" id="service-location" class="form-input" placeholder="Your location">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone</label>
+                        <input type="tel" id="service-phone" class="form-input" placeholder="Your phone number">
+                    </div>
+                    <div id="service-specific-fields"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-service-btn">Post Service</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Post Modal -->
+        <div id="job-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Post a Job</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Job Title</label>
+                        <input type="text" id="job-title" class="form-input" placeholder="e.g., Plumber Needed">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Job Category</label>
+                        <select id="job-category" class="form-input">
+                            <option value="">Select Category</option>
+                            <option value="construction">Construction</option>
+                            <option value="cleaning">Cleaning</option>
+                            <option value="delivery">Delivery</option>
+                            <option value="farming">Farming</option>
+                            <option value="teaching">Teaching</option>
+                            <option value="driving">Driving</option>
+                            <option value="technical">Technical</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Job Description</label>
+                        <textarea id="job-description" class="form-input" rows="4" placeholder="Describe the job..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES)</label>
+                            <input type="number" id="job-price" class="form-input" placeholder="e.g., 2000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location</label>
+                            <input type="text" id="job-location" class="form-input" placeholder="Job location">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Duration</label>
+                            <select id="job-duration" class="form-input">
+                                <option value="once">One-time</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="long-term">Long-term</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Urgent Job</label>
+                            <select id="job-urgent" class="form-input">
+                                <option value="no">No</option>
+                                <option value="yes">Yes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone</label>
+                        <input type="tel" id="job-phone" class="form-input" placeholder="Your phone number">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-job-btn">Post Job</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Marketplace Post Modal -->
+        <div id="marketplace-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-plus-circle"></i> Sell an Item</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <select id="market-category" class="form-input">
+                            <option value="">Select Category</option>
+                            <option value="electronics">📱 Electronics & Gadgets</option>
+                            <option value="phones">📱 Phones & Tablets</option>
+                            <option value="computers">💻 Computers & Laptops</option>
+                            <option value="furniture">🛋️ Furniture & Home</option>
+                            <option value="mitumba">👕 Mitumba/Clothing</option>
+                            <option value="shoes">👟 Shoes & Footwear</option>
+                            <option value="accessories">💍 Accessories & Jewelry</option>
+                            <option value="home-appliances">🔌 Home Appliances</option>
+                            <option value="kitchen">🍳 Kitchen Items</option>
+                            <option value="vehicles">🚗 Vehicles & Spare Parts</option>
+                            <option value="books">📚 Books & Stationery</option>
+                            <option value="sports">⚽ Sports & Fitness</option>
+                            <option value="other">📦 Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Item Title *</label>
+                        <input type="text" id="market-title" class="form-input" placeholder="e.g., Samsung Galaxy S21">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="market-description" class="form-input" rows="4" placeholder="Describe your item..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="market-price" class="form-input" placeholder="e.g., 5000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Condition *</label>
+                            <select id="market-condition" class="form-input">
+                                <option value="">Select Condition</option>
+                                <option value="new">🆕 Brand New</option>
+                                <option value="like-new">✨ Like New</option>
+                                <option value="excellent">⭐ Excellent</option>
+                                <option value="good">👍 Good</option>
+                                <option value="fair">🔄 Fair</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="market-location" class="form-input" placeholder="Your location">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" id="market-phone" class="form-input" placeholder="e.g., 0712345678">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">WhatsApp (Optional)</label>
+                            <input type="tel" id="market-whatsapp" class="form-input" placeholder="Same as phone">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="market-negotiable"> Price Negotiable
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="market-delivery"> Delivery Available
+                            </label>
+                        </div>
+                    </div>
+                    <div class="image-upload-area" onclick="document.getElementById('market-images').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to upload images</p>
+                        <span>JPEG, PNG up to 5MB</span>
+                    </div>
+                    <input type="file" id="market-images" multiple accept="image/*" style="display: none;">
+                    <div id="image-preview-container" class="image-preview-container"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-marketplace-btn">List Item</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gas Refill Post Modal -->
+        <div id="gas-refill-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Offer Gas Refill Service</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Service Title *</label>
+                        <input type="text" id="gas-title" class="form-input" placeholder="e.g., Fast LPG Gas Refill">
+                    </div>
+                    <div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Gas Type *</label>
+        <select id="gas-type" class="form-input">
+            <option value="">Select Gas Type</option>
+            <option value="lpg">LPG Cooking Gas</option>
+            <option value="industrial">Industrial Gas</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label">Cylinder Size *</label>
+        <input type="text" id="gas-cylinder-size" class="form-input" placeholder="e.g., 3kg, 6kg, 13kg, 50kg">
+    </div>
+</div>
+<div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Brand</label>
+        <input type="text" id="gas-brand" class="form-input" placeholder="e.g., K-Gas, Pro Gas, Total, Oryx">
+    </div>
+</div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="gas-location" class="form-input" placeholder="Your location">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="gas-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="gas-phone" class="form-input" placeholder="e.g., 0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-gas-btn">List Service</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Water Delivery Post Modal -->
+        <div id="water-delivery-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Offer Water Delivery Service</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Service Title *</label>
+                        <input type="text" id="water-title" class="form-input" placeholder="e.g., Pure Drinking Water">
+                    </div>
+                    <div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Water Type *</label>
+        <select id="water-type" class="form-input">
+            <option value="">Select Water Type</option>
+            <option value="drinking">Drinking Water</option>
+            <option value="borehole">Borehole Water</option>
+            <option value="filtered">Filtered Water</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label">Container Size *</label>
+        <input type="text" id="water-container-size" class="form-input" placeholder="e.g., 5L, 10L, 20L, 50L, 100L">
+    </div>
+</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="water-price" class="form-input" placeholder="e.g., 50">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Minimum Order</label>
+                            <input type="number" id="water-min-order" class="form-input" placeholder="e.g., 2">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="water-location" class="form-input" placeholder="Your location">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="water-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="water-phone" class="form-input" placeholder="e.g., 0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-water-btn">List Service</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hotel Post Modal -->
+        <div id="hotel-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">List Your Hotel</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Hotel Name *</label>
+                        <input type="text" id="hotel-name" class="form-input" placeholder="e.g., Safari Hotel">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Hotel Type *</label>
+                            <select id="hotel-type" class="form-input">
+                                <option value="">Select Type</option>
+                                <option value="hotel">Hotel</option>
+                                <option value="guesthouse">Guest House</option>
+                                <option value="hostel">Hostel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Price per Night (KES) *</label>
+                            <input type="number" id="hotel-price" class="form-input" placeholder="e.g., 5000">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Available Rooms *</label>
+                            <input type="number" id="hotel-rooms" class="form-input" placeholder="e.g., 10">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rating</label>
+                            <select id="hotel-rating" class="form-input">
+                                <option value="">Select Rating</option>
+                                <option value="5">5 Stars</option>
+                                <option value="4">4 Stars</option>
+                                <option value="3">3 Stars</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="hotel-location" class="form-input" placeholder="Hotel location">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="hotel-description" class="form-input" rows="4" placeholder="Describe your hotel..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="hotel-phone" class="form-input" placeholder="e.g., 0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-hotel-btn">List Hotel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Property Post Modal -->
+        <div id="property-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">List Your Property</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Property Type *</label>
+                        <select id="property-type" class="form-input">
+                            <option value="">Select Type</option>
+                            <option value="room">Single Room</option>
+                            <option value="bedsitter">Bedsitter</option>
+                            <option value="apartment">Apartment</option>
+                            <option value="house">House</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Property Title *</label>
+                        <input type="text" id="property-title" class="form-input" placeholder="e.g., 2-Bedroom Apartment">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="property-price" class="form-input" placeholder="Monthly rent">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location *</label>
+                            <input type="text" id="property-location" class="form-input" placeholder="Enter location">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Bedrooms</label>
+                            <input type="number" id="property-bedrooms" class="form-input" placeholder="e.g., 2">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bathrooms</label>
+                            <input type="number" id="property-bathrooms" class="form-input" placeholder="e.g., 1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="property-description" class="form-input" rows="4" placeholder="Describe your property..."></textarea>
+                    </div>
+                    <div class="image-upload-area" onclick="document.getElementById('property-images').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Upload Property Images</p>
+                    </div>
+                    <input type="file" id="property-images" multiple accept="image/*" style="display: none;">
+                    <div id="property-images-container" class="image-preview-container"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-property-btn">List Property</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Land Post Modal -->
+        <div id="land-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">List Land/Plot</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Listing Type *</label>
+                        <select id="land-listing-type" class="form-input">
+                            <option value="sale">For Sale</option>
+                            <option value="rent">For Rent/Lease</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" id="land-title" class="form-input" placeholder="e.g., Prime Commercial Plot">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="land-description" class="form-input" rows="4" placeholder="Describe the land..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="land-price" class="form-input" placeholder="e.g., 2500000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Land Size *</label>
+                            <select id="land-size" class="form-input">
+                                <option value="">Select Size</option>
+                                <option value="1/8 acre">1/8 Acre (50x100 ft)</option>
+                                <option value="1/4 acre">1/4 Acre (100x100 ft)</option>
+                                <option value="1/2 acre">1/2 Acre</option>
+                                <option value="1 acre">1 Acre</option>
+                                <option value="custom">Custom Size</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="custom-size-group" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Custom Size</label>
+                            <input type="text" id="land-custom-size" class="form-input" placeholder="e.g., 0.75 acres">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="land-location" class="form-input" placeholder="e.g., Nairobi">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Land Type</label>
+                            <select id="land-type" class="form-input">
+                                <option value="residential">Residential</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="agricultural">Agricultural</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Title Deed</label>
+                            <select id="land-title-deed" class="form-input">
+                                <option value="">Select Title Deed</option>
+                                <option value="freehold">Freehold</option>
+                                <option value="leasehold">Leasehold</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="land-phone" class="form-input" placeholder="e.g., 0712345678">
+                    </div>
+                    <div class="image-upload-area" onclick="document.getElementById('land-images').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Upload Land Images</p>
+                    </div>
+                    <input type="file" id="land-images" multiple accept="image/*" style="display: none;">
+                    <div id="land-image-preview-container" class="image-preview-container"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-land-btn">List Land</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ad Packages Modal -->
+        <div id="ad-packages-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-rocket"></i> Promote Your Ad</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Select Ad to Promote</label>
+                        <select id="promote-ad-select" class="form-input">
+                            <option value="">Loading your ads...</option>
+                        </select>
+                    </div>
+                    <div id="selected-ad-preview" style="display: none;"></div>
+                    <input type="hidden" id="promoting-ad-id">
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="process-promotion-btn">Continue</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+                <!-- ========== MORE MENU POST MODALS ========== -->
+
+        <!-- Teacher Post Modal -->
+        <div id="teacher-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-school"></i> Post Teaching Position</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">School/Institution Name *</label>
+                        <input type="text" id="teacher-school" class="form-input" placeholder="Enter school name">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Subject/Course *</label>
+                            <input type="text" id="teacher-subject" class="form-input" placeholder="e.g., Mathematics, English, Computer Science, Biology">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Level *</label>
+                            <select id="teacher-level" class="form-input">
+                                <option value="">Select Level</option>
+                                <option value="primary">Primary School</option>
+                                <option value="secondary">Secondary School</option>
+                                <option value="college">College/University</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Job Description *</label>
+                        <textarea id="teacher-description" class="form-input" rows="4" placeholder="Describe the teaching position..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Salary Range (KES) *</label>
+                            <input type="text" id="teacher-salary" class="form-input" placeholder="e.g., 25,000 - 40,000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location *</label>
+                            <input type="text" id="teacher-location" class="form-input" placeholder="School location">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Email *</label>
+                        <input type="email" id="teacher-email" class="form-input" placeholder="contact@school.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="teacher-phone" class="form-input" placeholder="0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-teacher-btn">Post Teaching Position</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Internship Post Modal -->
+        <div id="internship-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-briefcase"></i> Post Internship Opportunity</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Company Name *</label>
+                        <input type="text" id="internship-company" class="form-input" placeholder="Enter company name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Internship Title *</label>
+                        <input type="text" id="internship-title" class="form-input" placeholder="e.g., Software Development Intern">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Field *</label>
+                            <select id="internship-field" class="form-input">
+                                <option value="">Select Field</option>
+                                <option value="technology">Technology</option>
+                                <option value="business">Business</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="engineering">Engineering</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Internship Type *</label>
+                            <select id="internship-type" class="form-input">
+                                <option value="paid">Paid</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="stipend">Stipend</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="internship-description" class="form-input" rows="4" placeholder="Describe the internship..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Duration (months) *</label>
+                            <input type="number" id="internship-duration" class="form-input" placeholder="3">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stipend/Salary (KES)</label>
+                            <input type="text" id="internship-stipend" class="form-input" placeholder="e.g., 15,000/month">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="internship-location" class="form-input" placeholder="Office location or Remote">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Email *</label>
+                        <input type="email" id="internship-email" class="form-input" placeholder="hr@company.com">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-internship-btn">Post Internship</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attachment Post Modal -->
+        <div id="attachment-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-user-graduate"></i> Offer Student Attachment</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Organization Name *</label>
+                        <input type="text" id="attachment-org" class="form-input" placeholder="Enter organization name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Attachment Position *</label>
+                        <input type="text" id="attachment-position" class="form-input" placeholder="e.g., IT Support Attachment">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Field *</label>
+                            <select id="attachment-field" class="form-input">
+                                <option value="">Select Field</option>
+                                <option value="it">Information Technology</option>
+                                <option value="engineering">Engineering</option>
+                                <option value="business">Business Administration</option>
+                                <option value="hospitality">Hospitality</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Duration (weeks) *</label>
+                            <input type="number" id="attachment-duration" class="form-input" placeholder="8">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="attachment-description" class="form-input" rows="4" placeholder="Describe the attachment program..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="attachment-location" class="form-input" placeholder="Organization location">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Person *</label>
+                        <input type="text" id="attachment-contact-person" class="form-input" placeholder="Name of contact person">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Email *</label>
+                        <input type="email" id="attachment-email" class="form-input" placeholder="contact@organization.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="attachment-phone" class="form-input" placeholder="0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-attachment-btn">Post Attachment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Training Post Modal -->
+        <div id="training-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-tools"></i> Offer Training Program</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Training Provider *</label>
+                        <input type="text" id="training-provider" class="form-input" placeholder="Enter training institution name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Training Program Name *</label>
+                        <input type="text" id="training-name" class="form-input" placeholder="e.g., Web Development Bootcamp">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Category *</label>
+                            <select id="training-category" class="form-input">
+                                <option value="">Select Category</option>
+                                <option value="technical">Technical Skills</option>
+                                <option value="business">Business Skills</option>
+                                <option value="creative">Creative Skills</option>
+                                <option value="digital">Digital Skills</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Duration *</label>
+                            <input type="text" id="training-duration" class="form-input" placeholder="e.g., 3 months, 6 weeks">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="training-description" class="form-input" rows="4" placeholder="Describe the training program..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="text" id="training-price" class="form-input" placeholder="e.g., 25,000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location *</label>
+                            <input type="text" id="training-location" class="form-input" placeholder="Training venue or Online">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Email *</label>
+                        <input type="email" id="training-email" class="form-input" placeholder="training@institution.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="training-phone" class="form-input" placeholder="0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-training-btn">Post Training</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Post Modal -->
+        <div id="alert-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-exclamation-circle"></i> Report Community Alert</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Alert Type *</label>
+                        <select id="alert-type" class="form-input">
+                            <option value="">Select Alert Type</option>
+                            <option value="safety">Safety Concern</option>
+                            <option value="security">Security Issue</option>
+                            <option value="health">Health Alert</option>
+                            <option value="weather">Weather Warning</option>
+                            <option value="road">Road Condition</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Alert Title *</label>
+                        <input type="text" id="alert-title" class="form-input" placeholder="Brief description of the alert">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="alert-description" class="form-input" rows="4" placeholder="Provide detailed information..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="alert-location" class="form-input" placeholder="Specific area affected">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Urgency Level *</label>
+                        <select id="alert-urgency" class="form-input">
+                            <option value="low">Low - Information</option>
+                            <option value="medium">Medium - Advisory</option>
+                            <option value="high">High - Warning</option>
+                            <option value="critical">Critical - Emergency</option>
+                        </select>
+                    </div>
+                    <div class="warning-item" style="margin: 15px 0;">
+                        <div class="warning-header">
+                            <i class="fas fa-exclamation-circle warning-icon"></i>
+                            <div class="warning-title">Important Notice</div>
+                        </div>
+                        <div class="warning-content">Only report genuine community alerts. False reports may result in account suspension.</div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-alert-btn">Submit Alert</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+    <!-- Core Scripts (Load in this order) -->
+    <script src="scripts/firebase.js"></script>
+    <script src="scripts/utils.js"></script>
+    <script src="scripts/auth.js"></script>
+    <script src="scripts/app.js"></script>
+    
+    <!-- Feature Scripts -->
+    <script src="scripts/bookings.js"></script>
+    <script src="scripts/marketplace.js"></script>
+    <script src="scripts/housing.js"></script>
+    <script src="scripts/more-menu.js"></script>
+    <script src="scripts/intasend-global.js"></script>
+    <script src="scripts/account.js"></script>
+    <script src="scripts/admin.js"></script>
+    <script src="scripts/quick-actions.js"></script>
+    <script src="scripts/reviews.js"></script>
+    <script src="scripts/search.js"></script>
+    <script src="scripts/services.js"></script>
+    <script src="scripts/uploads.js"></script>
+</body>
+</html>
