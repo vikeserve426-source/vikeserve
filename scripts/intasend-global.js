@@ -1,9 +1,7 @@
-// ========== INTASEND PAYMENT SYSTEM - COMPLETE WITH WEBHOOK ==========
-// Supports: M-Pesa, Airtel Money, MTN Uganda, Visa/Mastercard, PayPal
-// Includes: Webhook verification, manual activation, payment status check
-// FIXED: Dynamic payment methods based on country selection
-// FIXED: Currency conversion (KES to UGX, TZS, USD, GBP, etc.)
-// FIXED: IntaSend script loading with retry mechanism AND direct API fallback
+// ========== INTASEND PAYMENT SYSTEM - COMPLETE WITH VERIFICATION ==========
+// Supports: M-Pesa, Airtel Money, MTN Uganda, Tigo Pesa, Visa/Mastercard, PayPal
+// Includes: STK Push, Card details form, Payment verification, Post-payment actions
+// NEW: Manual payment verification with code, Transaction status checking
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -12,8 +10,7 @@ class VikeServeGlobalPayments {
                 publicKey: 'ISPubKey_live_7b219b83-74bc-4661-90ce-126679748f2e',
                 environment: 'live',
                 apiUrl: 'https://api.intasend.com/v1/'
-            },
-            fallbackToManualCode: true
+            }
         };
         
         this.userCountry = 'KE';
@@ -22,9 +19,7 @@ class VikeServeGlobalPayments {
         this.userEmail = null;
         this.userPhone = null;
         this.pendingVerifications = new Map();
-        this.useFallbackMode = false;
         this.intasendReady = false;
-        this.intasendLoadAttempts = 0;
         this.init();
     }
 
@@ -37,7 +32,7 @@ class VikeServeGlobalPayments {
                     this.userId = user.uid;
                     this.userEmail = user.email;
                     this.userPhone = user.phoneNumber || '';
-                    this.checkPendingPromotions();
+                    this.checkPendingTransactions();
                 } else {
                     this.userId = null;
                 }
@@ -45,15 +40,9 @@ class VikeServeGlobalPayments {
         }
         
         await this.detectUserCountry();
-        await this.loadPaymentHistoryFromFirestore();
         await this.setupPaymentStatusListener();
         
-        // Pre-load IntaSend script (non-blocking, will use fallback if fails)
-        this.loadIntaSendScript().catch(() => {
-            console.log('IntaSend script not available, will use direct API fallback');
-        });
-        
-        console.log('✅ Payment system ready! Country:', this.userCountry, 'Currency:', this.userCurrency);
+        console.log('✅ Payment system ready!');
     }
 
     async detectUserCountry() {
@@ -71,7 +60,6 @@ class VikeServeGlobalPayments {
                 }
             }
         } catch (error) {
-            console.log('Using default country: KE');
             this.userCountry = 'KE';
         }
         
@@ -91,38 +79,9 @@ class VikeServeGlobalPayments {
         const currencies = {
             'KE': 'KES', 'UG': 'UGX', 'TZ': 'TZS', 'RW': 'RWF',
             'NG': 'NGN', 'GH': 'GHS', 'ZA': 'ZAR',
-            'US': 'USD', 'GB': 'GBP', 'UK': 'GBP'
+            'US': 'USD', 'GB': 'GBP'
         };
         return currencies[country] || 'USD';
-    }
-
-    // ========== EXCHANGE RATE CONVERSION ==========
-    async getExchangeRate(fromCurrency, toCurrency) {
-        const rates = {
-            'KES': 1,
-            'UGX': 28.5,
-            'TZS': 18.2,
-            'NGN': 1.8,
-            'GHS': 0.019,
-            'ZAR': 0.14,
-            'USD': 0.0076,
-            'GBP': 0.006,
-            'EUR': 0.007
-        };
-        
-        if (fromCurrency === toCurrency) return 1;
-        
-        const fromRate = rates[fromCurrency] || 1;
-        const toRate = rates[toCurrency] || 1;
-        
-        if (fromCurrency === 'KES') return toRate;
-        if (toCurrency === 'KES') return 1 / fromRate;
-        return toRate / fromRate;
-    }
-
-    async convertAmount(amount, fromCurrency, toCurrency) {
-        const rate = await this.getExchangeRate(fromCurrency, toCurrency);
-        return Math.round(amount * rate);
     }
 
     getAvailablePaymentMethods(country = null) {
@@ -130,53 +89,30 @@ class VikeServeGlobalPayments {
         
         const methods = {
             'KE': [
-                { id: 'mpesa', name: 'M-Pesa', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'airtel_kenya', name: 'Airtel Money', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+                { id: 'mpesa', name: 'M-Pesa', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'SAFARICOM' },
+                { id: 'airtel_kenya', name: 'Airtel Money', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'AIRTEL' },
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', type: 'paypal' }
             ],
             'UG': [
-                { id: 'mtn_uganda', name: 'MTN Uganda Money', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'airtel_uganda', name: 'Airtel Money Uganda', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+                { id: 'mtn_uganda', name: 'MTN Money', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'MTN' },
+                { id: 'airtel_uganda', name: 'Airtel Money', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'AIRTEL' },
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', type: 'paypal' }
             ],
             'TZ': [
-                { id: 'mpesa_tz', name: 'M-Pesa Tanzania', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'tigo_pesa', name: 'Tigo Pesa', icon: 'fas fa-mobile-alt', requires: ['phone'], type: 'mobile_money' },
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+                { id: 'mpesa_tz', name: 'M-Pesa Tanzania', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'VODACOM' },
+                { id: 'tigo_pesa', name: 'Tigo Pesa', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'TIGO' },
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', type: 'paypal' }
             ],
-            'NG': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
-            ],
-            'GH': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
-            ],
-            'US': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
-            ],
-            'GB': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
-            ],
-            'ZA': [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
+            'DEFAULT': [
+                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', type: 'card' },
+                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', type: 'paypal' }
             ]
         };
         
-        if (activeCountry === 'OTHER' || !methods[activeCountry]) {
-            return [
-                { id: 'card', name: 'Credit/Debit Card', icon: 'fab fa-cc-visa', requires: ['card'], type: 'card' },
-                { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', requires: ['email'], type: 'global' }
-            ];
-        }
-        
-        return methods[activeCountry];
+        return methods[activeCountry] || methods['DEFAULT'];
     }
 
     async checkLoginAndContinue(callback) {
@@ -186,18 +122,7 @@ class VikeServeGlobalPayments {
             if (typeof window.showAuthModal === 'function') {
                 window.showAuthModal();
                 window.pendingPromotionCallback = callback;
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Please sign in to continue', 'warning');
-                }
-            } else if (typeof window.openAuthModal === 'function') {
-                window.openAuthModal();
-                window.pendingPromotionCallback = callback;
-            } else {
-                const authModal = document.getElementById('auth-modal');
-                if (authModal) {
-                    authModal.style.display = 'flex';
-                    window.pendingPromotionCallback = callback;
-                }
+                window.showToast('Please sign in to continue', 'warning');
             }
             return false;
         }
@@ -217,7 +142,7 @@ class VikeServeGlobalPayments {
                 .get();
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch (error) {
-            console.error('Error loading user ads from Firebase:', error);
+            console.error('Error loading user ads:', error);
             return [];
         }
     }
@@ -234,17 +159,11 @@ class VikeServeGlobalPayments {
         const userAds = await this.getUserAds();
         
         if (userAds.length === 0) {
-            if (typeof window.showToast === 'function') {
-                window.showToast('You don\'t have any ads yet. Please create an ad first!', 'warning');
-            }
+            window.showToast('You don\'t have any ads yet. Please create an ad first!', 'warning');
             setTimeout(() => {
                 const marketplaceModal = document.getElementById('marketplace-post-modal');
-                if (marketplaceModal) {
-                    marketplaceModal.style.display = 'flex';
-                    marketplaceModal.style.zIndex = '10001';
-                } else if (typeof window.showMarketplacePostModal === 'function') {
-                    window.showMarketplacePostModal();
-                }
+                if (marketplaceModal) marketplaceModal.style.display = 'flex';
+                else if (typeof window.showMarketplacePostModal === 'function') window.showMarketplacePostModal();
             }, 1000);
             return;
         }
@@ -279,20 +198,23 @@ class VikeServeGlobalPayments {
         const currentMethods = this.getAvailablePaymentMethods();
         
         return `
-            <div class="modal-content" style="max-width: 550px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header">
                     <div class="modal-title"><i class="fas fa-rocket"></i> Promote Your Ad</div>
                     <button class="close-modal-btn" onclick="document.getElementById('ad-packages-full-modal').style.display='none'">&times;</button>
                 </div>
                 
                 <div style="padding: 20px;">
+                    <!-- Step Indicator -->
                     <div class="promotion-steps" style="display: flex; margin-bottom: 30px; justify-content: space-between;">
                         <div class="step active" data-step="1" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">1</div><div style="font-size: 0.7rem; margin-top: 5px;">Select Ad</div></div>
                         <div class="step" data-step="2" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">2</div><div style="font-size: 0.7rem; margin-top: 5px;">Package</div></div>
-                        <div class="step" data-step="3" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">3</div><div style="font-size: 0.7rem; margin-top: 5px;">Ad Action</div></div>
+                        <div class="step" data-step="3" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">3</div><div style="font-size: 0.7rem; margin-top: 5px;">Action</div></div>
                         <div class="step" data-step="4" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">4</div><div style="font-size: 0.7rem; margin-top: 5px;">Payment</div></div>
+                        <div class="step" data-step="5" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">5</div><div style="font-size: 0.7rem; margin-top: 5px;">Verify</div></div>
                     </div>
                     
+                    <!-- Step 1: Select Ad -->
                     <div id="promo-step-1" class="promo-step">
                         <h3 style="margin-bottom: 15px;">Select Ad to Promote</h3>
                         <div class="form-group">
@@ -303,15 +225,16 @@ class VikeServeGlobalPayments {
                             </select>
                         </div>
                         <div id="promo-ad-preview" style="display: none; margin: 15px 0; padding: 15px; background: var(--light); border-radius: 10px;"></div>
-                        <button class="btn btn-primary" id="promo-step1-next" style="margin-top: 15px;">Continue →</button>
+                        <button class="btn btn-primary" id="promo-step1-next" style="margin-top: 15px;" disabled>Continue →</button>
                     </div>
                     
+                    <!-- Step 2: Select Package -->
                     <div id="promo-step-2" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">Select Promotion Package</h3>
                         <div class="packages-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                             ${packages.map(pkg => `
-                                <div class="package-card" data-package-id="${pkg.id}" data-package-name="${pkg.name}" data-package-price="${pkg.price}" data-package-duration="${pkg.duration}" style="padding: 15px; border: 2px solid var(--grey); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.2s;">
-                                    ${pkg.tag ? `<span style="position: absolute; margin-top: -25px; margin-left: -5px; background: ${pkg.color}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem;">${pkg.tag}</span>` : ''}
+                                <div class="package-card" data-package-id="${pkg.id}" data-package-name="${pkg.name}" data-package-price="${pkg.price}" data-package-duration="${pkg.duration}" style="padding: 15px; border: 2px solid var(--grey); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.2s; position: relative;">
+                                    ${pkg.tag ? `<span style="position: absolute; top: -10px; right: -5px; background: ${pkg.color}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem;">${pkg.tag}</span>` : ''}
                                     <div style="font-weight: 700; font-size: 1rem;">${pkg.name}</div>
                                     <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary); margin: 10px 0;">KES ${pkg.price}</div>
                                     <div style="font-size: 0.7rem; color: var(--grey-dark);">${pkg.duration} days promotion</div>
@@ -324,6 +247,7 @@ class VikeServeGlobalPayments {
                         </div>
                     </div>
                     
+                    <!-- Step 3: Select Action -->
                     <div id="promo-step-3" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">What happens when someone clicks your ad?</h3>
                         <div class="action-options" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
@@ -368,6 +292,7 @@ class VikeServeGlobalPayments {
                         </div>
                     </div>
                     
+                    <!-- Step 4: Payment -->
                     <div id="promo-step-4" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">Complete Payment</h3>
                         
@@ -380,25 +305,19 @@ class VikeServeGlobalPayments {
 
                         <div class="form-group">
                             <label class="form-label">Your Country</label>
-                            <select id="payment-country" class="form-input" onchange="window.paymentSystem?.updatePaymentMethodsForCountry(this.value)">
+                            <select id="payment-country" class="form-input">
                                 <option value="KE" ${this.userCountry === 'KE' ? 'selected' : ''}>🇰🇪 Kenya (M-Pesa, Airtel, Card, PayPal)</option>
                                 <option value="UG" ${this.userCountry === 'UG' ? 'selected' : ''}>🇺🇬 Uganda (MTN Money, Airtel, Card, PayPal)</option>
                                 <option value="TZ" ${this.userCountry === 'TZ' ? 'selected' : ''}>🇹🇿 Tanzania (M-Pesa, Tigo Pesa, Card, PayPal)</option>
-                                <option value="NG" ${this.userCountry === 'NG' ? 'selected' : ''}>🇳🇬 Nigeria (Card, PayPal)</option>
-                                <option value="GH" ${this.userCountry === 'GH' ? 'selected' : ''}>🇬🇭 Ghana (Card, PayPal)</option>
-                                <option value="US" ${this.userCountry === 'US' ? 'selected' : ''}>🇺🇸 United States (Card, PayPal)</option>
-                                <option value="GB" ${this.userCountry === 'GB' ? 'selected' : ''}>🇬🇧 United Kingdom (Card, PayPal)</option>
-                                <option value="ZA" ${this.userCountry === 'ZA' ? 'selected' : ''}>🇿🇦 South Africa (Card, PayPal)</option>
                                 <option value="OTHER" ${this.userCountry === 'OTHER' ? 'selected' : ''}>🌍 Other (Card/PayPal)</option>
                             </select>
-                            <div class="form-hint">Select your country to see available payment methods</div>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Select Payment Method</label>
                             <div id="payment-methods-grid" class="payment-methods-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                                 ${currentMethods.map(method => `
-                                    <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
+                                    <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
                                         <i class="${method.icon}" style="font-size: 1.2rem;"></i>
                                         <div style="font-size: 0.8rem;">${method.name}</div>
                                     </div>
@@ -407,30 +326,118 @@ class VikeServeGlobalPayments {
                         </div>
                         
                         <div id="payment-details-container" style="display: none;">
+                            <!-- Mobile Money Details (M-Pesa/Airtel/MTN/Tigo) -->
                             <div id="mobile-money-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
                                     <label class="form-label">Phone Number *</label>
                                     <input type="tel" id="payment-phone-number" class="form-input" placeholder="e.g., 254712345678" value="${this.userPhone || ''}">
-                                    <div class="form-hint">You will be redirected to complete payment</div>
+                                    <div class="form-hint">You will receive an STK push prompt on your phone. Enter your PIN to complete payment.</div>
                                 </div>
                             </div>
-                            <div id="intasend-card-details" class="payment-detail" style="display: none;">
+                            
+                            <!-- Card Details Form (Manual Entry) -->
+                            <div id="card-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
-                                    <label class="form-label">Card Details</label>
-                                    <div id="intasend-card-element" style="border: 1px solid var(--grey); border-radius: 8px; padding: 12px; background: white;">
-                                        <div class="form-hint">You will be redirected to secure payment page</div>
+                                    <label class="form-label">Card Number *</label>
+                                    <input type="text" id="card-number" class="form-input" placeholder="4242 4242 4242 4242" maxlength="19">
+                                </div>
+                                <div class="form-row" style="display: flex; gap: 10px;">
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label">Expiry Date *</label>
+                                        <input type="text" id="card-expiry" class="form-input" placeholder="MM/YY" maxlength="5">
+                                    </div>
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label">CVV *</label>
+                                        <input type="password" id="card-cvv" class="form-input" placeholder="123" maxlength="4">
                                     </div>
                                 </div>
+                                <div class="form-group">
+                                    <label class="form-label">Cardholder Name *</label>
+                                    <input type="text" id="card-name" class="form-input" placeholder="Name on card">
+                                </div>
+                                <div class="form-hint">Your card details are securely processed by IntaSend. We do not store card information.</div>
                             </div>
+                            
+                            <!-- PayPal Details -->
                             <div id="paypal-details" class="payment-detail" style="display: none;">
-                                <div class="form-group"><label class="form-label">PayPal Email *</label><input type="email" id="payment-paypal-email" class="form-input" placeholder="your@paypal.com" value="${this.userEmail || ''}"></div>
-                                <div class="form-hint">You will be redirected to PayPal to complete payment</div>
+                                <div class="form-group">
+                                    <label class="form-label">PayPal Email *</label>
+                                    <input type="email" id="payment-paypal-email" class="form-input" placeholder="your@paypal.com" value="${this.userEmail || ''}">
+                                </div>
+                                <div class="form-hint">You will be redirected to PayPal to complete payment.</div>
                             </div>
                         </div>
                         
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn btn-outline" id="promo-step4-back">← Back</button>
-                            <button class="btn btn-primary" id="promo-submit-payment" disabled>Pay & Activate Ad</button>
+                            <button class="btn btn-primary" id="promo-submit-payment" disabled>Pay Now</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 5: Verify Payment -->
+                    <div id="promo-step-5" class="promo-step" style="display: none;">
+                        <h3 style="margin-bottom: 15px;">Verify & Activate Your Ad</h3>
+                        
+                        <div class="verification-options" style="margin-bottom: 20px;">
+                            <div class="verification-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--grey);">
+                                <button class="verification-tab active" data-tab="auto" style="padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--primary); border-bottom: 2px solid var(--primary);">Auto Verification</button>
+                                <button class="verification-tab" data-tab="manual" style="padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: 600;">Manual Verification</button>
+                            </div>
+                            
+                            <!-- Auto Verification Tab -->
+                            <div id="auto-verify-tab" class="verification-tab-content">
+                                <div id="payment-status-checker" style="text-align: center; padding: 20px;">
+                                    <div class="loader" style="border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                                    <p>Checking payment status...</p>
+                                    <p id="status-message" style="font-size: 0.85rem; color: var(--grey-dark);"></p>
+                                </div>
+                                <div id="payment-success-display" style="display: none; text-align: center; padding: 20px;">
+                                    <i class="fas fa-check-circle" style="font-size: 3rem; color: #27ae60; margin-bottom: 15px;"></i>
+                                    <h4>Payment Verified Successfully!</h4>
+                                    <p>Your ad is now being activated.</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Manual Verification Tab -->
+                            <div id="manual-verify-tab" class="verification-tab-content" style="display: none;">
+                                <p style="margin-bottom: 15px;">If you have already paid but haven't received confirmation, enter your payment details below:</p>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Payment Method *</label>
+                                    <select id="manual-payment-method" class="form-input">
+                                        <option value="">Select payment method</option>
+                                        <option value="M-Pesa">M-Pesa</option>
+                                        <option value="Airtel Money">Airtel Money</option>
+                                        <option value="MTN Money">MTN Money</option>
+                                        <option value="Tigo Pesa">Tigo Pesa</option>
+                                        <option value="Card">Credit/Debit Card</option>
+                                        <option value="PayPal">PayPal</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Transaction Code / Reference *</label>
+                                    <input type="text" id="manual-transaction-code" class="form-input" placeholder="e.g., R8X9K2L4M or M-Pesa confirmation code">
+                                    <div class="form-hint">Enter the transaction ID from your payment confirmation message or email.</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Phone Number Used (for M-Pesa/Airtel)</label>
+                                    <input type="tel" id="manual-phone-number" class="form-input" placeholder="e.g., 254712345678">
+                                </div>
+                                
+                                <div class="warning-item" style="margin: 15px 0; padding: 12px; background: rgba(243, 156, 18, 0.1); border-radius: 8px;">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span style="font-size: 0.8rem;">Our team will verify your payment within 5-10 minutes during business hours.</span>
+                                </div>
+                                
+                                <button class="btn btn-primary" id="submit-manual-verification" style="width: 100%;">Submit for Verification</button>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button class="btn btn-outline" id="promo-step5-back">← Back to Payment</button>
+                            <button class="btn btn-success" id="promo-activate-btn" style="display: none;">Activate Ad Now</button>
                         </div>
                     </div>
                 </div>
@@ -438,88 +445,17 @@ class VikeServeGlobalPayments {
         `;
     }
 
-    // ========== DYNAMIC PAYMENT METHOD UPDATE WITH CURRENCY CONVERSION ==========
-    async updatePaymentMethodsForCountry(country) {
-        console.log('Updating payment methods for country:', country);
-        
-        this.userCountry = country;
-        this.userCurrency = this.getCurrencyForCountry(country);
-        
-        const selectedPackage = window.selectedPackage;
-        if (selectedPackage && selectedPackage.originalPriceKES) {
-            const convertedAmount = await this.convertAmount(selectedPackage.originalPriceKES, 'KES', this.userCurrency);
-            selectedPackage.price = convertedAmount;
-            
-            const summaryPrice = document.getElementById('summary-package-price');
-            if (summaryPrice) {
-                summaryPrice.textContent = `${this.userCurrency} ${convertedAmount.toLocaleString()}`;
-            }
-        }
-        
-        const newMethods = this.getAvailablePaymentMethods(country);
-        const methodsContainer = document.getElementById('payment-methods-grid');
-        
-        if (methodsContainer) {
-            methodsContainer.innerHTML = newMethods.map(method => `
-                <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
-                    <i class="${method.icon}" style="font-size: 1.2rem;"></i>
-                    <div style="font-size: 0.8rem;">${method.name}</div>
-                </div>
-            `).join('');
-            
-            const paymentMethods = document.querySelectorAll('.payment-method');
-            paymentMethods.forEach(method => {
-                const newMethod = method.cloneNode(true);
-                method.parentNode.replaceChild(newMethod, method);
-                
-                newMethod.addEventListener('click', () => {
-                    paymentMethods.forEach(m => {
-                        const existingM = document.querySelector(`.payment-method[data-method-id="${m.getAttribute('data-method-id')}"]`);
-                        if (existingM) existingM.style.borderColor = 'var(--grey)';
-                    });
-                    newMethod.style.borderColor = 'var(--primary)';
-                    
-                    window.selectedPaymentMethod = {
-                        id: newMethod.getAttribute('data-method-id'),
-                        name: newMethod.getAttribute('data-method-name'),
-                        type: newMethod.getAttribute('data-method-type')
-                    };
-                    
-                    const paymentDetailsContainer = document.getElementById('payment-details-container');
-                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
-                    
-                    if (window.selectedPaymentMethod.type === 'mobile_money') {
-                        const mobileForm = document.getElementById('mobile-money-details');
-                        if (mobileForm) mobileForm.style.display = 'block';
-                    } else if (window.selectedPaymentMethod.id === 'card') {
-                        const cardForm = document.getElementById('intasend-card-details');
-                        if (cardForm) cardForm.style.display = 'block';
-                    } else if (window.selectedPaymentMethod.id === 'paypal') {
-                        const paypalForm = document.getElementById('paypal-details');
-                        if (paypalForm) paypalForm.style.display = 'block';
-                    }
-                    
-                    const submitBtn = document.getElementById('promo-submit-payment');
-                    if (submitBtn) submitBtn.disabled = false;
-                });
-            });
-        }
-        
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Amount: ${this.userCurrency} ${selectedPackage?.price || 0}`, 'success');
-        }
-    }
-
     setupAdPromotionModalEvents(selectedAdId = null) {
         let selectedAd = null;
         let selectedPackage = null;
         let selectedAction = null;
         let selectedActionDetails = null;
+        let selectedPaymentMethod = null;
+        let currentTransactionId = null;
         
         window.selectedPackage = null;
-        window.selectedPaymentMethod = null;
         
+        // Step 1: Select Ad
         const step1Next = document.getElementById('promo-step1-next');
         const adSelect = document.getElementById('promo-ad-select');
         const adPreview = document.getElementById('promo-ad-preview');
@@ -553,9 +489,7 @@ class VikeServeGlobalPayments {
             
             if (selectedAdId && adSelect) {
                 adSelect.value = selectedAdId;
-                setTimeout(() => {
-                    adSelect.dispatchEvent(new Event('change'));
-                }, 100);
+                setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
             }
         }
         
@@ -565,13 +499,17 @@ class VikeServeGlobalPayments {
             });
         }
         
+        // Step 2: Select Package
         const packageCards = document.querySelectorAll('.package-card');
         const step2Next = document.getElementById('promo-step2-next');
         const step2Back = document.getElementById('promo-step2-back');
         
         packageCards.forEach(card => {
             card.addEventListener('click', () => {
-                packageCards.forEach(c => c.style.borderColor = 'var(--grey)');
+                packageCards.forEach(c => {
+                    c.style.borderColor = 'var(--grey)';
+                    c.style.backgroundColor = 'transparent';
+                });
                 card.style.borderColor = 'var(--primary)';
                 card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
                 
@@ -579,8 +517,7 @@ class VikeServeGlobalPayments {
                     id: card.getAttribute('data-package-id'),
                     name: card.getAttribute('data-package-name'),
                     price: parseInt(card.getAttribute('data-package-price')),
-                    duration: parseInt(card.getAttribute('data-package-duration')),
-                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))
+                    duration: parseInt(card.getAttribute('data-package-duration'))
                 };
                 window.selectedPackage = selectedPackage;
                 
@@ -598,6 +535,7 @@ class VikeServeGlobalPayments {
             step2Back.addEventListener('click', () => this.goToPromoStep(1));
         }
         
+        // Step 3: Select Action
         const actionOptions = document.querySelectorAll('.action-option');
         const actionDetailsContainer = document.getElementById('action-details-container');
         const step3Next = document.getElementById('promo-step3-next');
@@ -628,7 +566,7 @@ class VikeServeGlobalPayments {
                     case 'whatsapp':
                         const phone = document.getElementById('action-whatsapp-number')?.value;
                         if (!phone || phone.length < 10) {
-                            if (typeof window.showToast === 'function') window.showToast('Please enter a valid WhatsApp number', 'error');
+                            window.showToast('Please enter a valid WhatsApp number', 'error');
                             isValid = false;
                         } else {
                             selectedActionDetails = {
@@ -640,7 +578,7 @@ class VikeServeGlobalPayments {
                     case 'phone':
                         const callPhone = document.getElementById('action-phone-number')?.value;
                         if (!callPhone || callPhone.length < 10) {
-                            if (typeof window.showToast === 'function') window.showToast('Please enter a valid phone number', 'error');
+                            window.showToast('Please enter a valid phone number', 'error');
                             isValid = false;
                         } else {
                             selectedActionDetails = callPhone;
@@ -649,7 +587,7 @@ class VikeServeGlobalPayments {
                     case 'email':
                         const email = document.getElementById('action-email-address')?.value;
                         if (!email || !email.includes('@')) {
-                            if (typeof window.showToast === 'function') window.showToast('Please enter a valid email address', 'error');
+                            window.showToast('Please enter a valid email address', 'error');
                             isValid = false;
                         } else {
                             selectedActionDetails = {
@@ -661,7 +599,7 @@ class VikeServeGlobalPayments {
                     case 'link':
                         const url = document.getElementById('action-link-url')?.value;
                         if (!url || !url.startsWith('http')) {
-                            if (typeof window.showToast === 'function') window.showToast('Please enter a valid website URL (https://...)', 'error');
+                            window.showToast('Please enter a valid website URL (https://...)', 'error');
                             isValid = false;
                         } else {
                             selectedActionDetails = url;
@@ -679,7 +617,7 @@ class VikeServeGlobalPayments {
                     if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
                     if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
                     if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
-                    if (summaryPrice) summaryPrice.textContent = `${this.userCurrency} ${selectedPackage?.price || 0}`;
+                    if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
                     
                     const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
                     if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
@@ -693,75 +631,122 @@ class VikeServeGlobalPayments {
             step3Back.addEventListener('click', () => this.goToPromoStep(2));
         }
         
+        // Step 4: Payment Method
+        const paymentMethodsContainer = document.getElementById('payment-methods-grid');
         const submitPaymentBtn = document.getElementById('promo-submit-payment');
         const step4Back = document.getElementById('promo-step4-back');
+        const countrySelect = document.getElementById('payment-country');
         
-        document.getElementById('payment-methods-grid')?.addEventListener('click', (e) => {
-            const method = e.target.closest('.payment-method');
-            if (!method) return;
-            
-            document.querySelectorAll('.payment-method').forEach(m => {
-                m.style.borderColor = 'var(--grey)';
+        if (countrySelect) {
+            countrySelect.addEventListener('change', (e) => {
+                this.userCountry = e.target.value;
+                this.updatePaymentMethodsForCountry(e.target.value);
             });
-            method.style.borderColor = 'var(--primary)';
-            
-            window.selectedPaymentMethod = {
-                id: method.getAttribute('data-method-id'),
-                name: method.getAttribute('data-method-name'),
-                type: method.getAttribute('data-method-type')
-            };
-            
-            const paymentDetailsContainer = document.getElementById('payment-details-container');
-            if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-            document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
-            
-            if (window.selectedPaymentMethod.type === 'mobile_money') {
-                const mobileForm = document.getElementById('mobile-money-details');
-                if (mobileForm) mobileForm.style.display = 'block';
-            } else if (window.selectedPaymentMethod.id === 'card') {
-                const cardForm = document.getElementById('intasend-card-details');
-                if (cardForm) cardForm.style.display = 'block';
-            } else if (window.selectedPaymentMethod.id === 'paypal') {
-                const paypalForm = document.getElementById('paypal-details');
-                if (paypalForm) paypalForm.style.display = 'block';
-            }
-            
-            if (submitPaymentBtn) submitPaymentBtn.disabled = false;
-        });
+        }
+        
+        const updatePaymentMethodSelection = () => {
+            const methodElements = document.querySelectorAll('.payment-method');
+            methodElements.forEach(method => {
+                const newMethod = method.cloneNode(true);
+                method.parentNode.replaceChild(newMethod, method);
+                
+                newMethod.addEventListener('click', () => {
+                    document.querySelectorAll('.payment-method').forEach(m => {
+                        m.style.borderColor = 'var(--grey)';
+                    });
+                    newMethod.style.borderColor = 'var(--primary)';
+                    
+                    selectedPaymentMethod = {
+                        id: newMethod.getAttribute('data-method-id'),
+                        name: newMethod.getAttribute('data-method-name'),
+                        type: newMethod.getAttribute('data-method-type'),
+                        provider: newMethod.getAttribute('data-method-provider')
+                    };
+                    
+                    const paymentDetailsContainer = document.getElementById('payment-details-container');
+                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
+                    
+                    if (selectedPaymentMethod.type === 'mobile_money') {
+                        document.getElementById('mobile-money-details').style.display = 'block';
+                    } else if (selectedPaymentMethod.id === 'card') {
+                        document.getElementById('card-details').style.display = 'block';
+                    } else if (selectedPaymentMethod.id === 'paypal') {
+                        document.getElementById('paypal-details').style.display = 'block';
+                    }
+                    
+                    if (submitPaymentBtn) submitPaymentBtn.disabled = false;
+                });
+            });
+        };
+        
+        if (paymentMethodsContainer) {
+            updatePaymentMethodSelection();
+        }
         
         if (submitPaymentBtn) {
             submitPaymentBtn.addEventListener('click', async () => {
-                if (!window.selectedPaymentMethod) {
-                    if (typeof window.showToast === 'function') window.showToast('Please select a payment method', 'warning');
+                if (!selectedPaymentMethod) {
+                    window.showToast('Please select a payment method', 'warning');
                     return;
                 }
                 
                 let paymentDetails = {};
                 
-                if (window.selectedPaymentMethod.type === 'mobile_money') {
+                if (selectedPaymentMethod.type === 'mobile_money') {
                     const phone = document.getElementById('payment-phone-number')?.value;
                     if (!phone || phone.length < 10) {
-                        if (typeof window.showToast === 'function') window.showToast('Please enter a valid phone number', 'error');
+                        window.showToast('Please enter a valid phone number', 'error');
                         return;
                     }
                     paymentDetails.phone = phone;
-                } else if (window.selectedPaymentMethod.id === 'paypal') {
+                } else if (selectedPaymentMethod.id === 'card') {
+                    const cardNumber = document.getElementById('card-number')?.value.replace(/\s/g, '');
+                    const cardExpiry = document.getElementById('card-expiry')?.value;
+                    const cardCvv = document.getElementById('card-cvv')?.value;
+                    const cardName = document.getElementById('card-name')?.value;
+                    
+                    if (!cardNumber || cardNumber.length < 15) {
+                        window.showToast('Please enter a valid card number', 'error');
+                        return;
+                    }
+                    if (!cardExpiry || !cardExpiry.includes('/')) {
+                        window.showToast('Please enter expiry date (MM/YY)', 'error');
+                        return;
+                    }
+                    if (!cardCvv || cardCvv.length < 3) {
+                        window.showToast('Please enter CVV', 'error');
+                        return;
+                    }
+                    if (!cardName) {
+                        window.showToast('Please enter cardholder name', 'error');
+                        return;
+                    }
+                    
+                    paymentDetails = {
+                        card_number: cardNumber,
+                        card_expiry: cardExpiry,
+                        card_cvv: cardCvv,
+                        card_name: cardName
+                    };
+                } else if (selectedPaymentMethod.id === 'paypal') {
                     const email = document.getElementById('payment-paypal-email')?.value;
                     if (!email || !email.includes('@')) {
-                        if (typeof window.showToast === 'function') window.showToast('Please enter a valid PayPal email', 'error');
+                        window.showToast('Please enter a valid PayPal email', 'error');
                         return;
                     }
                     paymentDetails.email = email;
                 }
                 
-                await this.processIntaSendPayment(
-                    selectedAd,
-                    selectedPackage,
-                    selectedAction,
-                    selectedActionDetails,
-                    window.selectedPaymentMethod,
-                    paymentDetails
+                currentTransactionId = await this.processPayment(
+                    selectedAd, selectedPackage, selectedAction, selectedActionDetails,
+                    selectedPaymentMethod, paymentDetails
                 );
+                
+                if (currentTransactionId) {
+                    this.goToPromoStep(5);
+                    this.startPaymentStatusCheck(currentTransactionId);
+                }
             });
         }
         
@@ -769,11 +754,358 @@ class VikeServeGlobalPayments {
             step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
         
+        // Step 5: Verification
+        const verificationTabs = document.querySelectorAll('.verification-tab');
+        const step5Back = document.getElementById('promo-step5-back');
+        const manualVerifyBtn = document.getElementById('submit-manual-verification');
+        
+        verificationTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                verificationTabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.style.color = '';
+                    t.style.borderBottom = '';
+                });
+                tab.classList.add('active');
+                tab.style.color = 'var(--primary)';
+                tab.style.borderBottom = '2px solid var(--primary)';
+                
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
+                document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
+                
+                if (tabId === 'auto' && currentTransactionId) {
+                    this.startPaymentStatusCheck(currentTransactionId);
+                }
+            });
+        });
+        
+        if (manualVerifyBtn) {
+            manualVerifyBtn.addEventListener('click', async () => {
+                const paymentMethod = document.getElementById('manual-payment-method')?.value;
+                const transactionCode = document.getElementById('manual-transaction-code')?.value;
+                const phoneNumber = document.getElementById('manual-phone-number')?.value;
+                
+                if (!paymentMethod) {
+                    window.showToast('Please select payment method', 'error');
+                    return;
+                }
+                if (!transactionCode) {
+                    window.showToast('Please enter transaction code', 'error');
+                    return;
+                }
+                
+                window.showToast('Submitting for verification...', 'info');
+                
+                // Save manual verification request to Firestore
+                await firebase.firestore().collection('payment_verifications').add({
+                    transactionId: currentTransactionId,
+                    adId: selectedAd?.id,
+                    adTitle: selectedAd?.title,
+                    packageName: selectedPackage?.name,
+                    amount: selectedPackage?.price,
+                    paymentMethod: paymentMethod,
+                    transactionCode: transactionCode,
+                    phoneNumber: phoneNumber,
+                    userId: this.userId,
+                    userEmail: this.userEmail,
+                    action: selectedAction,
+                    actionDetails: selectedActionDetails,
+                    status: 'pending_verification',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
+                
+                setTimeout(() => {
+                    const modal = document.getElementById('ad-packages-full-modal');
+                    if (modal) modal.style.display = 'none';
+                }, 3000);
+            });
+        }
+        
+        if (step5Back) {
+            step5Back.addEventListener('click', () => this.goToPromoStep(4));
+        }
+        
         window.paymentSystem = this;
     }
 
+    async updatePaymentMethodsForCountry(country) {
+        this.userCountry = country;
+        const newMethods = this.getAvailablePaymentMethods(country);
+        const methodsContainer = document.getElementById('payment-methods-grid');
+        
+        if (methodsContainer) {
+            methodsContainer.innerHTML = newMethods.map(method => `
+                <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
+                    <i class="${method.icon}" style="font-size: 1.2rem;"></i>
+                    <div style="font-size: 0.8rem;">${method.name}</div>
+                </div>
+            `).join('');
+            
+            // Re-attach click handlers
+            const methodElements = document.querySelectorAll('.payment-method');
+            methodElements.forEach(method => {
+                method.addEventListener('click', () => {
+                    document.querySelectorAll('.payment-method').forEach(m => {
+                        m.style.borderColor = 'var(--grey)';
+                    });
+                    method.style.borderColor = 'var(--primary)';
+                    
+                    window.selectedPaymentMethod = {
+                        id: method.getAttribute('data-method-id'),
+                        name: method.getAttribute('data-method-name'),
+                        type: method.getAttribute('data-method-type')
+                    };
+                    
+                    const paymentDetailsContainer = document.getElementById('payment-details-container');
+                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
+                    
+                    if (window.selectedPaymentMethod.type === 'mobile_money') {
+                        document.getElementById('mobile-money-details').style.display = 'block';
+                    } else if (window.selectedPaymentMethod.id === 'card') {
+                        document.getElementById('card-details').style.display = 'block';
+                    } else if (window.selectedPaymentMethod.id === 'paypal') {
+                        document.getElementById('paypal-details').style.display = 'block';
+                    }
+                    
+                    const submitBtn = document.getElementById('promo-submit-payment');
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+            });
+        }
+    }
+
+    async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
+        const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+        
+        try {
+            const paymentRecord = {
+                transactionId: transactionId,
+                adId: ad.id,
+                adTitle: ad.title,
+                packageName: pkg.name,
+                amount: pkg.price,
+                duration: pkg.duration,
+                paymentMethod: paymentMethod.name,
+                status: 'pending',
+                userId: this.userId,
+                userEmail: this.userEmail,
+                userPhone: paymentDetails.phone || this.userPhone,
+                action: { type: action, details: actionDetails },
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                userCountry: this.userCountry
+            };
+            
+            await firebase.firestore().collection('transactions').add(paymentRecord);
+            
+            if (paymentMethod.id === 'paypal') {
+                window.showToast('Redirecting to PayPal...', 'info');
+                setTimeout(() => {
+                    window.location.href = `https://www.paypal.com/paypalme/vikeserve/${pkg.price}`;
+                }, 1000);
+                return transactionId;
+            }
+            
+            // Prepare IntaSend payload
+            const apiPayload = {
+                public_key: this.config.intasend.publicKey,
+                amount: pkg.price,
+                currency: 'KES',
+                email: this.userEmail,
+                reference: transactionId,
+                api_ref: transactionId,
+                redirect_url: `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`
+            };
+            
+            if (paymentMethod.type === 'mobile_money' && paymentDetails.phone) {
+                apiPayload.phone_number = paymentDetails.phone;
+                apiPayload.payment_methods = [{
+                    type: 'mobile_money',
+                    provider: paymentMethod.provider || 'SAFARICOM'
+                }];
+            }
+            
+            if (paymentMethod.id === 'card') {
+                apiPayload.payment_methods = [{ type: 'card' }];
+            }
+            
+            console.log('Calling IntaSend API...', apiPayload);
+            
+            const response = await fetch('https://api.intasend.com/api/v1/checkout/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(apiPayload)
+            });
+            
+            const result = await response.json();
+            console.log('IntaSend response:', result);
+            
+            if (result && result.url) {
+                window.showToast('Redirecting to payment page...', 'info');
+                setTimeout(() => {
+                    window.location.href = result.url;
+                }, 500);
+            } else {
+                throw new Error(result.message || 'Failed to create checkout');
+            }
+            
+            return transactionId;
+            
+        } catch (error) {
+            console.error('Payment error:', error);
+            window.showToast(error.message || 'Payment failed. Please try again.', 'error');
+            return null;
+        }
+    }
+
+    async startPaymentStatusCheck(transactionId) {
+        const statusChecker = document.getElementById('payment-status-checker');
+        const successDisplay = document.getElementById('payment-success-display');
+        const statusMessage = document.getElementById('status-message');
+        const activateBtn = document.getElementById('promo-activate-btn');
+        
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds total
+        
+        const checkStatus = async () => {
+            attempts++;
+            
+            try {
+                const snapshot = await firebase.firestore()
+                    .collection('transactions')
+                    .where('transactionId', '==', transactionId)
+                    .get();
+                
+                if (!snapshot.empty) {
+                    const transaction = snapshot.docs[0].data();
+                    
+                    if (transaction.status === 'completed') {
+                        if (statusChecker) statusChecker.style.display = 'none';
+                        if (successDisplay) successDisplay.style.display = 'block';
+                        if (statusMessage) statusMessage.textContent = '✅ Payment confirmed! Your ad is now active.';
+                        if (activateBtn) activateBtn.style.display = 'block';
+                        
+                        window.showToast('Payment successful! Your ad is now promoted!', 'success');
+                        
+                        // Activate the ad
+                        await this.activatePromotion(transactionId);
+                        return;
+                    } else if (transaction.status === 'failed') {
+                        if (statusMessage) statusMessage.textContent = '❌ Payment failed. Please try again or use manual verification.';
+                        return;
+                    }
+                }
+                
+                if (statusMessage) {
+                    statusMessage.textContent = `Waiting for payment confirmation... (${attempts}/${maxAttempts})`;
+                }
+                
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, 2000);
+                } else {
+                    if (statusMessage) statusMessage.textContent = '⚠️ Payment confirmation taking longer than expected. Please use Manual Verification tab.';
+                }
+                
+            } catch (error) {
+                console.error('Status check error:', error);
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, 3000);
+                }
+            }
+        };
+        
+        checkStatus();
+    }
+
+    async activatePromotion(transactionId) {
+        try {
+            const transactionSnapshot = await firebase.firestore()
+                .collection('transactions')
+                .where('transactionId', '==', transactionId)
+                .get();
+            
+            if (transactionSnapshot.empty) return;
+            
+            const transaction = transactionSnapshot.docs[0].data();
+            const adId = transaction.adId;
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + transaction.duration);
+            
+            // Update marketplace item
+            await firebase.firestore().collection('marketplace_items').doc(adId).update({
+                promoted: true,
+                promotionPackage: transaction.packageName,
+                promotionExpiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                promotionAction: transaction.action,
+                promotedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Add to promoted_ads collection
+            await firebase.firestore().collection('promoted_ads').add({
+                adId: adId,
+                adTitle: transaction.adTitle,
+                packageName: transaction.packageName,
+                duration: transaction.duration,
+                transactionId: transactionId,
+                paymentMethod: transaction.paymentMethod,
+                status: 'active',
+                activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                userId: this.userId,
+                action: transaction.action
+            });
+            
+            // Update transaction status
+            await transactionSnapshot.docs[0].ref.update({
+                status: 'completed',
+                completedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Refresh marketplace display
+            if (typeof window.loadMarketplaceItems === 'function') {
+                setTimeout(() => window.loadMarketplaceItems('all'), 500);
+            }
+            
+        } catch (error) {
+            console.error('Activation error:', error);
+        }
+    }
+
+    async checkPendingTransactions() {
+        if (!this.userId) return;
+        
+        const snapshot = await firebase.firestore()
+            .collection('transactions')
+            .where('userId', '==', this.userId)
+            .where('status', '==', 'pending')
+            .get();
+        
+        if (!snapshot.empty) {
+            window.showToast(`You have ${snapshot.size} pending payment(s). Complete payment to activate your ads.`, 'warning');
+        }
+    }
+
+    async setupPaymentStatusListener() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
+        const status = urlParams.get('status') || urlParams.get('payment_status');
+        
+        if (transactionRef && (status === 'complete' || status === 'SUCCESS' || status === 'success')) {
+            console.log('Payment callback detected for:', transactionRef);
+            await this.activatePromotion(transactionRef);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            window.showToast('Payment successful! Your ad is now promoted.', 'success');
+        }
+    }
+
     goToPromoStep(step) {
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const stepDiv = document.getElementById(`promo-step-${i}`);
             if (stepDiv) stepDiv.style.display = 'none';
         }
@@ -792,489 +1124,7 @@ class VikeServeGlobalPayments {
                     circle.style.background = 'var(--grey)';
                 }
             }
-            if (stepNum === step) {
-                indicator.classList.add('active');
-            } else {
-                indicator.classList.remove('active');
-            }
         });
-    }
-
-    async loadIntaSendCardElement() {
-        console.log('Using redirect checkout method');
-    }
-
-    // ========== IMPROVED: MULTI-CDN INTASEND SCRIPT LOADING WITH FALLBACK ==========
-    async loadIntaSendScript() {
-        return new Promise((resolve) => {
-            // If already loaded
-            if (typeof IntaSend !== 'undefined' && IntaSend) {
-                console.log('IntaSend already loaded');
-                this.intasendReady = true;
-                resolve(true);
-                return;
-            }
-            
-            // Multiple CDN URLs to try
-            const scriptUrls = [
-                'https://js.intasend.com/v1/',
-                'https://cdn.jsdelivr.net/npm/@intasend/intasend-js@1.0.5/dist/intasend.umd.js',
-                'https://unpkg.com/@intasend/intasend-js@1.0.5/dist/intasend.umd.js'
-            ];
-            
-            let currentAttempt = 0;
-            let timeoutId = null;
-            
-            const cleanup = () => {
-                if (timeoutId) clearTimeout(timeoutId);
-            };
-            
-            const tryLoadScript = (url) => {
-                console.log(`Attempting to load IntaSend from: ${url}`);
-                
-                // Remove any existing failed script
-                const existingScript = document.querySelector(`script[src="${url}"]`);
-                if (existingScript) existingScript.remove();
-                
-                const script = document.createElement('script');
-                script.src = url;
-                script.async = true;
-                script.defer = true;
-                
-                script.onload = () => {
-                    console.log('✅ IntaSend script loaded successfully from:', url);
-                    cleanup();
-                    this.intasendReady = true;
-                    resolve(true);
-                };
-                
-                script.onerror = () => {
-                    console.warn(`❌ Failed to load from: ${url}`);
-                    currentAttempt++;
-                    
-                    if (currentAttempt < scriptUrls.length) {
-                        console.log(`Trying next URL (${currentAttempt + 1}/${scriptUrls.length})...`);
-                        tryLoadScript(scriptUrls[currentAttempt]);
-                    } else {
-                        cleanup();
-                        console.error('All IntaSend script URLs failed, using fallback mode');
-                        this.useFallbackMode = true;
-                        this.intasendReady = false;
-                        resolve(false); // Resolve with false, we'll use direct API
-                    }
-                };
-                
-                document.head.appendChild(script);
-            };
-            
-            // Set timeout for entire loading process (10 seconds)
-            timeoutId = setTimeout(() => {
-                if (!this.intasendReady) {
-                    console.warn('IntaSend script timeout, using fallback mode');
-                    this.useFallbackMode = true;
-                    cleanup();
-                    resolve(false);
-                }
-            }, 10000);
-            
-            tryLoadScript(scriptUrls[0]);
-        });
-    }
-
-        // ========== FIXED: CORRECT INTASEND API INTEGRATION ==========
-    async processIntaSendPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Preparing payment...', 'info');
-        }
-        
-        const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
-
-        const selectedCountryElem = document.getElementById('payment-country');
-        if (selectedCountryElem && selectedCountryElem.value && selectedCountryElem.value !== 'OTHER') {
-            this.userCountry = selectedCountryElem.value;
-            this.userCurrency = this.getCurrencyForCountry(this.userCountry);
-        }
-        
-        let finalPrice = pkg.price;
-        let finalCurrency = this.userCurrency;
-        
-        if (pkg.originalPriceKES && this.userCurrency !== 'KES') {
-            finalPrice = await this.convertAmount(pkg.originalPriceKES, 'KES', this.userCurrency);
-        }
-        
-        // Get user email
-        let userEmailForPayment = this.userEmail;
-        if (!userEmailForPayment || userEmailForPayment === 'null' || userEmailForPayment === 'undefined') {
-            if (firebase && firebase.auth && firebase.auth().currentUser) {
-                userEmailForPayment = firebase.auth().currentUser.email;
-            }
-            if (!userEmailForPayment || userEmailForPayment === 'null') {
-                userEmailForPayment = prompt('Please enter your email for payment receipt:', '');
-                if (!userEmailForPayment) {
-                    userEmailForPayment = `${this.userId || 'customer'}@vikeserve.com`;
-                }
-            }
-        }
-        
-        // Get phone number if provided
-        let phoneNumber = paymentDetails.phone || this.userPhone || '';
-        if (phoneNumber) {
-            phoneNumber = phoneNumber.replace(/\D/g, '');
-            const countryCode = this.userCountry;
-            
-            if (countryCode === 'KE') {
-                if (phoneNumber.startsWith('0')) phoneNumber = '254' + phoneNumber.substring(1);
-                if (!phoneNumber.startsWith('254')) phoneNumber = '254' + phoneNumber;
-            } else if (countryCode === 'UG') {
-                if (phoneNumber.startsWith('0')) phoneNumber = '256' + phoneNumber.substring(1);
-                if (!phoneNumber.startsWith('256')) phoneNumber = '256' + phoneNumber;
-            } else if (countryCode === 'TZ') {
-                if (phoneNumber.startsWith('0')) phoneNumber = '255' + phoneNumber.substring(1);
-                if (!phoneNumber.startsWith('255')) phoneNumber = '255' + phoneNumber;
-            }
-        }
-        
-        try {
-            const paymentRecord = {
-                transactionId: transactionId,
-                adId: ad.id,
-                adTitle: ad.title,
-                packageName: pkg.name,
-                amount: finalPrice,
-                originalAmountKES: pkg.originalPriceKES || pkg.price,
-                duration: pkg.duration,
-                paymentMethod: paymentMethod.name,
-                status: 'pending',
-                userId: this.userId,
-                userEmail: userEmailForPayment,
-                userPhone: phoneNumber,
-                action: { type: action, details: actionDetails },
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                userCountry: this.userCountry,
-                userCurrency: finalCurrency
-            };
-            
-            await firebase.firestore().collection('transactions').add(paymentRecord);
-            
-            if (typeof window.showToast === 'function') {
-                window.showToast('Creating checkout session...', 'info');
-            }
-            
-            // Prepare the payload for IntaSend API (correct endpoint)
-            const apiPayload = {
-                public_key: this.config.intasend.publicKey,
-                amount: finalPrice,
-                currency: finalCurrency,
-                email: userEmailForPayment,
-                reference: transactionId,
-                api_ref: transactionId
-            };
-            
-            // Add phone number for mobile money
-            if (phoneNumber) {
-                apiPayload.phone_number = phoneNumber;
-            }
-            
-            // Add country for better routing
-            if (this.userCountry && this.userCountry !== 'OTHER') {
-                apiPayload.country = this.userCountry;
-            }
-            
-            // Specify payment method if mobile money
-            if (paymentMethod.type === 'mobile_money') {
-                apiPayload.payment_methods = [
-                    {
-                        type: 'mobile_money',
-                        provider: this.getMobileMoneyProvider(paymentMethod.id, this.userCountry)
-                    }
-                ];
-            }
-            
-            console.log('Calling IntaSend API with payload:', apiPayload);
-            
-            // Call the IntaSend API (correct endpoint per documentation)
-            const response = await fetch('https://api.intasend.com/api/v1/checkout/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(apiPayload)
-            });
-            
-            const result = await response.json();
-            console.log('IntaSend API response:', result);
-            
-            // Get the hosted checkout URL from the response
-            if (result && result.url) {
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Redirecting to payment page...', 'info');
-                }
-                
-                console.log('Redirecting to:', result.url);
-                
-                setTimeout(() => {
-                    window.location.href = result.url;
-                }, 500);
-            } else if (result && result.redirect_url) {
-                // Alternative response format
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Redirecting to payment page...', 'info');
-                }
-                
-                setTimeout(() => {
-                    window.location.href = result.redirect_url;
-                }, 500);
-            } else {
-                throw new Error(result.message || 'Failed to create checkout session');
-            }
-            
-        } catch (error) {
-            console.error('Payment error:', error);
-            if (typeof window.showToast === 'function') {
-                let errorMsg = error.message || 'Payment failed. Please try again.';
-                if (errorMsg.includes('timeout')) {
-                    errorMsg = 'Payment gateway timed out. Please check your internet and try again.';
-                } else if (errorMsg.includes('failed to load')) {
-                    errorMsg = 'Unable to load payment page. Please check your internet connection.';
-                }
-                window.showToast(errorMsg, 'error');
-            }
-            
-            const transactionsRef = firebase.firestore().collection('transactions');
-            const query = await transactionsRef.where('transactionId', '==', transactionId).get();
-            if (!query.empty) {
-                await query.docs[0].ref.update({
-                    status: 'failed',
-                    error: error.message
-                });
-            }
-        }
-    }
-    
-    // Helper method to get mobile money provider
-    getMobileMoneyProvider(methodId, country) {
-        const providers = {
-            'KE': {
-                'mpesa': 'SAFARICOM',
-                'airtel_kenya': 'AIRTEL'
-            },
-            'UG': {
-                'mtn_uganda': 'MTN',
-                'airtel_uganda': 'AIRTEL'
-            },
-            'TZ': {
-                'mpesa_tz': 'VODACOM',
-                'tigo_pesa': 'TIGO'
-            }
-        };
-        
-        return providers[country]?.[methodId] || 'SAFARICOM';
-    }
-
-    // Legacy methods kept for compatibility
-    async initiateMpesaPayment(phoneNumber, amount, transactionId) {
-        console.log('Direct payment disabled - using redirect method');
-        return { success: false, error: 'Use redirect method' };
-    }
-
-    async pollMpesaPaymentStatus(checkoutId, transactionId, ad, pkg, actionDetails) {
-        // Handled by redirect
-    }
-
-    async activatePromotion(adId, adTitle, pkg, actionDetails, transactionId, paymentMethod) {
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
-        
-        try {
-            await firebase.firestore().collection('promoted_ads').add({
-                adId: adId,
-                adTitle: adTitle,
-                packageName: pkg.name,
-                duration: pkg.duration,
-                transactionId: transactionId,
-                paymentMethod: paymentMethod.name,
-                status: 'active',
-                activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                userId: this.userId,
-                action: actionDetails
-            });
-            
-            await firebase.firestore().collection('marketplace_items').doc(adId).update({
-                promoted: true,
-                promotionPackage: pkg.name,
-                promotionExpiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                promotionAction: actionDetails,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            const transactionQuery = await firebase.firestore()
-                .collection('transactions')
-                .where('transactionId', '==', transactionId)
-                .get();
-            
-            if (!transactionQuery.empty) {
-                await transactionQuery.docs[0].ref.update({
-                    status: 'completed',
-                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-            
-            if (typeof window.showToast === 'function') {
-                window.showToast(`✅ Success! Your ad "${adTitle}" is now promoted for ${pkg.duration} days!`, 'success');
-            }
-            
-            const modal = document.getElementById('ad-packages-full-modal');
-            if (modal) modal.style.display = 'none';
-            
-            if (typeof window.loadMarketplaceItems === 'function') {
-                setTimeout(() => window.loadMarketplaceItems('all'), 500);
-            }
-            
-        } catch (error) {
-            console.error('Error activating promotion:', error);
-            if (typeof window.showToast === 'function') {
-                window.showToast('Payment succeeded but promotion activation failed. Contact support.', 'error');
-            }
-        }
-    }
-
-    async setupPaymentStatusListener() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
-        const status = urlParams.get('status') || urlParams.get('intasend_status');
-        
-        if (transactionRef && (status === 'complete' || status === 'SUCCESS')) {
-            console.log('Payment successful for:', transactionRef);
-            await this.verifyAndActivatePayment(transactionRef);
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    }
-
-    async verifyAndActivatePayment(transactionId) {
-        const transactionQuery = await firebase.firestore()
-            .collection('transactions')
-            .where('transactionId', '==', transactionId)
-            .get();
-        
-        if (!transactionQuery.empty) {
-            const transaction = transactionQuery.docs[0].data();
-            if (transaction.status !== 'completed') {
-                await this.activatePromotion(
-                    transaction.adId,
-                    transaction.adTitle,
-                    {
-                        name: transaction.packageName,
-                        duration: transaction.duration,
-                        price: transaction.amount
-                    },
-                    transaction.action,
-                    transactionId,
-                    { name: transaction.paymentMethod }
-                );
-            }
-        }
-    }
-
-    async verifyPaymentWithIntaSend(transactionId) {
-        return { verified: true };
-    }
-
-    async showManualActivationModal() {
-        const pendingTransactions = await firebase.firestore()
-            .collection('transactions')
-            .where('userId', '==', this.userId)
-            .where('status', 'in', ['pending', 'pending_mpesa'])
-            .get();
-        
-        const pendingList = pendingTransactions.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        if (pendingList.length === 0) {
-            if (typeof window.showToast === 'function') {
-                window.showToast('No pending payments to activate', 'info');
-            }
-            return;
-        }
-        
-        const modalContent = `
-            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
-                <div class="modal-header">
-                    <div class="modal-title"><i class="fas fa-hourglass-half"></i> Pending Activations</div>
-                    <button class="close-modal-btn">&times;</button>
-                </div>
-                <div style="padding: 20px;">
-                    <p>Select a payment to activate:</p>
-                    <div class="pending-list">
-                        ${pendingList.map(tx => `
-                            <div class="pending-item" style="padding: 12px; border-bottom: 1px solid var(--grey); margin-bottom: 10px;">
-                                <div><strong>${this.escapeHtml(tx.adTitle)}</strong></div>
-                                <div>Package: ${tx.packageName} (${tx.duration} days)</div>
-                                <div>Amount: ${tx.userCurrency || 'KES'} ${tx.amount}</div>
-                                <div>Payment: ${tx.paymentMethod}</div>
-                                <div>Status: ${tx.status}</div>
-                                <button class="btn btn-sm btn-primary activate-now-btn" data-tx-id="${tx.transactionId}" style="margin-top: 8px;">Activate Now</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="form-actions" style="margin-top: 20px;">
-                        <button class="btn btn-outline close-modal-btn">Close</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        if (typeof window.showModalWithContent === 'function') {
-            window.showModalWithContent('manual-activation-modal', modalContent);
-        }
-        
-        setTimeout(() => {
-            document.querySelectorAll('.activate-now-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const txId = btn.getAttribute('data-tx-id');
-                    await this.verifyAndActivatePayment(txId);
-                    if (typeof window.closeModal === 'function') {
-                        window.closeModal('manual-activation-modal');
-                    }
-                });
-            });
-        }, 100);
-    }
-
-    async checkPendingPromotions() {
-        if (!this.userId) return;
-        
-        const pendingTransactions = await firebase.firestore()
-            .collection('transactions')
-            .where('userId', '==', this.userId)
-            .where('status', 'in', ['pending', 'pending_mpesa'])
-            .get();
-        
-        if (pendingTransactions.size > 0) {
-            if (typeof window.showToast === 'function') {
-                window.showToast(`You have ${pendingTransactions.size} pending activation(s). Click here to activate.`, 'warning');
-            }
-        }
-    }
-
-    async loadPaymentHistoryFromFirestore() {
-        if (!this.userId) return;
-        
-        try {
-            const snapshot = await firebase.firestore()
-                .collection('transactions')
-                .where('userId', '==', this.userId)
-                .orderBy('createdAt', 'desc')
-                .limit(20)
-                .get();
-            
-            const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`Loaded ${payments.length} payment records from Firestore`);
-        } catch (error) {
-            console.error('Error loading payment history:', error);
-        }
     }
 
     escapeHtml(text) {
@@ -1282,14 +1132,6 @@ class VikeServeGlobalPayments {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-
-    showToast(message, type) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-        } else {
-            console.log(`${type}: ${message}`);
-        }
     }
 }
 
@@ -1308,28 +1150,18 @@ function showAdPackagesModal(adId = null) {
     payments.showAdPackagesModal(adId);
 }
 
-function showManualActivationModal() {
-    const payments = getPaymentSystem();
-    payments.showManualActivationModal();
-}
-
-if (window.location.search.includes('payment_status=success') || window.location.search.includes('intasend_status=complete')) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
-    if (transactionRef) {
-        console.log('Payment webhook detected for:', transactionRef);
-        setTimeout(() => {
-            const payments = getPaymentSystem();
-            payments.verifyAndActivatePayment(transactionRef);
-        }, 1000);
-    }
-}
-
 window.paymentSystem = getPaymentSystem();
-
-window.VikeServeGlobalPayments = VikeServeGlobalPayments;
 window.getPaymentSystem = getPaymentSystem;
 window.showAdPackagesModal = showAdPackagesModal;
-window.showManualActivationModal = showManualActivationModal;
 
-console.log('✅ intasend-global.js with dynamic payment methods, currency conversion, and global support loaded');
+// Add spinner animation CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+
+console.log('✅ Payment system loaded with verification tab and manual entry');
