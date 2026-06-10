@@ -461,452 +461,464 @@ class VikeServeGlobalPayments {
     }
 
     setupAdPromotionModalEvents(selectedAdId = null) {
-        let selectedAd = null;
-        let selectedPackage = null;
-        let selectedAction = null;
-        let selectedActionDetails = null;
-        let selectedPaymentMethod = null;
-        let currentTransactionId = null;
-        
-        window.selectedPackage = null;
-        
-        // Step 1: Select Ad
-        const step1Next = document.getElementById('promo-step1-next');
-        const adSelect = document.getElementById('promo-ad-select');
-        const adPreview = document.getElementById('promo-ad-preview');
-        
-        if (adSelect) {
-            adSelect.addEventListener('change', async () => {
-                const adId = adSelect.value;
-                if (adId) {
-                    const userAds = await this.getUserAds();
-                    selectedAd = userAds.find(ad => ad.id == adId);
-                    if (selectedAd && adPreview) {
-                        adPreview.style.display = 'block';
-                        adPreview.innerHTML = `
-                            <div style="display: flex; gap: 10px;">
-                                <div style="width: 50px; height: 50px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fas fa-tag" style="color: white;"></i>
-                                </div>
-                                <div>
-                                    <div style="font-weight: 600;">${this.escapeHtml(selectedAd.title)}</div>
-                                    <div style="font-size: 0.75rem; color: var(--grey-dark);">KES ${selectedAd.price} • ${selectedAd.location || 'Nairobi'}</div>
-                                </div>
+    let selectedAd = null;
+    let selectedPackage = null;
+    let selectedAction = null;
+    let selectedActionDetails = null;
+    let selectedPaymentMethod = null;
+    let currentTransactionId = null;
+    
+    window.selectedPackage = null;
+    
+    // Step 1: Select Ad
+    const step1Next = document.getElementById('promo-step1-next');
+    const adSelect = document.getElementById('promo-ad-select');
+    const adPreview = document.getElementById('promo-ad-preview');
+    
+    if (adSelect) {
+        adSelect.addEventListener('change', async () => {
+            const adId = adSelect.value;
+            if (adId) {
+                const userAds = await this.getUserAds();
+                selectedAd = userAds.find(ad => ad.id == adId);
+                if (selectedAd && adPreview) {
+                    adPreview.style.display = 'block';
+                    adPreview.innerHTML = `
+                        <div style="display: flex; gap: 10px;">
+                            <div style="width: 50px; height: 50px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-tag" style="color: white;"></i>
                             </div>
-                        `;
-                    }
-                    if (step1Next) step1Next.disabled = false;
-                } else {
-                    if (adPreview) adPreview.style.display = 'none';
-                    if (step1Next) step1Next.disabled = true;
+                            <div>
+                                <div style="font-weight: 600;">${this.escapeHtml(selectedAd.title)}</div>
+                                <div style="font-size: 0.75rem; color: var(--grey-dark);">KES ${selectedAd.price} • ${selectedAd.location || 'Nairobi'}</div>
+                            </div>
+                        </div>
+                    `;
                 }
-            });
-            
-            if (selectedAdId && adSelect) {
-                adSelect.value = selectedAdId;
-                setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
+                if (step1Next) step1Next.disabled = false;
+            } else {
+                if (adPreview) adPreview.style.display = 'none';
+                if (step1Next) step1Next.disabled = true;
             }
-        }
-        
-        if (step1Next) {
-            step1Next.addEventListener('click', () => {
-                if (selectedAd) this.goToPromoStep(2);
-            });
-        }
-        
-        // Step 2: Select Package
-        const packageCards = document.querySelectorAll('.package-card');
-        const step2Next = document.getElementById('promo-step2-next');
-        const step2Back = document.getElementById('promo-step2-back');
-        
-        packageCards.forEach(card => {
-            card.addEventListener('click', () => {
-                packageCards.forEach(c => {
-                    c.style.borderColor = 'var(--grey)';
-                    c.style.backgroundColor = 'transparent';
-                });
-                card.style.borderColor = 'var(--primary)';
-                card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
-                
-                selectedPackage = {
-                    id: card.getAttribute('data-package-id'),
-                    name: card.getAttribute('data-package-name'),
-                    price: parseInt(card.getAttribute('data-package-price')),
-                    duration: parseInt(card.getAttribute('data-package-duration')),
-                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))
-                };
-                window.selectedPackage = selectedPackage;
-                
-                if (step2Next) step2Next.disabled = false;
-            });
         });
         
-        if (step2Next) {
-            step2Next.addEventListener('click', () => {
-                if (selectedPackage) this.goToPromoStep(3);
-            });
+        if (selectedAdId && adSelect) {
+            adSelect.value = selectedAdId;
+            setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
         }
-        
-        if (step2Back) {
-            step2Back.addEventListener('click', () => this.goToPromoStep(1));
-        }
-        
-        // Step 3: Select Action
-        const actionOptions = document.querySelectorAll('.action-option');
-        const actionDetailsContainer = document.getElementById('action-details-container');
-        const step3Next = document.getElementById('promo-step3-next');
-        const step3Back = document.getElementById('promo-step3-back');
-        
-        actionOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                actionOptions.forEach(opt => opt.style.borderColor = 'var(--grey)');
-                option.style.borderColor = 'var(--primary)';
-                
-                selectedAction = option.getAttribute('data-action');
-                
-                if (actionDetailsContainer) actionDetailsContainer.style.display = 'block';
-                document.querySelectorAll('.action-detail').forEach(detail => detail.style.display = 'none');
-                
-                const detailForm = document.getElementById(`action-${selectedAction}-details`);
-                if (detailForm) detailForm.style.display = 'block';
-                
-                if (step3Next) step3Next.disabled = false;
-            });
+    }
+    
+    if (step1Next) {
+        step1Next.addEventListener('click', () => {
+            if (selectedAd) this.goToPromoStep(2);
         });
-        
-        if (step3Next) {
-            step3Next.addEventListener('click', () => {
-                let isValid = true;
-                
-                switch(selectedAction) {
-                    case 'whatsapp':
-                        const phone = document.getElementById('action-whatsapp-number')?.value;
-                        if (!phone || phone.length < 10) {
-                            window.showToast('Please enter a valid WhatsApp number', 'error');
-                            isValid = false;
-                        } else {
-                            selectedActionDetails = {
-                                number: phone,
-                                message: document.getElementById('action-whatsapp-message')?.value || ''
-                            };
-                        }
-                        break;
-                    case 'phone':
-                        const callPhone = document.getElementById('action-phone-number')?.value;
-                        if (!callPhone || callPhone.length < 10) {
-                            window.showToast('Please enter a valid phone number', 'error');
-                            isValid = false;
-                        } else {
-                            selectedActionDetails = callPhone;
-                        }
-                        break;
-                    case 'email':
-                        const email = document.getElementById('action-email-address')?.value;
-                        if (!email || !email.includes('@')) {
-                            window.showToast('Please enter a valid email address', 'error');
-                            isValid = false;
-                        } else {
-                            selectedActionDetails = {
-                                email: email,
-                                subject: document.getElementById('action-email-subject')?.value || 'Interested in your ad on VikeServe'
-                            };
-                        }
-                        break;
-                    case 'link':
-                        const url = document.getElementById('action-link-url')?.value;
-                        if (!url || !url.startsWith('http')) {
-                            window.showToast('Please enter a valid website URL (https://...)', 'error');
-                            isValid = false;
-                        } else {
-                            selectedActionDetails = url;
-                        }
-                        break;
-                }
-                
-                if (isValid && selectedAction && selectedActionDetails) {
-                    const summaryAd = document.getElementById('summary-ad-name');
-                    const summaryPackage = document.getElementById('summary-package-name');
-                    const summaryDuration = document.getElementById('summary-package-duration');
-                    const summaryPrice = document.getElementById('summary-package-price');
-                    const summaryAction = document.getElementById('summary-action-name');
-                    
-                    if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
-                    if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
-                    if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
-                    if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
-                    
-                    const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
-                    if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
-                    
-                    this.goToPromoStep(4);
-                }
+    }
+    
+    // Step 2: Select Package
+    const packageCards = document.querySelectorAll('.package-card');
+    const step2Next = document.getElementById('promo-step2-next');
+    const step2Back = document.getElementById('promo-step2-back');
+    
+    packageCards.forEach(card => {
+        card.addEventListener('click', () => {
+            packageCards.forEach(c => {
+                c.style.borderColor = 'var(--grey)';
+                c.style.backgroundColor = 'transparent';
             });
-        }
-        
-        if (step3Back) {
-            step3Back.addEventListener('click', () => this.goToPromoStep(2));
-        }
-        
-        // Step 4: Payment Method
-        const submitPaymentBtn = document.getElementById('promo-submit-payment');
-        const step4Back = document.getElementById('promo-step4-back');
-        const countrySelect = document.getElementById('payment-country');
-        
-        if (countrySelect) {
-            countrySelect.addEventListener('change', async (e) => {
-                this.userCountry = e.target.value;
-                this.userCurrency = this.getCurrencyForCountry(this.userCountry);
-                await this.updatePaymentMethodsForCountry(e.target.value);
-            });
-        }
-        
-        const updatePaymentMethodSelection = () => {
-            const methodElements = document.querySelectorAll('.payment-method');
-            methodElements.forEach(method => {
-                const newMethod = method.cloneNode(true);
-                method.parentNode.replaceChild(newMethod, method);
-                
-                newMethod.addEventListener('click', () => {
-                    document.querySelectorAll('.payment-method').forEach(m => {
-                        m.style.borderColor = 'var(--grey)';
-                    });
-                    newMethod.style.borderColor = 'var(--primary)';
-                    
-                    selectedPaymentMethod = {
-                        id: newMethod.getAttribute('data-method-id'),
-                        name: newMethod.getAttribute('data-method-name'),
-                        type: newMethod.getAttribute('data-method-type'),
-                        provider: newMethod.getAttribute('data-method-provider')
-                    };
-                    
-                    const paymentDetailsContainer = document.getElementById('payment-details-container');
-                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
-                    
-                    if (selectedPaymentMethod.type === 'mobile_money') {
-                        document.getElementById('mobile-money-details').style.display = 'block';
-                    } else if (selectedPaymentMethod.id === 'card') {
-                        document.getElementById('card-details').style.display = 'block';
-                    } else if (selectedPaymentMethod.id === 'paypal') {
-                        document.getElementById('paypal-details').style.display = 'block';
-                    }
-                    
-                    if (submitPaymentBtn) submitPaymentBtn.disabled = false;
-                });
-            });
-        };
-        
-        const methodsContainer = document.getElementById('payment-methods-grid');
-        if (methodsContainer) {
-            updatePaymentMethodSelection();
-        }
-        
-        if (submitPaymentBtn) {
-            submitPaymentBtn.addEventListener('click', async () => {
-                if (!selectedPaymentMethod) {
-                    window.showToast('Please select a payment method', 'warning');
-                    return;
-                }
-                
-                let paymentDetails = {};
-                
-                if (selectedPaymentMethod.type === 'mobile_money') {
-                    const phone = document.getElementById('payment-phone-number')?.value;
+            card.style.borderColor = 'var(--primary)';
+            card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
+            
+            selectedPackage = {
+                id: card.getAttribute('data-package-id'),
+                name: card.getAttribute('data-package-name'),
+                price: parseInt(card.getAttribute('data-package-price')),
+                duration: parseInt(card.getAttribute('data-package-duration')),
+                originalPriceKES: parseInt(card.getAttribute('data-package-price'))
+            };
+            window.selectedPackage = selectedPackage;
+            
+            if (step2Next) step2Next.disabled = false;
+        });
+    });
+    
+    if (step2Next) {
+        step2Next.addEventListener('click', () => {
+            if (selectedPackage) this.goToPromoStep(3);
+        });
+    }
+    
+    if (step2Back) {
+        step2Back.addEventListener('click', () => this.goToPromoStep(1));
+    }
+    
+    // Step 3: Select Action
+    const actionOptions = document.querySelectorAll('.action-option');
+    const actionDetailsContainer = document.getElementById('action-details-container');
+    const step3Next = document.getElementById('promo-step3-next');
+    const step3Back = document.getElementById('promo-step3-back');
+    
+    actionOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            actionOptions.forEach(opt => opt.style.borderColor = 'var(--grey)');
+            option.style.borderColor = 'var(--primary)';
+            
+            selectedAction = option.getAttribute('data-action');
+            
+            if (actionDetailsContainer) actionDetailsContainer.style.display = 'block';
+            document.querySelectorAll('.action-detail').forEach(detail => detail.style.display = 'none');
+            
+            const detailForm = document.getElementById(`action-${selectedAction}-details`);
+            if (detailForm) detailForm.style.display = 'block';
+            
+            if (step3Next) step3Next.disabled = false;
+        });
+    });
+    
+    if (step3Next) {
+        step3Next.addEventListener('click', () => {
+            let isValid = true;
+            
+            switch(selectedAction) {
+                case 'whatsapp':
+                    const phone = document.getElementById('action-whatsapp-number')?.value;
                     if (!phone || phone.length < 10) {
+                        window.showToast('Please enter a valid WhatsApp number', 'error');
+                        isValid = false;
+                    } else {
+                        selectedActionDetails = {
+                            number: phone,
+                            message: document.getElementById('action-whatsapp-message')?.value || ''
+                        };
+                    }
+                    break;
+                case 'phone':
+                    const callPhone = document.getElementById('action-phone-number')?.value;
+                    if (!callPhone || callPhone.length < 10) {
                         window.showToast('Please enter a valid phone number', 'error');
-                        return;
+                        isValid = false;
+                    } else {
+                        selectedActionDetails = callPhone;
                     }
-                    paymentDetails.phone = phone;
-                } else if (selectedPaymentMethod.id === 'card') {
-                    const cardNumber = document.getElementById('card-number')?.value.replace(/\s/g, '');
-                    const cardExpiry = document.getElementById('card-expiry')?.value;
-                    const cardCvv = document.getElementById('card-cvv')?.value;
-                    const cardName = document.getElementById('card-name')?.value;
-                    
-                    if (!cardNumber || cardNumber.length < 15) {
-                        window.showToast('Please enter a valid card number', 'error');
-                        return;
-                    }
-                    if (!cardExpiry || !cardExpiry.includes('/')) {
-                        window.showToast('Please enter expiry date (MM/YY)', 'error');
-                        return;
-                    }
-                    if (!cardCvv || cardCvv.length < 3) {
-                        window.showToast('Please enter CVV', 'error');
-                        return;
-                    }
-                    if (!cardName) {
-                        window.showToast('Please enter cardholder name', 'error');
-                        return;
-                    }
-                    
-                    paymentDetails = {
-                        card_number: cardNumber,
-                        card_expiry: cardExpiry,
-                        card_cvv: cardCvv,
-                        card_name: cardName
-                    };
-                } else if (selectedPaymentMethod.id === 'paypal') {
-                    const email = document.getElementById('payment-paypal-email')?.value;
+                    break;
+                case 'email':
+                    const email = document.getElementById('action-email-address')?.value;
                     if (!email || !email.includes('@')) {
-                        window.showToast('Please enter a valid PayPal email', 'error');
-                        return;
+                        window.showToast('Please enter a valid email address', 'error');
+                        isValid = false;
+                    } else {
+                        selectedActionDetails = {
+                            email: email,
+                            subject: document.getElementById('action-email-subject')?.value || 'Interested in your ad on VikeServe'
+                        };
                     }
-                    paymentDetails = { email: email };
-                    // NO PHONE VALIDATION FOR PAYPAL
-                }
+                    break;
+                case 'link':
+                    const url = document.getElementById('action-link-url')?.value;
+                    if (!url || !url.startsWith('http')) {
+                        window.showToast('Please enter a valid website URL (https://...)', 'error');
+                        isValid = false;
+                    } else {
+                        selectedActionDetails = url;
+                    }
+                    break;
+            }
+            
+            if (isValid && selectedAction && selectedActionDetails) {
+                const summaryAd = document.getElementById('summary-ad-name');
+                const summaryPackage = document.getElementById('summary-package-name');
+                const summaryDuration = document.getElementById('summary-package-duration');
+                const summaryPrice = document.getElementById('summary-package-price');
+                const summaryAction = document.getElementById('summary-action-name');
                 
-                currentTransactionId = await this.processPayment(
-                    selectedAd, selectedPackage, selectedAction, selectedActionDetails,
-                    selectedPaymentMethod, paymentDetails
-                );
+                if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
+                if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
+                if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
+                if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
                 
-                if (currentTransactionId) {
-                    this.goToPromoStep(5);
-                    this.startPaymentStatusCheck(currentTransactionId);
-                }
-            });
-        }
+                const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
+                if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
+                
+                this.goToPromoStep(4);
+            }
+        });
+    }
+    
+    if (step3Back) {
+        step3Back.addEventListener('click', () => this.goToPromoStep(2));
+    }
+    
+    // Step 4: Payment Method - FIXED VERSION
+    const submitPaymentBtn = document.getElementById('promo-submit-payment');
+    const step4Back = document.getElementById('promo-step4-back');
+    const countrySelect = document.getElementById('payment-country');
+    
+    if (countrySelect) {
+        countrySelect.addEventListener('change', async (e) => {
+            this.userCountry = e.target.value;
+            this.userCurrency = this.getCurrencyForCountry(this.userCountry);
+            await this.updatePaymentMethodsForCountry(e.target.value);
+        });
+    }
+    
+    // FIXED: Function to attach payment method click handlers
+    const attachPaymentMethodHandlers = () => {
+        const methodElements = document.querySelectorAll('.payment-method');
+        console.log('Attaching handlers to', methodElements.length, 'payment methods');
         
-        if (step4Back) {
-            step4Back.addEventListener('click', () => this.goToPromoStep(3));
-        }
-        
-        // Step 5: Verification
-        const verificationTabs = document.querySelectorAll('.verification-tab');
-        const step5Back = document.getElementById('promo-step5-back');
-        const manualVerifyBtn = document.getElementById('submit-manual-verification');
-        
-        verificationTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                verificationTabs.forEach(t => {
-                    t.classList.remove('active');
-                    t.style.color = '';
-                    t.style.borderBottom = '';
+        methodElements.forEach(method => {
+            // Remove existing listener by cloning
+            const newMethod = method.cloneNode(true);
+            method.parentNode.replaceChild(newMethod, method);
+            
+            newMethod.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('Payment method clicked:', newMethod.getAttribute('data-method-id'));
+                
+                // Remove active class from all methods
+                document.querySelectorAll('.payment-method').forEach(m => {
+                    m.style.borderColor = 'var(--grey)';
+                    m.style.backgroundColor = 'transparent';
                 });
-                tab.classList.add('active');
-                tab.style.color = 'var(--primary)';
-                tab.style.borderBottom = '2px solid var(--primary)';
                 
-                const tabId = tab.getAttribute('data-tab');
-                document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
-                document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
+                // Highlight selected method
+                newMethod.style.borderColor = 'var(--primary)';
+                newMethod.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
                 
-                if (tabId === 'auto' && currentTransactionId) {
-                    this.startPaymentStatusCheck(currentTransactionId);
+                selectedPaymentMethod = {
+                    id: newMethod.getAttribute('data-method-id'),
+                    name: newMethod.getAttribute('data-method-name'),
+                    type: newMethod.getAttribute('data-method-type'),
+                    provider: newMethod.getAttribute('data-method-provider')
+                };
+                
+                console.log('Selected payment method:', selectedPaymentMethod);
+                
+                // Show payment details container
+                const paymentDetailsContainer = document.getElementById('payment-details-container');
+                if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                
+                // Hide all detail forms first
+                document.querySelectorAll('.payment-detail').forEach(detail => {
+                    detail.style.display = 'none';
+                });
+                
+                // Show relevant form based on payment type
+                if (selectedPaymentMethod.type === 'mobile_money') {
+                    const mobileForm = document.getElementById('mobile-money-details');
+                    if (mobileForm) mobileForm.style.display = 'block';
+                } else if (selectedPaymentMethod.id === 'card') {
+                    const cardForm = document.getElementById('card-details');
+                    if (cardForm) cardForm.style.display = 'block';
+                } else if (selectedPaymentMethod.id === 'paypal') {
+                    const paypalForm = document.getElementById('paypal-details');
+                    if (paypalForm) paypalForm.style.display = 'block';
                 }
+                
+                // Enable the Pay button
+                if (submitPaymentBtn) submitPaymentBtn.disabled = false;
             });
         });
-        
-        if (manualVerifyBtn) {
-            manualVerifyBtn.addEventListener('click', async () => {
-                const paymentMethod = document.getElementById('manual-payment-method')?.value;
-                const transactionCode = document.getElementById('manual-transaction-code')?.value;
-                const phoneNumber = document.getElementById('manual-phone-number')?.value;
-                
-                if (!paymentMethod) {
-                    window.showToast('Please select payment method', 'error');
-                    return;
-                }
-                if (!transactionCode) {
-                    window.showToast('Please enter transaction code', 'error');
-                    return;
-                }
-                
-                window.showToast('Submitting for verification...', 'info');
-                
-                await firebase.firestore().collection('payment_verifications').add({
-                    transactionId: currentTransactionId,
-                    adId: selectedAd?.id,
-                    adTitle: selectedAd?.title,
-                    packageName: selectedPackage?.name,
-                    amount: selectedPackage?.price,
-                    paymentMethod: paymentMethod,
-                    transactionCode: transactionCode,
-                    phoneNumber: phoneNumber,
-                    userId: this.userId,
-                    userEmail: this.userEmail,
-                    action: selectedAction,
-                    actionDetails: selectedActionDetails,
-                    status: 'pending_verification',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
-                
-                setTimeout(() => {
-                    const modal = document.getElementById('ad-packages-full-modal');
-                    if (modal) modal.style.display = 'none';
-                }, 3000);
-            });
-        }
-        
-        if (step5Back) {
-            step5Back.addEventListener('click', () => this.goToPromoStep(4));
-        }
-        
-        window.paymentSystem = this;
-    }
-
-    async updatePaymentMethodsForCountry(country) {
-        this.userCountry = country;
-        this.userCurrency = this.getCurrencyForCountry(country);
-        const newMethods = this.getAvailablePaymentMethods(country);
-        const methodsContainer = document.getElementById('payment-methods-grid');
-        
-        // Convert price if package is selected
-        if (window.selectedPackage) {
-            const convertedPrice = await this.convertCurrency(window.selectedPackage.originalPriceKES || window.selectedPackage.price, 'KES', this.userCurrency);
-            window.selectedPackage.displayPrice = convertedPrice;
-            window.selectedPackage.displayCurrency = this.userCurrency;
+    };
+    
+    // Initial attachment of handlers
+    setTimeout(() => {
+        attachPaymentMethodHandlers();
+    }, 200);
+    
+    // Also attach when country changes (methods reload)
+    const originalUpdateMethods = this.updatePaymentMethodsForCountry;
+    this.updatePaymentMethodsForCountry = async function(country) {
+        await originalUpdateMethods.call(this, country);
+        setTimeout(() => {
+            attachPaymentMethodHandlers();
+        }, 200);
+    };
+    
+    if (submitPaymentBtn) {
+        submitPaymentBtn.addEventListener('click', async () => {
+            console.log('Pay button clicked. Selected payment method:', selectedPaymentMethod);
             
-            const summaryPrice = document.getElementById('summary-package-price');
-            if (summaryPrice) {
-                summaryPrice.textContent = `${this.userCurrency} ${convertedPrice.toLocaleString()}`;
+            if (!selectedPaymentMethod) {
+                window.showToast('Please select a payment method first', 'warning');
+                return;
             }
-        }
-        
-        if (methodsContainer) {
-            methodsContainer.innerHTML = newMethods.map(method => `
-                <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
-                    <i class="${method.icon}" style="font-size: 1.2rem;"></i>
-                    <div style="font-size: 0.8rem;">${method.name}</div>
-                </div>
-            `).join('');
             
-            const methodElements = document.querySelectorAll('.payment-method');
-            methodElements.forEach(method => {
-                method.addEventListener('click', () => {
-                    document.querySelectorAll('.payment-method').forEach(m => {
-                        m.style.borderColor = 'var(--grey)';
-                    });
-                    method.style.borderColor = 'var(--primary)';
-                    
-                    window.selectedPaymentMethod = {
-                        id: method.getAttribute('data-method-id'),
-                        name: method.getAttribute('data-method-name'),
-                        type: method.getAttribute('data-method-type'),
-                        provider: method.getAttribute('data-method-provider')
-                    };
-                    
-                    const paymentDetailsContainer = document.getElementById('payment-details-container');
-                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-                    document.querySelectorAll('.payment-detail').forEach(detail => detail.style.display = 'none');
-                    
-                    if (window.selectedPaymentMethod.type === 'mobile_money') {
-                        document.getElementById('mobile-money-details').style.display = 'block';
-                    } else if (window.selectedPaymentMethod.id === 'card') {
-                        document.getElementById('card-details').style.display = 'block';
-                    } else if (window.selectedPaymentMethod.id === 'paypal') {
-                        document.getElementById('paypal-details').style.display = 'block';
-                    }
-                    
-                    const submitBtn = document.getElementById('promo-submit-payment');
-                    if (submitBtn) submitBtn.disabled = false;
-                });
+            let paymentDetails = {};
+            
+            if (selectedPaymentMethod.type === 'mobile_money') {
+                const phone = document.getElementById('payment-phone-number')?.value;
+                if (!phone || phone.length < 10) {
+                    window.showToast('Please enter a valid phone number', 'error');
+                    return;
+                }
+                paymentDetails.phone = phone;
+            } else if (selectedPaymentMethod.id === 'card') {
+                const cardNumber = document.getElementById('card-number')?.value.replace(/\s/g, '');
+                const cardExpiry = document.getElementById('card-expiry')?.value;
+                const cardCvv = document.getElementById('card-cvv')?.value;
+                const cardName = document.getElementById('card-name')?.value;
+                
+                if (!cardNumber || cardNumber.length < 15) {
+                    window.showToast('Please enter a valid card number', 'error');
+                    return;
+                }
+                if (!cardExpiry || !cardExpiry.includes('/')) {
+                    window.showToast('Please enter expiry date (MM/YY)', 'error');
+                    return;
+                }
+                if (!cardCvv || cardCvv.length < 3) {
+                    window.showToast('Please enter CVV', 'error');
+                    return;
+                }
+                if (!cardName) {
+                    window.showToast('Please enter cardholder name', 'error');
+                    return;
+                }
+                
+                paymentDetails = {
+                    card_number: cardNumber,
+                    card_expiry: cardExpiry,
+                    card_cvv: cardCvv,
+                    card_name: cardName
+                };
+            } else if (selectedPaymentMethod.id === 'paypal') {
+                const email = document.getElementById('payment-paypal-email')?.value;
+                if (!email || !email.includes('@')) {
+                    window.showToast('Please enter a valid PayPal email', 'error');
+                    return;
+                }
+                paymentDetails = { email: email };
+            }
+            
+            // Disable button to prevent double submission
+            submitPaymentBtn.disabled = true;
+            submitPaymentBtn.innerHTML = '<div class="spinner"></div> Processing...';
+            
+            currentTransactionId = await this.processPayment(
+                selectedAd, selectedPackage, selectedAction, selectedActionDetails,
+                selectedPaymentMethod, paymentDetails
+            );
+            
+            if (currentTransactionId) {
+                this.goToPromoStep(5);
+                this.startPaymentStatusCheck(currentTransactionId);
+            } else {
+                // Re-enable button if payment failed
+                submitPaymentBtn.disabled = false;
+                submitPaymentBtn.innerHTML = 'Pay Now';
+            }
+        });
+    }
+    
+    if (step4Back) {
+        step4Back.addEventListener('click', () => this.goToPromoStep(3));
+    }
+    
+    // Step 5: Verification
+    const verificationTabs = document.querySelectorAll('.verification-tab');
+    const step5Back = document.getElementById('promo-step5-back');
+    const manualVerifyBtn = document.getElementById('submit-manual-verification');
+    
+    verificationTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            verificationTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.color = '';
+                t.style.borderBottom = '';
             });
+            tab.classList.add('active');
+            tab.style.color = 'var(--primary)';
+            tab.style.borderBottom = '2px solid var(--primary)';
+            
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
+            document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
+            
+            if (tabId === 'auto' && currentTransactionId) {
+                this.startPaymentStatusCheck(currentTransactionId);
+            }
+        });
+    });
+    
+    if (manualVerifyBtn) {
+        manualVerifyBtn.addEventListener('click', async () => {
+            const paymentMethod = document.getElementById('manual-payment-method')?.value;
+            const transactionCode = document.getElementById('manual-transaction-code')?.value;
+            const phoneNumber = document.getElementById('manual-phone-number')?.value;
+            
+            if (!paymentMethod) {
+                window.showToast('Please select payment method', 'error');
+                return;
+            }
+            if (!transactionCode) {
+                window.showToast('Please enter transaction code', 'error');
+                return;
+            }
+            
+            window.showToast('Submitting for verification...', 'info');
+            
+            await firebase.firestore().collection('payment_verifications').add({
+                transactionId: currentTransactionId,
+                adId: selectedAd?.id,
+                adTitle: selectedAd?.title,
+                packageName: selectedPackage?.name,
+                amount: selectedPackage?.price,
+                paymentMethod: paymentMethod,
+                transactionCode: transactionCode,
+                phoneNumber: phoneNumber,
+                userId: this.userId,
+                userEmail: this.userEmail,
+                action: selectedAction,
+                actionDetails: selectedActionDetails,
+                status: 'pending_verification',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
+            
+            setTimeout(() => {
+                const modal = document.getElementById('ad-packages-full-modal');
+                if (modal) modal.style.display = 'none';
+            }, 3000);
+        });
+    }
+    
+    if (step5Back) {
+        step5Back.addEventListener('click', () => this.goToPromoStep(4));
+    }
+    
+    window.paymentSystem = this;
+}
+
+async updatePaymentMethodsForCountry(country) {
+    this.userCountry = country;
+    this.userCurrency = this.getCurrencyForCountry(country);
+    const newMethods = this.getAvailablePaymentMethods(country);
+    const methodsContainer = document.getElementById('payment-methods-grid');
+    
+    // Convert price if package is selected
+    if (window.selectedPackage) {
+        const convertedPrice = await this.convertCurrency(window.selectedPackage.originalPriceKES || window.selectedPackage.price, 'KES', this.userCurrency);
+        window.selectedPackage.displayPrice = convertedPrice;
+        window.selectedPackage.displayCurrency = this.userCurrency;
+        
+        const summaryPrice = document.getElementById('summary-package-price');
+        if (summaryPrice) {
+            summaryPrice.textContent = `${this.userCurrency} ${convertedPrice.toLocaleString()}`;
         }
     }
+    
+    if (methodsContainer) {
+        methodsContainer.innerHTML = newMethods.map(method => `
+            <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
+                <i class="${method.icon}" style="font-size: 1.2rem;"></i>
+                <div style="font-size: 0.8rem;">${method.name}</div>
+            </div>
+        `).join('');
+    }
+}
 
     async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
         const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
