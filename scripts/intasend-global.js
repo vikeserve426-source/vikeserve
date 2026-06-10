@@ -931,7 +931,6 @@ class VikeServeGlobalPayments {
             finalCurrency = this.userCurrency;
         }
         
-        // Format phone number
         let formattedPhone = paymentDetails.phone || '';
         if (formattedPhone && formattedPhone.startsWith('0')) {
             formattedPhone = '254' + formattedPhone.substring(1);
@@ -968,60 +967,23 @@ class VikeServeGlobalPayments {
             modal.style.display = 'none';
         }
         
-        // Use IntaSend InlineJS - This avoids all CORS and DNS issues
-        if (typeof window.IntaSend === 'undefined') {
-            window.showToast('Loading payment system...', 'info');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        // Build the checkout URL directly (most reliable method)
+        const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
         
-        const intaSend = new window.IntaSend({
-            publicAPIKey: this.config.intasend.publicKey,
-            live: true  // Set to true for live payments
-        });
-        
-        intaSend
-            .on("COMPLETE", async (results) => {
-                console.log("Payment successful!", results);
-                window.showToast('Payment successful! Activating your ad...', 'success');
-                await this.activatePromotion(transactionId);
-                this.goToPromoStep(5);
-                this.startPaymentStatusCheck(transactionId);
-            })
-            .on("FAILED", (results) => {
-                console.log("Payment failed!", results);
-                window.showToast('Payment failed. Please try again.', 'error');
-            })
-            .on("IN-PROGRESS", (results) => {
-                console.log("Payment in progress...", results);
-                window.showToast('Processing payment...', 'info');
-            });
-        
-        // Prepare the data for IntaSend
-        const paymentData = {
-            amount: finalAmount,
-            currency: finalCurrency,
-            email: this.userEmail || 'customer@vikeserve.com',
-            api_ref: transactionId,
-            comment: `Ad Promotion: ${pkg.name} for ${ad.title.substring(0, 50)}`,
-            first_name: this.userEmail?.split('@')[0] || 'Customer'
-        };
+        let checkoutUrl = `https://payment.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
         
         // Add phone number for mobile money
         if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
-            paymentData.phone_number = formattedPhone;
+            checkoutUrl += `&phone_number=${formattedPhone}`;
         }
         
-        // Add method to force specific payment type
-        if (paymentMethod.id === 'mpesa' || paymentMethod.id === 'airtel_kenya' || paymentMethod.id === 'mtn_uganda' || paymentMethod.id === 'mpesa_tz' || paymentMethod.id === 'tigo_pesa') {
-            paymentData.method = 'M-PESA';
-        } else if (paymentMethod.id === 'card') {
-            paymentData.method = 'CARD-PAYMENT';
-        }
+        console.log('Redirecting to IntaSend:', checkoutUrl);
+        window.showToast('Redirecting to payment page...', 'info');
         
-        console.log('Opening IntaSend modal with:', paymentData);
-        
-        // Open the IntaSend payment modal
-        intaSend.open(paymentData);
+        // Redirect to IntaSend
+        setTimeout(() => {
+            window.location.href = checkoutUrl;
+        }, 500);
         
         return transactionId;
         
