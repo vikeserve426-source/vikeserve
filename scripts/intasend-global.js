@@ -918,87 +918,119 @@ class VikeServeGlobalPayments {
     }
 
     async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
-        const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+    const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+    
+    try {
+        let finalAmount = pkg.price;
+        let finalCurrency = 'KES';
         
-        try {
-            let finalAmount = pkg.price;
-            let finalCurrency = 'KES';
-            
-            if (this.userCurrency !== 'KES') {
-                finalAmount = await this.convertCurrency(pkg.price, 'KES', this.userCurrency);
-                finalCurrency = this.userCurrency;
-            }
-            
-            const paymentRecord = {
-                transactionId: transactionId,
-                adId: ad.id,
-                adTitle: ad.title,
-                packageName: pkg.name,
-                amount: finalAmount,
-                originalAmountKES: pkg.price,
-                currency: finalCurrency,
-                duration: pkg.duration,
-                paymentMethod: paymentMethod.name,
-                status: 'pending',
-                userId: this.userId,
-                userEmail: this.userEmail || 'customer@vikeserve.com',
-                userPhone: paymentDetails.phone || this.userPhone,
-                action: { type: action, details: actionDetails },
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                userCountry: this.userCountry
-            };
-            
-            await firebase.firestore().collection('transactions').add(paymentRecord);
-            
-            let formattedPhone = paymentDetails.phone || '';
-            if (formattedPhone && formattedPhone.startsWith('0')) {
-                formattedPhone = '254' + formattedPhone.substring(1);
-            } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
-                formattedPhone = '254' + formattedPhone;
-            }
-            
-            const currentUrl = window.location.origin;
-            const redirectUrl = `${currentUrl}/?payment_status=success&api_ref=${transactionId}`;
-            
-            let checkoutUrl = `https://app.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&reference=${transactionId}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-            
-            if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
-                checkoutUrl += `&phone_number=${formattedPhone}&payment_method=mobile_money`;
-                console.log('Mobile money payment with phone:', formattedPhone);
-            } else if (paymentMethod.id === 'card') {
-                checkoutUrl += `&payment_method=card`;
-            } else if (paymentMethod.id === 'paypal') {
-                window.showToast('Redirecting to PayPal...', 'info');
-                setTimeout(() => {
-                    window.location.href = `https://www.paypal.com/paypalme/vikeserve/${finalAmount}`;
-                }, 1000);
-                return transactionId;
-            }
-            
-            console.log('Redirecting to IntaSend:', checkoutUrl);
-            window.showToast('Redirecting to payment page...', 'info');
-            
-            // Close modal before redirect
-            const modal = document.getElementById('ad-packages-full-modal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            
-            setTimeout(() => {
-                window.location.href = checkoutUrl;
-            }, 500);
-            
-            return transactionId;
-            
-        } catch (error) {
-            console.error('Payment error:', error);
-            window.showToast(error.message || 'Payment failed. Please try again.', 'error');
-            return null;
+        if (this.userCurrency !== 'KES') {
+            finalAmount = await this.convertCurrency(pkg.price, 'KES', this.userCurrency);
+            finalCurrency = this.userCurrency;
         }
+        
+        // Format phone number
+        let formattedPhone = paymentDetails.phone || '';
+        if (formattedPhone && formattedPhone.startsWith('0')) {
+            formattedPhone = '254' + formattedPhone.substring(1);
+        } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
+            formattedPhone = '254' + formattedPhone;
+        }
+        
+        // Save transaction to Firestore
+        const paymentRecord = {
+            transactionId: transactionId,
+            adId: ad.id,
+            adTitle: ad.title,
+            packageName: pkg.name,
+            amount: finalAmount,
+            originalAmountKES: pkg.price,
+            currency: finalCurrency,
+            duration: pkg.duration,
+            paymentMethod: paymentMethod.name,
+            status: 'pending',
+            userId: this.userId,
+            userEmail: this.userEmail || 'customer@vikeserve.com',
+            userPhone: formattedPhone || this.userPhone,
+            action: { type: action, details: actionDetails },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+            userCountry: this.userCountry
+        };
+        
+        await firebase.firestore().collection('transactions').add(paymentRecord);
+        
+        // Close the modal
+        const modal = document.getElementById('ad-packages-full-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // Use IntaSend InlineJS - This avoids all CORS and DNS issues
+        if (typeof window.IntaSend === 'undefined') {
+            window.showToast('Loading payment system...', 'info');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        const intaSend = new window.IntaSend({
+            publicAPIKey: this.config.intasend.publicKey,
+            live: true  // Set to true for live payments
+        });
+        
+        intaSend
+            .on("COMPLETE", async (results) => {
+                console.log("Payment successful!", results);
+                window.showToast('Payment successful! Activating your ad...', 'success');
+                await this.activatePromotion(transactionId);
+                this.goToPromoStep(5);
+                this.startPaymentStatusCheck(transactionId);
+            })
+            .on("FAILED", (results) => {
+                console.log("Payment failed!", results);
+                window.showToast('Payment failed. Please try again.', 'error');
+            })
+            .on("IN-PROGRESS", (results) => {
+                console.log("Payment in progress...", results);
+                window.showToast('Processing payment...', 'info');
+            });
+        
+        // Prepare the data for IntaSend
+        const paymentData = {
+            amount: finalAmount,
+            currency: finalCurrency,
+            email: this.userEmail || 'customer@vikeserve.com',
+            api_ref: transactionId,
+            comment: `Ad Promotion: ${pkg.name} for ${ad.title.substring(0, 50)}`,
+            first_name: this.userEmail?.split('@')[0] || 'Customer'
+        };
+        
+        // Add phone number for mobile money
+        if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
+            paymentData.phone_number = formattedPhone;
+        }
+        
+        // Add method to force specific payment type
+        if (paymentMethod.id === 'mpesa' || paymentMethod.id === 'airtel_kenya' || paymentMethod.id === 'mtn_uganda' || paymentMethod.id === 'mpesa_tz' || paymentMethod.id === 'tigo_pesa') {
+            paymentData.method = 'M-PESA';
+        } else if (paymentMethod.id === 'card') {
+            paymentData.method = 'CARD-PAYMENT';
+        }
+        
+        console.log('Opening IntaSend modal with:', paymentData);
+        
+        // Open the IntaSend payment modal
+        intaSend.open(paymentData);
+        
+        return transactionId;
+        
+    } catch (error) {
+        console.error('Payment error:', error);
+        window.showToast(error.message || 'Payment service error. Please try again.', 'error');
+        return null;
     }
+}
 
     async startPaymentStatusCheck(transactionId) {
         const statusChecker = document.getElementById('payment-status-checker');
