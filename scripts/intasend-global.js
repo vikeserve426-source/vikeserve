@@ -1,7 +1,7 @@
 // ========== INTASEND PAYMENT SYSTEM - COMPLETE FIXED VERSION ==========
 // FIXES: CORS issue resolved (redirect method), Currency conversion added, PayPal fixed
+// FIXED: Payment method selection, Phone number formatting, Modal close before redirect
 // Supports: M-Pesa, Airtel Money, MTN Uganda, Tigo Pesa, Visa/Mastercard, PayPal
-// Includes: STK Push, Card details form, Payment verification, Post-payment actions
 
 class VikeServeGlobalPayments {
     constructor() {
@@ -103,7 +103,6 @@ class VikeServeGlobalPayments {
         const fromRate = this.exchangeRates[fromCurrency] || 1;
         const toRate = this.exchangeRates[targetCurrency] || 1;
         
-        // Convert: amount -> KES -> target currency
         const amountInKES = amount / fromRate;
         const convertedAmount = amountInKES * toRate;
         
@@ -461,563 +460,545 @@ class VikeServeGlobalPayments {
     }
 
     setupAdPromotionModalEvents(selectedAdId = null) {
-    let selectedAd = null;
-    let selectedPackage = null;
-    let selectedAction = null;
-    let selectedActionDetails = null;
-    let selectedPaymentMethod = null;
-    let currentTransactionId = null;
-    
-    window.selectedPackage = null;
-    
-    // Step 1: Select Ad
-    const step1Next = document.getElementById('promo-step1-next');
-    const adSelect = document.getElementById('promo-ad-select');
-    const adPreview = document.getElementById('promo-ad-preview');
-    
-    if (adSelect) {
-        adSelect.addEventListener('change', async () => {
-            const adId = adSelect.value;
-            if (adId) {
-                const userAds = await this.getUserAds();
-                selectedAd = userAds.find(ad => ad.id == adId);
-                if (selectedAd && adPreview) {
-                    adPreview.style.display = 'block';
-                    adPreview.innerHTML = `
-                        <div style="display: flex; gap: 10px;">
-                            <div style="width: 50px; height: 50px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-tag" style="color: white;"></i>
-                            </div>
-                            <div>
-                                <div style="font-weight: 600;">${this.escapeHtml(selectedAd.title)}</div>
-                                <div style="font-size: 0.75rem; color: var(--grey-dark);">KES ${selectedAd.price} • ${selectedAd.location || 'Nairobi'}</div>
-                            </div>
-                        </div>
-                    `;
-                }
-                if (step1Next) step1Next.disabled = false;
-            } else {
-                if (adPreview) adPreview.style.display = 'none';
-                if (step1Next) step1Next.disabled = true;
-            }
-        });
+        let selectedAd = null;
+        let selectedPackage = null;
+        let selectedAction = null;
+        let selectedActionDetails = null;
+        let selectedPaymentMethod = null;
+        let currentTransactionId = null;
         
-        if (selectedAdId && adSelect) {
-            adSelect.value = selectedAdId;
-            setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
+        window.selectedPackage = null;
+        
+        // Step 1: Select Ad
+        const step1Next = document.getElementById('promo-step1-next');
+        const adSelect = document.getElementById('promo-ad-select');
+        const adPreview = document.getElementById('promo-ad-preview');
+        
+        if (adSelect) {
+            adSelect.addEventListener('change', async () => {
+                const adId = adSelect.value;
+                if (adId) {
+                    const userAds = await this.getUserAds();
+                    selectedAd = userAds.find(ad => ad.id == adId);
+                    if (selectedAd && adPreview) {
+                        adPreview.style.display = 'block';
+                        adPreview.innerHTML = `
+                            <div style="display: flex; gap: 10px;">
+                                <div style="width: 50px; height: 50px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-tag" style="color: white;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">${this.escapeHtml(selectedAd.title)}</div>
+                                    <div style="font-size: 0.75rem; color: var(--grey-dark);">KES ${selectedAd.price} • ${selectedAd.location || 'Nairobi'}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    if (step1Next) step1Next.disabled = false;
+                } else {
+                    if (adPreview) adPreview.style.display = 'none';
+                    if (step1Next) step1Next.disabled = true;
+                }
+            });
+            
+            if (selectedAdId && adSelect) {
+                adSelect.value = selectedAdId;
+                setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
+            }
         }
-    }
-    
-    if (step1Next) {
-        step1Next.addEventListener('click', () => {
-            if (selectedAd) this.goToPromoStep(2);
-        });
-    }
-    
-    // Step 2: Select Package
-    const packageCards = document.querySelectorAll('.package-card');
-    const step2Next = document.getElementById('promo-step2-next');
-    const step2Back = document.getElementById('promo-step2-back');
-    
-    packageCards.forEach(card => {
-        card.addEventListener('click', () => {
-            packageCards.forEach(c => {
-                c.style.borderColor = 'var(--grey)';
-                c.style.backgroundColor = 'transparent';
-            });
-            card.style.borderColor = 'var(--primary)';
-            card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
-            
-            selectedPackage = {
-                id: card.getAttribute('data-package-id'),
-                name: card.getAttribute('data-package-name'),
-                price: parseInt(card.getAttribute('data-package-price')),
-                duration: parseInt(card.getAttribute('data-package-duration')),
-                originalPriceKES: parseInt(card.getAttribute('data-package-price'))
-            };
-            window.selectedPackage = selectedPackage;
-            
-            if (step2Next) step2Next.disabled = false;
-        });
-    });
-    
-    if (step2Next) {
-        step2Next.addEventListener('click', () => {
-            if (selectedPackage) this.goToPromoStep(3);
-        });
-    }
-    
-    if (step2Back) {
-        step2Back.addEventListener('click', () => this.goToPromoStep(1));
-    }
-    
-    // Step 3: Select Action
-    const actionOptions = document.querySelectorAll('.action-option');
-    const actionDetailsContainer = document.getElementById('action-details-container');
-    const step3Next = document.getElementById('promo-step3-next');
-    const step3Back = document.getElementById('promo-step3-back');
-    
-    actionOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            actionOptions.forEach(opt => opt.style.borderColor = 'var(--grey)');
-            option.style.borderColor = 'var(--primary)';
-            
-            selectedAction = option.getAttribute('data-action');
-            
-            if (actionDetailsContainer) actionDetailsContainer.style.display = 'block';
-            document.querySelectorAll('.action-detail').forEach(detail => detail.style.display = 'none');
-            
-            const detailForm = document.getElementById(`action-${selectedAction}-details`);
-            if (detailForm) detailForm.style.display = 'block';
-            
-            if (step3Next) step3Next.disabled = false;
-        });
-    });
-    
-    if (step3Next) {
-        step3Next.addEventListener('click', () => {
-            let isValid = true;
-            
-            switch(selectedAction) {
-                case 'whatsapp':
-                    const phone = document.getElementById('action-whatsapp-number')?.value;
-                    if (!phone || phone.length < 10) {
-                        window.showToast('Please enter a valid WhatsApp number', 'error');
-                        isValid = false;
-                    } else {
-                        selectedActionDetails = {
-                            number: phone,
-                            message: document.getElementById('action-whatsapp-message')?.value || ''
-                        };
-                    }
-                    break;
-                case 'phone':
-                    const callPhone = document.getElementById('action-phone-number')?.value;
-                    if (!callPhone || callPhone.length < 10) {
-                        window.showToast('Please enter a valid phone number', 'error');
-                        isValid = false;
-                    } else {
-                        selectedActionDetails = callPhone;
-                    }
-                    break;
-                case 'email':
-                    const email = document.getElementById('action-email-address')?.value;
-                    if (!email || !email.includes('@')) {
-                        window.showToast('Please enter a valid email address', 'error');
-                        isValid = false;
-                    } else {
-                        selectedActionDetails = {
-                            email: email,
-                            subject: document.getElementById('action-email-subject')?.value || 'Interested in your ad on VikeServe'
-                        };
-                    }
-                    break;
-                case 'link':
-                    const url = document.getElementById('action-link-url')?.value;
-                    if (!url || !url.startsWith('http')) {
-                        window.showToast('Please enter a valid website URL (https://...)', 'error');
-                        isValid = false;
-                    } else {
-                        selectedActionDetails = url;
-                    }
-                    break;
-            }
-            
-            if (isValid && selectedAction && selectedActionDetails) {
-                const summaryAd = document.getElementById('summary-ad-name');
-                const summaryPackage = document.getElementById('summary-package-name');
-                const summaryDuration = document.getElementById('summary-package-duration');
-                const summaryPrice = document.getElementById('summary-package-price');
-                const summaryAction = document.getElementById('summary-action-name');
-                
-                if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
-                if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
-                if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
-                if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
-                
-                const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
-                if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
-                
-                this.goToPromoStep(4);
-            }
-        });
-    }
-    
-    if (step3Back) {
-        step3Back.addEventListener('click', () => this.goToPromoStep(2));
-    }
-    
-    // Step 4: Payment Method - FIXED VERSION
-    const submitPaymentBtn = document.getElementById('promo-submit-payment');
-    const step4Back = document.getElementById('promo-step4-back');
-    const countrySelect = document.getElementById('payment-country');
-    
-    if (countrySelect) {
-        countrySelect.addEventListener('change', async (e) => {
-            this.userCountry = e.target.value;
-            this.userCurrency = this.getCurrencyForCountry(this.userCountry);
-            await this.updatePaymentMethodsForCountry(e.target.value);
-        });
-    }
-    
-    // FIXED: Function to attach payment method click handlers
-    const attachPaymentMethodHandlers = () => {
-        const methodElements = document.querySelectorAll('.payment-method');
-        console.log('Attaching handlers to', methodElements.length, 'payment methods');
         
-        methodElements.forEach(method => {
-            // Remove existing listener by cloning
-            const newMethod = method.cloneNode(true);
-            method.parentNode.replaceChild(newMethod, method);
-            
-            newMethod.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                console.log('Payment method clicked:', newMethod.getAttribute('data-method-id'));
-                
-                // Remove active class from all methods
-                document.querySelectorAll('.payment-method').forEach(m => {
-                    m.style.borderColor = 'var(--grey)';
-                    m.style.backgroundColor = 'transparent';
+        if (step1Next) {
+            step1Next.addEventListener('click', () => {
+                if (selectedAd) this.goToPromoStep(2);
+            });
+        }
+        
+        // Step 2: Select Package
+        const packageCards = document.querySelectorAll('.package-card');
+        const step2Next = document.getElementById('promo-step2-next');
+        const step2Back = document.getElementById('promo-step2-back');
+        
+        packageCards.forEach(card => {
+            card.addEventListener('click', () => {
+                packageCards.forEach(c => {
+                    c.style.borderColor = 'var(--grey)';
+                    c.style.backgroundColor = 'transparent';
                 });
+                card.style.borderColor = 'var(--primary)';
+                card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
                 
-                // Highlight selected method
-                newMethod.style.borderColor = 'var(--primary)';
-                newMethod.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
-                
-                selectedPaymentMethod = {
-                    id: newMethod.getAttribute('data-method-id'),
-                    name: newMethod.getAttribute('data-method-name'),
-                    type: newMethod.getAttribute('data-method-type'),
-                    provider: newMethod.getAttribute('data-method-provider')
+                selectedPackage = {
+                    id: card.getAttribute('data-package-id'),
+                    name: card.getAttribute('data-package-name'),
+                    price: parseInt(card.getAttribute('data-package-price')),
+                    duration: parseInt(card.getAttribute('data-package-duration')),
+                    originalPriceKES: parseInt(card.getAttribute('data-package-price'))
                 };
+                window.selectedPackage = selectedPackage;
                 
-                console.log('Selected payment method:', selectedPaymentMethod);
+                if (step2Next) step2Next.disabled = false;
+            });
+        });
+        
+        if (step2Next) {
+            step2Next.addEventListener('click', () => {
+                if (selectedPackage) this.goToPromoStep(3);
+            });
+        }
+        
+        if (step2Back) {
+            step2Back.addEventListener('click', () => this.goToPromoStep(1));
+        }
+        
+        // Step 3: Select Action
+        const actionOptions = document.querySelectorAll('.action-option');
+        const actionDetailsContainer = document.getElementById('action-details-container');
+        const step3Next = document.getElementById('promo-step3-next');
+        const step3Back = document.getElementById('promo-step3-back');
+        
+        actionOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                actionOptions.forEach(opt => opt.style.borderColor = 'var(--grey)');
+                option.style.borderColor = 'var(--primary)';
                 
-                // Show payment details container
-                const paymentDetailsContainer = document.getElementById('payment-details-container');
-                if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                selectedAction = option.getAttribute('data-action');
                 
-                // Hide all detail forms first
-                document.querySelectorAll('.payment-detail').forEach(detail => {
-                    detail.style.display = 'none';
-                });
+                if (actionDetailsContainer) actionDetailsContainer.style.display = 'block';
+                document.querySelectorAll('.action-detail').forEach(detail => detail.style.display = 'none');
                 
-                // Show relevant form based on payment type
-                if (selectedPaymentMethod.type === 'mobile_money') {
-                    const mobileForm = document.getElementById('mobile-money-details');
-                    if (mobileForm) mobileForm.style.display = 'block';
-                } else if (selectedPaymentMethod.id === 'card') {
-                    const cardForm = document.getElementById('card-details');
-                    if (cardForm) cardForm.style.display = 'block';
-                } else if (selectedPaymentMethod.id === 'paypal') {
-                    const paypalForm = document.getElementById('paypal-details');
-                    if (paypalForm) paypalForm.style.display = 'block';
+                const detailForm = document.getElementById(`action-${selectedAction}-details`);
+                if (detailForm) detailForm.style.display = 'block';
+                
+                if (step3Next) step3Next.disabled = false;
+            });
+        });
+        
+        if (step3Next) {
+            step3Next.addEventListener('click', () => {
+                let isValid = true;
+                
+                switch(selectedAction) {
+                    case 'whatsapp':
+                        const phone = document.getElementById('action-whatsapp-number')?.value;
+                        if (!phone || phone.length < 10) {
+                            window.showToast('Please enter a valid WhatsApp number', 'error');
+                            isValid = false;
+                        } else {
+                            selectedActionDetails = {
+                                number: phone,
+                                message: document.getElementById('action-whatsapp-message')?.value || ''
+                            };
+                        }
+                        break;
+                    case 'phone':
+                        const callPhone = document.getElementById('action-phone-number')?.value;
+                        if (!callPhone || callPhone.length < 10) {
+                            window.showToast('Please enter a valid phone number', 'error');
+                            isValid = false;
+                        } else {
+                            selectedActionDetails = callPhone;
+                        }
+                        break;
+                    case 'email':
+                        const email = document.getElementById('action-email-address')?.value;
+                        if (!email || !email.includes('@')) {
+                            window.showToast('Please enter a valid email address', 'error');
+                            isValid = false;
+                        } else {
+                            selectedActionDetails = {
+                                email: email,
+                                subject: document.getElementById('action-email-subject')?.value || 'Interested in your ad on VikeServe'
+                            };
+                        }
+                        break;
+                    case 'link':
+                        const url = document.getElementById('action-link-url')?.value;
+                        if (!url || !url.startsWith('http')) {
+                            window.showToast('Please enter a valid website URL (https://...)', 'error');
+                            isValid = false;
+                        } else {
+                            selectedActionDetails = url;
+                        }
+                        break;
                 }
                 
-                // Enable the Pay button
-                if (submitPaymentBtn) submitPaymentBtn.disabled = false;
+                if (isValid && selectedAction && selectedActionDetails) {
+                    const summaryAd = document.getElementById('summary-ad-name');
+                    const summaryPackage = document.getElementById('summary-package-name');
+                    const summaryDuration = document.getElementById('summary-package-duration');
+                    const summaryPrice = document.getElementById('summary-package-price');
+                    const summaryAction = document.getElementById('summary-action-name');
+                    
+                    if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
+                    if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
+                    if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
+                    if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
+                    
+                    const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
+                    if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
+                    
+                    this.goToPromoStep(4);
+                }
             });
-        });
-    };
-    
-    // Initial attachment of handlers
-    setTimeout(() => {
-        attachPaymentMethodHandlers();
-    }, 200);
-    
-    // Also attach when country changes (methods reload)
-    const originalUpdateMethods = this.updatePaymentMethodsForCountry;
-    this.updatePaymentMethodsForCountry = async function(country) {
-        await originalUpdateMethods.call(this, country);
+        }
+        
+        if (step3Back) {
+            step3Back.addEventListener('click', () => this.goToPromoStep(2));
+        }
+        
+        // Step 4: Payment Method
+        const submitPaymentBtn = document.getElementById('promo-submit-payment');
+        const step4Back = document.getElementById('promo-step4-back');
+        const countrySelect = document.getElementById('payment-country');
+        
+        if (countrySelect) {
+            countrySelect.addEventListener('change', async (e) => {
+                this.userCountry = e.target.value;
+                this.userCurrency = this.getCurrencyForCountry(this.userCountry);
+                await this.updatePaymentMethodsForCountry(e.target.value);
+            });
+        }
+        
+        // Function to attach payment method click handlers
+        const attachPaymentMethodHandlers = () => {
+            const methodElements = document.querySelectorAll('.payment-method');
+            console.log('Attaching handlers to', methodElements.length, 'payment methods');
+            
+            methodElements.forEach(method => {
+                const newMethod = method.cloneNode(true);
+                method.parentNode.replaceChild(newMethod, method);
+                
+                newMethod.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Payment method clicked:', newMethod.getAttribute('data-method-id'));
+                    
+                    document.querySelectorAll('.payment-method').forEach(m => {
+                        m.style.borderColor = 'var(--grey)';
+                        m.style.backgroundColor = 'transparent';
+                    });
+                    
+                    newMethod.style.borderColor = 'var(--primary)';
+                    newMethod.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
+                    
+                    selectedPaymentMethod = {
+                        id: newMethod.getAttribute('data-method-id'),
+                        name: newMethod.getAttribute('data-method-name'),
+                        type: newMethod.getAttribute('data-method-type'),
+                        provider: newMethod.getAttribute('data-method-provider')
+                    };
+                    
+                    console.log('Selected payment method:', selectedPaymentMethod);
+                    
+                    const paymentDetailsContainer = document.getElementById('payment-details-container');
+                    if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
+                    
+                    document.querySelectorAll('.payment-detail').forEach(detail => {
+                        detail.style.display = 'none';
+                    });
+                    
+                    if (selectedPaymentMethod.type === 'mobile_money') {
+                        const mobileForm = document.getElementById('mobile-money-details');
+                        if (mobileForm) mobileForm.style.display = 'block';
+                    } else if (selectedPaymentMethod.id === 'card') {
+                        const cardForm = document.getElementById('card-details');
+                        if (cardForm) cardForm.style.display = 'block';
+                    } else if (selectedPaymentMethod.id === 'paypal') {
+                        const paypalForm = document.getElementById('paypal-details');
+                        if (paypalForm) paypalForm.style.display = 'block';
+                    }
+                    
+                    if (submitPaymentBtn) submitPaymentBtn.disabled = false;
+                });
+            });
+        };
+        
         setTimeout(() => {
             attachPaymentMethodHandlers();
         }, 200);
-    };
-    
-    if (submitPaymentBtn) {
-        submitPaymentBtn.addEventListener('click', async () => {
-            console.log('Pay button clicked. Selected payment method:', selectedPaymentMethod);
-            
-            if (!selectedPaymentMethod) {
-                window.showToast('Please select a payment method first', 'warning');
-                return;
-            }
-            
-            let paymentDetails = {};
-            
-            if (selectedPaymentMethod.type === 'mobile_money') {
-    let phone = document.getElementById('payment-phone-number')?.value;
-    if (!phone || phone.length < 10) {
-        window.showToast('Please enter a valid phone number (e.g., 0712345678 or 254712345678)', 'error');
-        return;
-    }
-    // Remove any spaces or special characters
-    phone = phone.replace(/\s/g, '');
-    // Format phone number
-    if (phone.startsWith('0')) {
-        phone = '254' + phone.substring(1);
-    } else if (phone.startsWith('+')) {
-        phone = phone.substring(1);
-    }
-    if (phone.length < 12) {
-        window.showToast('Please enter a valid phone number with country code (e.g., 254712345678)', 'error');
-        return;
-    }
-    paymentDetails.phone = phone;
-            } else if (selectedPaymentMethod.id === 'card') {
-                const cardNumber = document.getElementById('card-number')?.value.replace(/\s/g, '');
-                const cardExpiry = document.getElementById('card-expiry')?.value;
-                const cardCvv = document.getElementById('card-cvv')?.value;
-                const cardName = document.getElementById('card-name')?.value;
-                
-                if (!cardNumber || cardNumber.length < 15) {
-                    window.showToast('Please enter a valid card number', 'error');
-                    return;
-                }
-                if (!cardExpiry || !cardExpiry.includes('/')) {
-                    window.showToast('Please enter expiry date (MM/YY)', 'error');
-                    return;
-                }
-                if (!cardCvv || cardCvv.length < 3) {
-                    window.showToast('Please enter CVV', 'error');
-                    return;
-                }
-                if (!cardName) {
-                    window.showToast('Please enter cardholder name', 'error');
-                    return;
-                }
-                
-                paymentDetails = {
-                    card_number: cardNumber,
-                    card_expiry: cardExpiry,
-                    card_cvv: cardCvv,
-                    card_name: cardName
-                };
-            } else if (selectedPaymentMethod.id === 'paypal') {
-                const email = document.getElementById('payment-paypal-email')?.value;
-                if (!email || !email.includes('@')) {
-                    window.showToast('Please enter a valid PayPal email', 'error');
-                    return;
-                }
-                paymentDetails = { email: email };
-            }
-            
-            // Disable button to prevent double submission
-            submitPaymentBtn.disabled = true;
-            submitPaymentBtn.innerHTML = '<div class="spinner"></div> Processing...';
-            
-            currentTransactionId = await this.processPayment(
-                selectedAd, selectedPackage, selectedAction, selectedActionDetails,
-                selectedPaymentMethod, paymentDetails
-            );
-            
-            if (currentTransactionId) {
-                this.goToPromoStep(5);
-                this.startPaymentStatusCheck(currentTransactionId);
-            } else {
-                // Re-enable button if payment failed
-                submitPaymentBtn.disabled = false;
-                submitPaymentBtn.innerHTML = 'Pay Now';
-            }
-        });
-    }
-    
-    if (step4Back) {
-        step4Back.addEventListener('click', () => this.goToPromoStep(3));
-    }
-    
-    // Step 5: Verification
-    const verificationTabs = document.querySelectorAll('.verification-tab');
-    const step5Back = document.getElementById('promo-step5-back');
-    const manualVerifyBtn = document.getElementById('submit-manual-verification');
-    
-    verificationTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            verificationTabs.forEach(t => {
-                t.classList.remove('active');
-                t.style.color = '';
-                t.style.borderBottom = '';
-            });
-            tab.classList.add('active');
-            tab.style.color = 'var(--primary)';
-            tab.style.borderBottom = '2px solid var(--primary)';
-            
-            const tabId = tab.getAttribute('data-tab');
-            document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
-            document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
-            
-            if (tabId === 'auto' && currentTransactionId) {
-                this.startPaymentStatusCheck(currentTransactionId);
-            }
-        });
-    });
-    
-    if (manualVerifyBtn) {
-        manualVerifyBtn.addEventListener('click', async () => {
-            const paymentMethod = document.getElementById('manual-payment-method')?.value;
-            const transactionCode = document.getElementById('manual-transaction-code')?.value;
-            const phoneNumber = document.getElementById('manual-phone-number')?.value;
-            
-            if (!paymentMethod) {
-                window.showToast('Please select payment method', 'error');
-                return;
-            }
-            if (!transactionCode) {
-                window.showToast('Please enter transaction code', 'error');
-                return;
-            }
-            
-            window.showToast('Submitting for verification...', 'info');
-            
-            await firebase.firestore().collection('payment_verifications').add({
-                transactionId: currentTransactionId,
-                adId: selectedAd?.id,
-                adTitle: selectedAd?.title,
-                packageName: selectedPackage?.name,
-                amount: selectedPackage?.price,
-                paymentMethod: paymentMethod,
-                transactionCode: transactionCode,
-                phoneNumber: phoneNumber,
-                userId: this.userId,
-                userEmail: this.userEmail,
-                action: selectedAction,
-                actionDetails: selectedActionDetails,
-                status: 'pending_verification',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
-            
+        
+        const originalUpdateMethods = this.updatePaymentMethodsForCountry;
+        this.updatePaymentMethodsForCountry = async function(country) {
+            await originalUpdateMethods.call(this, country);
             setTimeout(() => {
-                const modal = document.getElementById('ad-packages-full-modal');
-                if (modal) modal.style.display = 'none';
-            }, 3000);
-        });
-    }
-    
-    if (step5Back) {
-        step5Back.addEventListener('click', () => this.goToPromoStep(4));
-    }
-    
-    window.paymentSystem = this;
-}
-
-async updatePaymentMethodsForCountry(country) {
-    this.userCountry = country;
-    this.userCurrency = this.getCurrencyForCountry(country);
-    const newMethods = this.getAvailablePaymentMethods(country);
-    const methodsContainer = document.getElementById('payment-methods-grid');
-    
-    // Convert price if package is selected
-    if (window.selectedPackage) {
-        const convertedPrice = await this.convertCurrency(window.selectedPackage.originalPriceKES || window.selectedPackage.price, 'KES', this.userCurrency);
-        window.selectedPackage.displayPrice = convertedPrice;
-        window.selectedPackage.displayCurrency = this.userCurrency;
-        
-        const summaryPrice = document.getElementById('summary-package-price');
-        if (summaryPrice) {
-            summaryPrice.textContent = `${this.userCurrency} ${convertedPrice.toLocaleString()}`;
-        }
-    }
-    
-    if (methodsContainer) {
-        methodsContainer.innerHTML = newMethods.map(method => `
-            <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
-                <i class="${method.icon}" style="font-size: 1.2rem;"></i>
-                <div style="font-size: 0.8rem;">${method.name}</div>
-            </div>
-        `).join('');
-    }
-}
-
-    async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
-    const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
-    
-    try {
-        // Convert amount if currency is not KES
-        let finalAmount = pkg.price;
-        let finalCurrency = 'KES';
-        
-        if (this.userCurrency !== 'KES') {
-            finalAmount = await this.convertCurrency(pkg.price, 'KES', this.userCurrency);
-            finalCurrency = this.userCurrency;
-        }
-        
-        const paymentRecord = {
-            transactionId: transactionId,
-            adId: ad.id,
-            adTitle: ad.title,
-            packageName: pkg.name,
-            amount: finalAmount,
-            originalAmountKES: pkg.price,
-            currency: finalCurrency,
-            duration: pkg.duration,
-            paymentMethod: paymentMethod.name,
-            status: 'pending',
-            userId: this.userId,
-            userEmail: this.userEmail || 'customer@vikeserve.com',
-            userPhone: paymentDetails.phone || this.userPhone,
-            action: { type: action, details: actionDetails },
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-            userCountry: this.userCountry
+                attachPaymentMethodHandlers();
+            }, 200);
         };
         
-        await firebase.firestore().collection('transactions').add(paymentRecord);
-        
-        // Format phone number properly (add 254 if missing)
-        let formattedPhone = paymentDetails.phone || '';
-        if (formattedPhone && formattedPhone.startsWith('0')) {
-            formattedPhone = '254' + formattedPhone.substring(1);
-        } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
-            formattedPhone = '254' + formattedPhone;
+        if (submitPaymentBtn) {
+            submitPaymentBtn.addEventListener('click', async () => {
+                console.log('Pay button clicked. Selected payment method:', selectedPaymentMethod);
+                
+                if (!selectedPaymentMethod) {
+                    window.showToast('Please select a payment method first', 'warning');
+                    return;
+                }
+                
+                let paymentDetails = {};
+                
+                if (selectedPaymentMethod.type === 'mobile_money') {
+                    let phone = document.getElementById('payment-phone-number')?.value;
+                    if (!phone || phone.length < 10) {
+                        window.showToast('Please enter a valid phone number (e.g., 0712345678 or 254712345678)', 'error');
+                        return;
+                    }
+                    phone = phone.replace(/\s/g, '');
+                    if (phone.startsWith('0')) {
+                        phone = '254' + phone.substring(1);
+                    } else if (phone.startsWith('+')) {
+                        phone = phone.substring(1);
+                    }
+                    if (phone.length < 12) {
+                        window.showToast('Please enter a valid phone number with country code (e.g., 254712345678)', 'error');
+                        return;
+                    }
+                    paymentDetails.phone = phone;
+                } else if (selectedPaymentMethod.id === 'card') {
+                    const cardNumber = document.getElementById('card-number')?.value.replace(/\s/g, '');
+                    const cardExpiry = document.getElementById('card-expiry')?.value;
+                    const cardCvv = document.getElementById('card-cvv')?.value;
+                    const cardName = document.getElementById('card-name')?.value;
+                    
+                    if (!cardNumber || cardNumber.length < 15) {
+                        window.showToast('Please enter a valid card number', 'error');
+                        return;
+                    }
+                    if (!cardExpiry || !cardExpiry.includes('/')) {
+                        window.showToast('Please enter expiry date (MM/YY)', 'error');
+                        return;
+                    }
+                    if (!cardCvv || cardCvv.length < 3) {
+                        window.showToast('Please enter CVV', 'error');
+                        return;
+                    }
+                    if (!cardName) {
+                        window.showToast('Please enter cardholder name', 'error');
+                        return;
+                    }
+                    
+                    paymentDetails = {
+                        card_number: cardNumber,
+                        card_expiry: cardExpiry,
+                        card_cvv: cardCvv,
+                        card_name: cardName
+                    };
+                } else if (selectedPaymentMethod.id === 'paypal') {
+                    const email = document.getElementById('payment-paypal-email')?.value;
+                    if (!email || !email.includes('@')) {
+                        window.showToast('Please enter a valid PayPal email', 'error');
+                        return;
+                    }
+                    paymentDetails = { email: email };
+                }
+                
+                submitPaymentBtn.disabled = true;
+                submitPaymentBtn.innerHTML = '<div class="spinner"></div> Processing...';
+                
+                currentTransactionId = await this.processPayment(
+                    selectedAd, selectedPackage, selectedAction, selectedActionDetails,
+                    selectedPaymentMethod, paymentDetails
+                );
+                
+                if (currentTransactionId) {
+                    this.goToPromoStep(5);
+                    this.startPaymentStatusCheck(currentTransactionId);
+                } else {
+                    submitPaymentBtn.disabled = false;
+                    submitPaymentBtn.innerHTML = 'Pay Now';
+                }
+            });
         }
         
-        // Get the current page URL for redirect
-        const currentUrl = window.location.origin;
-        const redirectUrl = `${currentUrl}/?payment_status=success&api_ref=${transactionId}`;
-        
-        // Build IntaSend checkout URL
-        let checkoutUrl = `https://app.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&reference=${transactionId}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-        
-        // Add phone number for mobile money (must be properly formatted)
-        if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
-            checkoutUrl += `&phone_number=${formattedPhone}&payment_method=mobile_money`;
-            console.log('Mobile money payment with phone:', formattedPhone);
-        } 
-        // Card payment redirect
-        else if (paymentMethod.id === 'card') {
-            checkoutUrl += `&payment_method=card`;
-        }
-        // PayPal redirect
-        else if (paymentMethod.id === 'paypal') {
-            window.showToast('Redirecting to PayPal...', 'info');
-            setTimeout(() => {
-                window.location.href = `https://www.paypal.com/paypalme/vikeserve/${finalAmount}`;
-            }, 1000);
-            return transactionId;
+        if (step4Back) {
+            step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
         
-        console.log('Redirecting to IntaSend:', checkoutUrl);
-        window.showToast('Redirecting to payment page...', 'info');
+        // Step 5: Verification
+        const verificationTabs = document.querySelectorAll('.verification-tab');
+        const step5Back = document.getElementById('promo-step5-back');
+        const manualVerifyBtn = document.getElementById('submit-manual-verification');
         
-        // Use window.location.replace to avoid back button issues
-        setTimeout(() => {
-            window.location.replace(checkoutUrl);
-        }, 500);
+        verificationTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                verificationTabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.style.color = '';
+                    t.style.borderBottom = '';
+                });
+                tab.classList.add('active');
+                tab.style.color = 'var(--primary)';
+                tab.style.borderBottom = '2px solid var(--primary)';
+                
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
+                document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
+                
+                if (tabId === 'auto' && currentTransactionId) {
+                    this.startPaymentStatusCheck(currentTransactionId);
+                }
+            });
+        });
         
-        return transactionId;
+        if (manualVerifyBtn) {
+            manualVerifyBtn.addEventListener('click', async () => {
+                const paymentMethod = document.getElementById('manual-payment-method')?.value;
+                const transactionCode = document.getElementById('manual-transaction-code')?.value;
+                const phoneNumber = document.getElementById('manual-phone-number')?.value;
+                
+                if (!paymentMethod) {
+                    window.showToast('Please select payment method', 'error');
+                    return;
+                }
+                if (!transactionCode) {
+                    window.showToast('Please enter transaction code', 'error');
+                    return;
+                }
+                
+                window.showToast('Submitting for verification...', 'info');
+                
+                await firebase.firestore().collection('payment_verifications').add({
+                    transactionId: currentTransactionId,
+                    adId: selectedAd?.id,
+                    adTitle: selectedAd?.title,
+                    packageName: selectedPackage?.name,
+                    amount: selectedPackage?.price,
+                    paymentMethod: paymentMethod,
+                    transactionCode: transactionCode,
+                    phoneNumber: phoneNumber,
+                    userId: this.userId,
+                    userEmail: this.userEmail,
+                    action: selectedAction,
+                    actionDetails: selectedActionDetails,
+                    status: 'pending_verification',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
+                
+                setTimeout(() => {
+                    const modal = document.getElementById('ad-packages-full-modal');
+                    if (modal) modal.style.display = 'none';
+                }, 3000);
+            });
+        }
         
-    } catch (error) {
-        console.error('Payment error:', error);
-        window.showToast(error.message || 'Payment failed. Please try again.', 'error');
-        return null;
+        if (step5Back) {
+            step5Back.addEventListener('click', () => this.goToPromoStep(4));
+        }
+        
+        window.paymentSystem = this;
     }
-}
+
+    async updatePaymentMethodsForCountry(country) {
+        this.userCountry = country;
+        this.userCurrency = this.getCurrencyForCountry(country);
+        const newMethods = this.getAvailablePaymentMethods(country);
+        const methodsContainer = document.getElementById('payment-methods-grid');
+        
+        if (window.selectedPackage) {
+            const convertedPrice = await this.convertCurrency(window.selectedPackage.originalPriceKES || window.selectedPackage.price, 'KES', this.userCurrency);
+            window.selectedPackage.displayPrice = convertedPrice;
+            window.selectedPackage.displayCurrency = this.userCurrency;
+            
+            const summaryPrice = document.getElementById('summary-package-price');
+            if (summaryPrice) {
+                summaryPrice.textContent = `${this.userCurrency} ${convertedPrice.toLocaleString()}`;
+            }
+        }
+        
+        if (methodsContainer) {
+            methodsContainer.innerHTML = newMethods.map(method => `
+                <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
+                    <i class="${method.icon}" style="font-size: 1.2rem;"></i>
+                    <div style="font-size: 0.8rem;">${method.name}</div>
+                </div>
+            `).join('');
+        }
+    }
+
+    async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails) {
+        const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+        
+        try {
+            let finalAmount = pkg.price;
+            let finalCurrency = 'KES';
+            
+            if (this.userCurrency !== 'KES') {
+                finalAmount = await this.convertCurrency(pkg.price, 'KES', this.userCurrency);
+                finalCurrency = this.userCurrency;
+            }
+            
+            const paymentRecord = {
+                transactionId: transactionId,
+                adId: ad.id,
+                adTitle: ad.title,
+                packageName: pkg.name,
+                amount: finalAmount,
+                originalAmountKES: pkg.price,
+                currency: finalCurrency,
+                duration: pkg.duration,
+                paymentMethod: paymentMethod.name,
+                status: 'pending',
+                userId: this.userId,
+                userEmail: this.userEmail || 'customer@vikeserve.com',
+                userPhone: paymentDetails.phone || this.userPhone,
+                action: { type: action, details: actionDetails },
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                userCountry: this.userCountry
+            };
+            
+            await firebase.firestore().collection('transactions').add(paymentRecord);
+            
+            let formattedPhone = paymentDetails.phone || '';
+            if (formattedPhone && formattedPhone.startsWith('0')) {
+                formattedPhone = '254' + formattedPhone.substring(1);
+            } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
+                formattedPhone = '254' + formattedPhone;
+            }
+            
+            const currentUrl = window.location.origin;
+            const redirectUrl = `${currentUrl}/?payment_status=success&api_ref=${transactionId}`;
+            
+            let checkoutUrl = `https://app.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&reference=${transactionId}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
+            
+            if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
+                checkoutUrl += `&phone_number=${formattedPhone}&payment_method=mobile_money`;
+                console.log('Mobile money payment with phone:', formattedPhone);
+            } else if (paymentMethod.id === 'card') {
+                checkoutUrl += `&payment_method=card`;
+            } else if (paymentMethod.id === 'paypal') {
+                window.showToast('Redirecting to PayPal...', 'info');
+                setTimeout(() => {
+                    window.location.href = `https://www.paypal.com/paypalme/vikeserve/${finalAmount}`;
+                }, 1000);
+                return transactionId;
+            }
+            
+            console.log('Redirecting to IntaSend:', checkoutUrl);
+            window.showToast('Redirecting to payment page...', 'info');
+            
+            // Close modal before redirect
+            const modal = document.getElementById('ad-packages-full-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            
+            setTimeout(() => {
+                window.location.href = checkoutUrl;
+            }, 500);
+            
+            return transactionId;
+            
+        } catch (error) {
+            console.error('Payment error:', error);
+            window.showToast(error.message || 'Payment failed. Please try again.', 'error');
+            return null;
+        }
+    }
 
     async startPaymentStatusCheck(transactionId) {
         const statusChecker = document.getElementById('payment-status-checker');
