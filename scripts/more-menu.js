@@ -1,6 +1,7 @@
 // more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
 // Issues fixed: Firebase integration, message tab, ratings, announcements, validation, FULL CHAT SYSTEM
 // NEW FIXES: Settings tab [object Promise] fixed, Firestore saving fixed
+// UPDATED: File attachments working, messages displaying properly, real-time chat
 
 class MoreMenuManager {
     constructor() {
@@ -11,19 +12,17 @@ class MoreMenuManager {
         this.hasRated = false;
         this.currentChatUnsubscribe = null;
         this.typingUnsubscribe = null;
-        this.lastMessageDoc = null;
+        this.firstMessageDoc = null;
         this.init();
     }
     
     async init() {
         console.log('More Menu Manager initializing with Firestore...');
         
-        // Set up auth listener
         this.auth.onAuthStateChanged((user) => {
             this.currentUser = user;
             if (user) {
                 this.checkIfUserHasRated();
-                // Reload data when user signs in
                 this.loadDataFromFirestore();
             }
         });
@@ -36,7 +35,6 @@ class MoreMenuManager {
     }
     
     async initializeFirestoreData() {
-        // Initialize founder data in Firestore if not exists
         const founderRef = this.db.collection('system_settings').doc('founder');
         const founderDoc = await founderRef.get();
         
@@ -53,14 +51,13 @@ class MoreMenuManager {
             });
         }
         
-        // Initialize default announcements if none exist
         const announcementsSnapshot = await this.db.collection('announcements').limit(1).get();
         if (announcementsSnapshot.empty) {
             const defaultAnnouncements = [
                 {
                     id: Date.now(),
                     title: '🎉 Welcome to VikeServe!',
-                    message: 'Thank you for using VikeServe! We\'re constantly improving to serve you better. Stay tuned for exciting updates!',
+                    message: 'Thank you for using VikeServe! We\'re constantly improving to serve you better.',
                     date: firebase.firestore.FieldValue.serverTimestamp(),
                     isRead: false,
                     isGlobal: true
@@ -68,7 +65,7 @@ class MoreMenuManager {
                 {
                     id: Date.now() + 1,
                     title: '✨ New Feature: Ad Promotion',
-                    message: 'You can now promote your ads to reach more customers! Check out the "View Packages" button.',
+                    message: 'You can now promote your ads to reach more customers!',
                     date: firebase.firestore.FieldValue.serverTimestamp(),
                     isRead: false,
                     isGlobal: true
@@ -80,7 +77,6 @@ class MoreMenuManager {
             }
         }
         
-        // Initialize terms and conditions in Firestore
         const termsRef = this.db.collection('system_settings').doc('terms');
         const termsDoc = await termsRef.get();
         if (!termsDoc.exists) {
@@ -90,7 +86,6 @@ class MoreMenuManager {
             });
         }
         
-        // Initialize ad packages in Firestore
         const packagesRef = this.db.collection('ad_packages');
         const packagesSnapshot = await packagesRef.limit(1).get();
         if (packagesSnapshot.empty) {
@@ -111,35 +106,24 @@ class MoreMenuManager {
             <h4>1. Acceptance of Terms</h4>
             <p>By using VikeServe, you agree to these terms and conditions.</p>
             <h4>2. User Responsibilities</h4>
-            <p>You are responsible for the accuracy of information you provide and for your interactions with other users.</p>
+            <p>You are responsible for the accuracy of information you provide.</p>
             <h4>3. Prohibited Activities</h4>
             <p>You may not post false information, spam, or engage in fraudulent activities.</p>
             <h4>4. Payments and Fees</h4>
-            <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
-            <h4>5. Intellectual Property</h4>
-            <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
-            <h4>6. Limitation of Liability</h4>
-            <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
-            <h4>7. Termination</h4>
-            <p>We reserve the right to suspend accounts that violate these terms.</p>
-            <h4>8. Changes to Terms</h4>
-            <p>We may update terms. Continued use means acceptance of changes.</p>
-            <h4>9. Contact</h4>
+            <p>Service fees apply for promoted ads. All payments are processed securely.</p>
+            <h4>5. Contact</h4>
             <p>For questions, contact vikeserve426@gmail.com</p>
         `;
     }
     
     async checkIfUserHasRated() {
         if (!this.currentUser) return;
-        
         const ratingSnapshot = await this.db.collection('ratings')
             .where('userId', '==', this.currentUser.uid)
             .get();
-        
         this.hasRated = !ratingSnapshot.empty;
     }
     
-    // FIXED: Now properly awaits async getSettingsHTML()
     async replaceAllTabContent() {
         console.log('Replacing all more tab content...');
         
@@ -155,7 +139,6 @@ class MoreMenuManager {
         const safetyContent = document.getElementById('safety-content');
         if (safetyContent) safetyContent.innerHTML = this.getSafetyHTML();
         
-        // FIXED: Await the async getSettingsHTML()
         const settingsContent = document.getElementById('settings-content');
         if (settingsContent) {
             const settingsHTML = await this.getSettingsHTML();
@@ -298,27 +281,19 @@ class MoreMenuManager {
                     <h4 style="margin-bottom: 15px; color: var(--emergency);"><i class="fas fa-phone-alt"></i> Emergency Contacts (Kenya)</h4>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 10px; border-left: 4px solid #e74c3c;">
-                            <div><strong><i class="fas fa-shield-alt"></i> Police Emergency</strong><div style="font-size: 0.8rem; color: #666;">General emergencies, crime reporting</div></div>
+                            <div><strong><i class="fas fa-shield-alt"></i> Police Emergency</strong><div style="font-size: 0.8rem; color: #666;">General emergencies</div></div>
                             <button class="btn btn-sm btn-danger emergency-call-btn" data-number="999" style="padding: 8px 16px;">Call 999</button>
                         </div>
                         <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 10px; border-left: 4px solid #e74c3c;">
                             <div><strong><i class="fas fa-phone-alt"></i> Emergency (All Networks)</strong><div style="font-size: 0.8rem; color: #666;">Works even without airtime</div></div>
                             <button class="btn btn-sm btn-danger emergency-call-btn" data-number="112" style="padding: 8px 16px;">Call 112</button>
                         </div>
-                        <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 10px; border-left: 4px solid #9b59b6;">
-                            <div><strong><i class="fas fa-venus"></i> Gender-Based Violence Hotline</strong><div style="font-size: 0.8rem; color: #666;">24/7 support for GBV survivors</div></div>
-                            <button class="btn btn-sm btn-primary emergency-call-btn" data-number="1195" style="padding: 8px 16px;">Call 1195</button>
-                        </div>
-                        <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 10px; border-left: 4px solid #3498db;">
-                            <div><strong><i class="fas fa-child"></i> Child Helpline</strong><div style="font-size: 0.8rem; color: #666;">Report child abuse and neglect</div></div>
-                            <button class="btn btn-sm btn-primary emergency-call-btn" data-number="116" style="padding: 8px 16px;">Call 116</button>
-                        </div>
                         <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 10px; border-left: 4px solid #2ecc71;">
-                            <div><strong><i class="fas fa-brain"></i> Mental Health Helpline</strong><div style="font-size: 0.8rem; color: #666;">Counselling and mental health support</div></div>
+                            <div><strong><i class="fas fa-brain"></i> Mental Health Helpline</strong><div style="font-size: 0.8rem; color: #666;">Counselling support</div></div>
                             <button class="btn btn-sm btn-success emergency-call-btn" data-number="1199" style="padding: 8px 16px;">Call 1199</button>
                         </div>
                         <div class="emergency-contact-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary); color: white; border-radius: 10px;">
-                            <div><strong><i class="fas fa-headset"></i> VikeServe Support</strong><div style="font-size: 0.8rem; opacity: 0.9;">App support and assistance</div></div>
+                            <div><strong><i class="fas fa-headset"></i> VikeServe Support</strong><div style="font-size: 0.8rem; opacity: 0.9;">App support</div></div>
                             <button class="btn btn-sm btn-light vikeserve-support-btn" style="padding: 8px 16px; background: white; color: var(--primary);">Contact Support</button>
                         </div>
                     </div>
@@ -328,7 +303,6 @@ class MoreMenuManager {
     }
     
     async getSettingsHTML() {
-        // Load founder data from Firestore
         const founderDoc = await this.db.collection('system_settings').doc('founder').get();
         const founder = founderDoc.exists ? founderDoc.data() : { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0 };
         
@@ -340,10 +314,6 @@ class MoreMenuManager {
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
                     <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: #666;">Switch between light and dark theme</div></div>
                     <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Language</strong><div style="font-size: 0.8rem; color: #666;">Change app language</div></div>
-                    <button class="btn btn-sm btn-outline language-btn">English</button>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
                     <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: #666;">Receive push notifications</div></div>
@@ -363,18 +333,16 @@ class MoreMenuManager {
                 </div>
                 
                 <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
-                    <div style="font-size: 2.5rem; font-weight: bold;" id="founder-total-stars">${(founder.totalStars || 0).toLocaleString()}</div>
+                    <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
                     <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Earned ⭐</div>
-                    <div id="founder-star-rating" style="margin: 10px 0;">
-                        ${this.generateStarRatingHTML(founder.averageRating || 5.0)}
-                    </div>
-                    <div style="font-size: 0.75rem; opacity: 0.8;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
-                    <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} community ratings</div>
+                    <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
+                    <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
+                    <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
                 </div>
                 
                 <div style="display: flex; gap: 10px;">
                     <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}><i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate Founder'}</button>
-                    <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);"><i class="fas fa-user-circle"></i> View Profile</button>
+                    <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;"><i class="fas fa-user-circle"></i> View Profile</button>
                 </div>
             </div>
             
@@ -386,25 +354,7 @@ class MoreMenuManager {
                         <i class="fas fa-chevron-down faq-icon"></i>
                     </div>
                     <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        Go to Services tab, click "List Your Service", fill in the details, and submit. Your service will appear in the listings.
-                    </div>
-                </div>
-                <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>How do I promote my ad?</strong>
-                        <i class="fas fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        <a href="#" class="show-promotion-guide" style="color: var(--primary); text-decoration: none;">Click here for detailed step-by-step guide →</a>
-                    </div>
-                </div>
-                <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>How do I contact a service provider?</strong>
-                        <i class="fas fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        Click on any service or job listing, then click the "Contact" button to call or send a text message.
+                        Go to Services tab, click "List Your Service", fill in the details, and submit.
                     </div>
                 </div>
                 <div class="faq-item">
@@ -413,68 +363,26 @@ class MoreMenuManager {
                         <i class="fas fa-chevron-down faq-icon"></i>
                     </div>
                     <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        Yes! We use IntaSend secure payment gateway. All transactions are encrypted and secure.
+                        Yes! All transactions are encrypted and secure.
                     </div>
-                </div>
-            </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-info-circle"></i> About</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
-                    <div><strong>About VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Version 1.0.0</div></div>
-                    <div>© 2026</div>
-                </div>
-                <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: #666;">Victor Wanyama - Web Developer</div></div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-            </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-shield-alt"></i> Privacy Policy</h4>
-                <div class="privacy-item" style="border-bottom: 1px solid var(--grey);">
-                    <div class="privacy-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>Information We Collect</strong>
-                        <i class="fas fa-chevron-down privacy-icon"></i>
-                    </div>
-                    <div class="privacy-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        We collect your name, email, phone number, location, and usage data to provide better services.
-                    </div>
-                </div>
-                <div class="privacy-item">
-                    <div class="privacy-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>Data Security</strong>
-                        <i class="fas fa-chevron-down privacy-icon"></i>
-                    </div>
-                    <div class="privacy-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        We use encryption and secure servers to protect your data. Your payment information is processed securely through IntaSend.
-                    </div>
-                </div>
-            </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-file-contract"></i> Terms of Service</h4>
-                <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>View Terms & Conditions</strong><div style="font-size: 0.8rem; color: #666;">App usage guidelines</div></div>
-                    <i class="fas fa-chevron-right"></i>
                 </div>
             </div>
             
             <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
                 <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends and family</div></div>
+                    <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends</div></div>
                     <i class="fas fa-chevron-right"></i>
                 </div>
                 <div class="support-option" data-action="rate" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>Rate Our App</strong><div style="font-size: 0.8rem; color: #666;">Share your feedback with us</div></div>
+                    <div><strong>Rate Our App</strong><div style="font-size: 0.8rem; color: #666;">Share your feedback</div></div>
                     <i class="fas fa-chevron-right"></i>
                 </div>
             </div>
             
             <div style="text-align: center; margin-top: 20px; padding: 15px; color: #999;">
                 <div>VikeServe v1.0.0</div>
-                <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
+                <div>© 2026 VikeServe Ltd.</div>
             </div>
         `;
     }
@@ -496,7 +404,6 @@ class MoreMenuManager {
     }
     
     setupEventListeners() {
-        // Tab switching
         document.querySelectorAll('.more-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tabId = btn.getAttribute('data-more-tab');
@@ -521,58 +428,40 @@ class MoreMenuManager {
             });
         }
         
-        // Use event delegation for better performance
         document.getElementById('more-section')?.addEventListener('click', async (e) => {
-            // Education post buttons
             if (e.target.closest('.post-teacher-btn')) this.showSubmitModal('teacher');
             if (e.target.closest('.post-internship-btn')) this.showSubmitModal('internship');
             if (e.target.closest('.offer-attachment-btn')) this.showSubmitModal('attachment');
             if (e.target.closest('.post-training-btn')) this.showSubmitModal('training');
             
-            // Promotion guide link
-            if (e.target.closest('.show-promotion-guide')) {
-                e.preventDefault();
-                this.showAdPromotionGuide();
-                return;
-            }
-            
-            // Founder profile button
             if (e.target.closest('.view-founder-profile-btn')) {
                 this.showFounderProfile();
                 return;
             }
             
-            // Alert button
             if (e.target.closest('.report-alert-btn')) this.showSubmitModal('alert');
-            
-            // Message button
             if (e.target.closest('.new-chat-btn')) this.startNewChat();
             
-            // Emergency call buttons
             if (e.target.closest('.emergency-call-btn')) {
                 const number = e.target.closest('.emergency-call-btn').getAttribute('data-number');
                 if (number) window.location.href = `tel:${number}`;
             }
             
-            // VikeServe Support button
             if (e.target.closest('.vikeserve-support-btn')) {
-                this.showToast('Contact support: vikeserve426@gmail.com or WhatsApp +254 712 809 703', 'info');
+                this.showToast('Contact support: vikeserve426@gmail.com', 'info');
                 return;
             }
             
-            // Filter buttons
             if (e.target.closest('.filter-alert-btn')) {
                 const filter = e.target.closest('.filter-alert-btn').getAttribute('data-filter');
                 this.filterAlerts(filter);
             }
             
-            // Rate founder button
             if (e.target.closest('.rate-founder-btn') && !this.hasRated) {
                 this.showRatingModal();
                 return;
             }
             
-            // FAQ dropdown toggles
             if (e.target.closest('.faq-question')) {
                 const question = e.target.closest('.faq-question');
                 const answer = question.nextElementSibling;
@@ -590,52 +479,56 @@ class MoreMenuManager {
                 return;
             }
             
-            // Privacy dropdown toggles
-            if (e.target.closest('.privacy-question')) {
-                const question = e.target.closest('.privacy-question');
-                const answer = question.nextElementSibling;
-                const icon = question.querySelector('.privacy-icon');
-                
-                if (answer.style.display === 'none') {
-                    answer.style.display = 'block';
-                    icon.classList.remove('fa-chevron-down');
-                    icon.classList.add('fa-chevron-up');
-                } else {
-                    answer.style.display = 'none';
-                    icon.classList.remove('fa-chevron-up');
-                    icon.classList.add('fa-chevron-down');
-                }
-                return;
-            }
-            
-            // Settings buttons
             if (e.target.closest('.dark-mode-toggle-settings')) {
                 this.toggleDarkMode(e.target.closest('.dark-mode-toggle-settings').checked);
             }
-            if (e.target.closest('.language-btn')) this.showLanguageSelector();
+            
             if (e.target.closest('.support-option')) {
                 const action = e.target.closest('.support-option').getAttribute('data-action');
                 this.handleSettingsAction(action);
             }
+            
             if (e.target.closest('.notifications-toggle')) {
                 const isChecked = e.target.closest('.notifications-toggle').checked;
                 this.showToast(isChecked ? 'Notifications enabled' : 'Notifications disabled', 'info');
             }
             
-            // Safety category buttons
             if (e.target.closest('.safety-cat-btn')) {
                 const cat = e.target.closest('.safety-cat-btn').getAttribute('data-cat');
                 this.switchSafetyCategory(cat);
             }
         });
         
-        // Load initial data
+        // Search functionality for messages
+        const searchInput = document.getElementById('message-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.filterConversations(e.target.value);
+            });
+        }
+        
         this.loadTeachers();
         this.loadInternships();
         this.loadAttachments();
         this.loadTraining();
         this.loadAlerts();
         this.loadConversations();
+    }
+    
+    filterConversations(searchTerm) {
+        const conversationItems = document.querySelectorAll('#conversations-list-container .conversation-item');
+        const term = searchTerm.toLowerCase();
+        
+        conversationItems.forEach(item => {
+            const title = item.querySelector('.conversation-title')?.innerText.toLowerCase() || '';
+            const lastMessage = item.querySelector('.conversation-last-message')?.innerText.toLowerCase() || '';
+            
+            if (title.includes(term) || lastMessage.includes(term)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
     
     async showSubmitModal(type) {
@@ -740,7 +633,6 @@ class MoreMenuManager {
         const modal = document.getElementById(`${type}-modal`);
         const inputs = modal.querySelectorAll('input, select, textarea');
         
-        // Validate required fields
         let isValid = true;
         inputs.forEach(input => {
             if (input.hasAttribute('required') && !input.value.trim()) {
@@ -759,9 +651,7 @@ class MoreMenuManager {
         const data = {};
         inputs.forEach(input => {
             if (input.id) {
-                // FIXED: Better field name extraction
                 let fieldName = input.id;
-                // Remove the type prefix (e.g., "teacher-" from "teacher-school")
                 if (fieldName.startsWith(`${type}-`)) {
                     fieldName = fieldName.substring(type.length + 1);
                 }
@@ -775,13 +665,11 @@ class MoreMenuManager {
         data.status = 'active';
         
         try {
-            // FIXED: Use the correct collection reference
             const collectionRef = this.db.collection(collection);
             await collectionRef.add(data);
             this.showToast(`${type} posted successfully!`, 'success');
             this.closeModal(`${type}-modal`);
             
-            // FIXED: Refresh the appropriate list with a small delay
             setTimeout(() => {
                 switch(type) {
                     case 'teacher': this.loadTeachers(); break;
@@ -796,11 +684,6 @@ class MoreMenuManager {
             this.showToast('Error posting: ' + error.message, 'error');
         }
     }
-    
-    async loadTeachers() { await this.loadCollection('teachers', 'teachers-list-container', 'teacher'); }
-    async loadInternships() { await this.loadCollection('internships', 'internships-list-container', 'internship'); }
-    async loadAttachments() { await this.loadCollection('attachments', 'attachments-list-container', 'attachment'); }
-    async loadTraining() { await this.loadCollection('training_courses', 'training-list-container', 'training'); }
     
     async loadCollection(collectionName, containerId, typeName) {
         const container = document.getElementById(containerId);
@@ -820,20 +703,160 @@ class MoreMenuManager {
                 return;
             }
             
-            container.innerHTML = items.map(item => `
-                <div class="list-item" style="background: var(--light); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <div class="list-item-title" style="font-weight: 600;">${this.escapeHtml(item.title || item.name || item.company || item.school || item.position || 'Untitled')}</div>
-                    <div class="list-item-subtitle" style="font-size: 0.8rem; color: #666;">${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}</div>
-                    <div class="list-item-description" style="font-size: 0.75rem; color: #666; margin-top: 5px;">${this.escapeHtml((item.description || '').substring(0, 100))}...</div>
-                    <div class="list-item-date" style="font-size: 0.7rem; color: #999; margin-top: 5px;">Posted: ${this.formatDate(item.createdAt)}</div>
-                    ${item.email ? `<div class="list-item-contact" style="margin-top: 5px;"><i class="fas fa-envelope"></i> ${this.escapeHtml(item.email)}</div>` : ''}
-                </div>
-            `).join('');
+            container.innerHTML = items.map(item => {
+                const posterName = item.userName || item.name || item.company || item.school || item.organization || item.provider || 'Anonymous';
+                const posterInitial = posterName.charAt(0).toUpperCase();
+                const posterEmail = item.email || item.contactEmail || '';
+                const posterPhone = item.phone || item.contactPhone || '';
+                
+                return `
+                    <div class="list-item" style="background: var(--light); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                        <div class="poster-info" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div class="poster-avatar" style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.2rem;">
+                                ${this.escapeHtml(posterInitial)}
+                            </div>
+                            <div class="poster-details">
+                                <div class="poster-name" style="font-weight: 600; font-size: 0.9rem;">${this.escapeHtml(posterName)}</div>
+                                ${posterEmail ? `<div class="poster-email" style="font-size: 0.7rem; color: var(--grey-dark);"><i class="fas fa-envelope"></i> ${this.escapeHtml(posterEmail)}</div>` : ''}
+                                ${posterPhone ? `<div class="poster-phone" style="font-size: 0.7rem; color: var(--grey-dark);"><i class="fas fa-phone"></i> ${this.escapeHtml(posterPhone)}</div>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="list-item-title" style="font-weight: 600; font-size: 1rem; margin-bottom: 8px;">
+                            ${this.escapeHtml(item.title || item.name || item.company || item.school || item.position || 'Untitled')}
+                        </div>
+                        
+                        <div class="list-item-subtitle" style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">
+                            ${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}
+                        </div>
+                        
+                        <div class="list-item-description" style="font-size: 0.75rem; color: #666; margin-top: 5px;">
+                            ${this.escapeHtml((item.description || '').substring(0, 100))}${(item.description || '').length > 100 ? '...' : ''}
+                        </div>
+                        
+                        <div class="list-item-meta" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.7rem; color: var(--grey-dark);">
+                            ${item.duration ? `<span><i class="fas fa-clock"></i> ${this.escapeHtml(item.duration)}</span>` : ''}
+                            ${item.price ? `<span><i class="fas fa-money-bill-wave"></i> KES ${item.price}</span>` : ''}
+                            ${item.location ? `<span><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(item.location)}</span>` : ''}
+                        </div>
+                        
+                        <div class="list-item-date" style="font-size: 0.7rem; color: #999; margin-top: 5px;">
+                            Posted: ${this.formatDate(item.createdAt)}
+                        </div>
+                        
+                        <button class="btn btn-primary contact-poster-btn" 
+                            data-poster-id="${item.userId || ''}" 
+                            data-poster-name="${this.escapeHtml(posterName)}" 
+                            data-poster-email="${this.escapeHtml(posterEmail)}" 
+                            data-poster-phone="${this.escapeHtml(posterPhone)}" 
+                            data-item-title="${this.escapeHtml(item.title || item.name || item.company || '')}" 
+                            style="margin-top: 12px; width: 100%;">
+                            <i class="fas fa-comment"></i> Contact Poster
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            document.querySelectorAll(`#${containerId} .contact-poster-btn`).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const posterId = btn.getAttribute('data-poster-id');
+                    const posterName = btn.getAttribute('data-poster-name');
+                    const posterEmail = btn.getAttribute('data-poster-email');
+                    const posterPhone = btn.getAttribute('data-poster-phone');
+                    const itemTitle = btn.getAttribute('data-item-title');
+                    this.showContactPosterOptions(posterId, posterName, posterEmail, posterPhone, itemTitle);
+                });
+            });
+            
         } catch (error) {
             console.error(`Error loading ${collectionName}:`, error);
             container.innerHTML = `<div class="error-state">Error loading ${typeName}s</div>`;
         }
     }
+    
+    showContactPosterOptions(posterId, posterName, posterEmail, posterPhone, itemTitle) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to contact poster', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">Contact ${this.escapeHtml(posterName)}</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px;">
+                        <div style="font-weight: 600;">Regarding: ${this.escapeHtml(itemTitle)}</div>
+                    </div>
+                    
+                    <div class="contact-options" style="display: flex; flex-direction: column; gap: 10px;">
+                        ${posterPhone ? `
+                            <button class="contact-option-call btn btn-primary" data-phone="${this.escapeHtml(posterPhone)}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i class="fas fa-phone"></i> Call ${this.escapeHtml(posterPhone)}
+                            </button>
+                        ` : ''}
+                        
+                        ${posterEmail ? `
+                            <button class="contact-option-email btn btn-outline" data-email="${this.escapeHtml(posterEmail)}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i class="fas fa-envelope"></i> Send Email
+                            </button>
+                        ` : ''}
+                        
+                        ${posterId ? `
+                            <button class="contact-option-chat btn btn-outline" data-user-id="${posterId}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i class="fas fa-comments"></i> Send Message (In-App)
+                            </button>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn" style="width: 100%;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('contact-poster-modal', modalContent);
+        
+        setTimeout(() => {
+            const callBtn = document.querySelector('#contact-poster-modal .contact-option-call');
+            if (callBtn) {
+                callBtn.addEventListener('click', () => {
+                    const phone = callBtn.getAttribute('data-phone');
+                    if (phone) window.location.href = `tel:${phone}`;
+                    this.closeModal('contact-poster-modal');
+                });
+            }
+            
+            const emailBtn = document.querySelector('#contact-poster-modal .contact-option-email');
+            if (emailBtn) {
+                emailBtn.addEventListener('click', () => {
+                    const email = emailBtn.getAttribute('data-email');
+                    if (email) window.location.href = `mailto:${email}`;
+                    this.closeModal('contact-poster-modal');
+                });
+            }
+            
+            const chatBtn = document.querySelector('#contact-poster-modal .contact-option-chat');
+            if (chatBtn) {
+                chatBtn.addEventListener('click', () => {
+                    const userId = chatBtn.getAttribute('data-user-id');
+                    const initialMessage = `Hi, I'm interested in your post: ${itemTitle}`;
+                    this.startChatWithUser(userId, initialMessage);
+                    this.closeModal('contact-poster-modal');
+                });
+            }
+        }, 100);
+    }
+    
+    async loadTeachers() { await this.loadCollection('teachers', 'teachers-list-container', 'teacher'); }
+    async loadInternships() { await this.loadCollection('internships', 'internships-list-container', 'internship'); }
+    async loadAttachments() { await this.loadCollection('attachments', 'attachments-list-container', 'attachment'); }
+    async loadTraining() { await this.loadCollection('training_courses', 'training-list-container', 'training'); }
     
     async loadAlerts() {
         const container = document.getElementById('alerts-list-container');
@@ -853,7 +876,7 @@ class MoreMenuManager {
             }
             
             container.innerHTML = alerts.map(alert => `
-                <div class="alert-card" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <div class="alert-card" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'};">
                     <div class="alert-header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                         <div class="alert-title" style="font-weight: 600;">${this.escapeHtml(alert.title)}</div>
                         <div class="alert-time" style="font-size: 0.7rem; color: #999;">${this.formatDate(alert.createdAt)}</div>
@@ -861,14 +884,15 @@ class MoreMenuManager {
                     <div class="alert-content" style="font-size: 0.85rem; margin: 8px 0;">${this.escapeHtml(alert.description)}</div>
                     <div class="alert-location" style="font-size: 0.8rem;"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown')}</div>
                     ${alert.urgency === 'high' ? '<div class="alert-urgent" style="margin-top: 8px;"><span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">URGENT</span></div>' : ''}
-                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-alert-id="${alert.id}" data-reporter-id="${alert.userId}" style="margin-top: 10px;"><i class="fas fa-comment"></i> Contact Reporter</button>` : ''}
+                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-reporter-id="${alert.userId}" data-alert-title="${this.escapeHtml(alert.title)}" style="margin-top: 10px;"><i class="fas fa-comment"></i> Contact Reporter</button>` : ''}
                 </div>
             `).join('');
             
-            // Add contact reporter handlers
             document.querySelectorAll('.contact-reporter-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    this.startChatWithUser(btn.getAttribute('data-reporter-id'), 'Regarding your alert: ' + btn.closest('.alert-card')?.querySelector('.alert-title')?.innerText);
+                    const reporterId = btn.getAttribute('data-reporter-id');
+                    const alertTitle = btn.getAttribute('data-alert-title');
+                    this.startChatWithUser(reporterId, `Hi, I saw your alert: "${alertTitle}". Can you provide more details?`);
                 });
             });
         } catch (error) {
@@ -892,7 +916,7 @@ class MoreMenuManager {
             const snapshot = await this.db.collection('chats')
                 .where('participants', 'array-contains', this.currentUser.uid)
                 .orderBy('lastMessageAt', 'desc')
-                .limit(30)
+                .limit(50)
                 .get();
             
             const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -902,7 +926,6 @@ class MoreMenuManager {
                 return;
             }
             
-            // Get unread counts for each conversation
             const unreadCounts = {};
             for (const conv of conversations) {
                 const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
@@ -917,15 +940,17 @@ class MoreMenuManager {
                 const otherParticipant = conv.otherUserName || 'User';
                 const unreadCount = unreadCounts[conv.id] || 0;
                 const hasUnread = unreadCount > 0;
+                const lastMessage = conv.lastMessage || 'No messages';
+                const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
                 
                 return `
                     <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
-                        <div class="conversation-avatar" style="width: 50px; height: 50px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                            <i class="fas fa-user"></i>
+                        <div class="conversation-avatar" style="width: 50px; height: 50px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;">
+                            ${otherParticipant.charAt(0).toUpperCase()}
                         </div>
                         <div style="flex: 1;">
                             <div class="conversation-title" style="font-weight: 600;">${this.escapeHtml(otherParticipant)}</div>
-                            <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark);">${this.escapeHtml(conv.lastMessage || 'No messages')}</div>
+                            <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark);">${this.escapeHtml(lastMessagePreview)}</div>
                         </div>
                         <div style="text-align: right;">
                             <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(conv.lastMessageAt)}</div>
@@ -935,7 +960,6 @@ class MoreMenuManager {
                 `;
             }).join('');
             
-            // Add click handlers for conversations
             document.querySelectorAll('.conversation-item').forEach(item => {
                 item.addEventListener('click', () => {
                     this.openChat(item.getAttribute('data-chat-id'));
@@ -954,7 +978,6 @@ class MoreMenuManager {
     
     async loadChat(chatId) {
         try {
-            // Get chat details
             const chatDoc = await this.db.collection('chats').doc(chatId).get();
             if (!chatDoc.exists) {
                 this.showToast('Chat not found', 'error');
@@ -964,7 +987,6 @@ class MoreMenuManager {
             const chatData = chatDoc.data();
             const otherParticipantId = chatData.participants.find(p => p !== this.currentUser?.uid);
             
-            // Get other participant's info
             let otherParticipant = null;
             if (otherParticipantId) {
                 const userDoc = await this.db.collection('users').doc(otherParticipantId).get();
@@ -976,11 +998,7 @@ class MoreMenuManager {
             }
             
             this.showChatWindow(chatId, chatData, otherParticipant);
-            
-            // Mark messages as read
             await this.markMessagesAsRead(chatId);
-            
-            // Set up real-time listener
             this.setupChatListener(chatId);
             
         } catch (error) {
@@ -990,14 +1008,13 @@ class MoreMenuManager {
     }
     
     showChatWindow(chatId, chatData, otherParticipant) {
-        // Remove existing chat container if any
         const existingContainer = document.getElementById('chat-window-container');
         if (existingContainer) {
             existingContainer.remove();
         }
         
         const otherName = otherParticipant?.displayName || otherParticipant?.email || 'User';
-        const otherAvatar = otherParticipant?.displayName?.charAt(0) || 'U';
+        const otherAvatar = otherName.charAt(0).toUpperCase();
         
         const chatHTML = `
             <div id="chat-window-container" class="chat-container">
@@ -1032,7 +1049,6 @@ class MoreMenuManager {
         
         document.body.appendChild(this.createElementFromHTML(chatHTML));
         
-        // Setup event listeners
         setTimeout(() => {
             const input = document.getElementById('chat-message-input');
             const sendBtn = document.getElementById('chat-send-btn');
@@ -1046,13 +1062,11 @@ class MoreMenuManager {
                     }
                 });
                 
-                // Auto-resize textarea
                 input.addEventListener('input', function() {
                     this.style.height = 'auto';
                     this.style.height = Math.min(this.scrollHeight, 100) + 'px';
                 });
                 
-                // Typing indicator
                 let typingTimeout;
                 input.addEventListener('input', () => {
                     this.sendTypingIndicator(chatId, true);
@@ -1072,7 +1086,6 @@ class MoreMenuManager {
             }
         }, 100);
         
-        // Load messages
         this.loadChatMessages(chatId);
     }
     
@@ -1087,7 +1100,6 @@ class MoreMenuManager {
         if (container) {
             container.remove();
         }
-        // Remove chat listener
         if (this.currentChatUnsubscribe) {
             this.currentChatUnsubscribe();
             this.currentChatUnsubscribe = null;
@@ -1096,6 +1108,7 @@ class MoreMenuManager {
             this.typingUnsubscribe();
             this.typingUnsubscribe = null;
         }
+        this.firstMessageDoc = null;
     }
     
     async loadChatMessages(chatId, loadMore = false) {
@@ -1104,32 +1117,34 @@ class MoreMenuManager {
         
         try {
             let query = this.db.collection('chats').doc(chatId).collection('messages')
-                .orderBy('timestamp', 'desc')
-                .limit(50);
+                .orderBy('timestamp', 'asc');
             
-            if (loadMore && this.lastMessageDoc) {
-                query = query.startAfter(this.lastMessageDoc);
+            if (loadMore && this.firstMessageDoc) {
+                query = query.endBefore(this.firstMessageDoc);
             }
             
             const snapshot = await query.get();
             
             if (snapshot.empty && !loadMore) {
                 messagesContainer.innerHTML = `
-                    <div class="empty-state" style="text-align: center; padding: 40px;">
-                        <i class="fas fa-comments" style="font-size: 2rem;"></i>
+                    <div class="empty-chat" style="text-align: center; padding: 40px; color: var(--grey-dark);">
+                        <i class="fas fa-comments" style="font-size: 3rem; margin-bottom: 15px;"></i>
                         <p>No messages yet. Start the conversation!</p>
+                        <p style="font-size: 0.8rem;">You can send text, images, PDFs, and other files.</p>
                     </div>
                 `;
                 return;
             }
             
-            this.lastMessageDoc = snapshot.docs[snapshot.docs.length - 1];
-            const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).reverse();
+            const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (snapshot.docs.length > 0 && !loadMore) {
+                this.firstMessageDoc = snapshot.docs[0];
+            }
             
             if (!loadMore) {
                 messagesContainer.innerHTML = '';
             } else {
-                // Preserve scroll position when loading older messages
                 const oldScrollHeight = messagesContainer.scrollHeight;
                 const oldScrollTop = messagesContainer.scrollTop;
                 
@@ -1138,7 +1153,6 @@ class MoreMenuManager {
                     messagesContainer.insertBefore(msgElement, messagesContainer.firstChild);
                 });
                 
-                // Adjust scroll position
                 const newScrollHeight = messagesContainer.scrollHeight;
                 messagesContainer.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
                 return;
@@ -1148,11 +1162,9 @@ class MoreMenuManager {
                 messagesContainer.appendChild(this.createMessageElement(msg));
             });
             
-            // Scroll to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            this.scrollToBottom(messagesContainer);
             
-            // Add load more button if there are more messages
-            if (snapshot.docs.length === 50) {
+            if (snapshot.docs.length >= 50) {
                 let loadMoreBtn = document.getElementById('chat-load-more-btn');
                 if (!loadMoreBtn) {
                     loadMoreBtn = document.createElement('button');
@@ -1171,7 +1183,7 @@ class MoreMenuManager {
             
         } catch (error) {
             console.error('Error loading messages:', error);
-            messagesContainer.innerHTML = '<div class="error-state">Error loading messages</div>';
+            messagesContainer.innerHTML = '<div class="error-state" style="text-align: center; padding: 20px; color: var(--danger);">Error loading messages. Please try again.</div>';
         }
     }
     
@@ -1184,36 +1196,93 @@ class MoreMenuManager {
         
         let attachmentsHtml = '';
         if (message.attachments && message.attachments.length > 0) {
-            attachmentsHtml = message.attachments.map(att => {
-                if (att.type?.startsWith('image/')) {
-                    return `<div class="message-attachment" onclick="window.open('${att.url}', '_blank')">
-                        <img src="${att.url}" alt="${this.escapeHtml(att.name)}" style="max-width: 200px; max-height: 150px; border-radius: 12px; cursor: pointer;">
-                    </div>`;
-                } else {
-                    return `<div class="message-attachment file" onclick="window.open('${att.url}', '_blank')" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(0,0,0,0.1); border-radius: 8px; cursor: pointer;">
-                        <div class="attachment-icon"><i class="fas fa-file"></i></div>
-                        <div class="attachment-info" style="flex: 1;">
-                            <div class="attachment-name" style="font-size: 0.8rem; font-weight: 500;">${this.escapeHtml(att.name)}</div>
-                            <div class="attachment-size" style="font-size: 0.6rem; opacity: 0.7;">${this.formatFileSize(att.size)}</div>
+            attachmentsHtml = '<div class="message-attachments">';
+            for (const att of message.attachments) {
+                const isImage = att.type && att.type.startsWith('image/');
+                const fileSize = this.formatFileSize(att.size);
+                
+                if (isImage) {
+                    attachmentsHtml += `
+                        <div class="attachment-image" onclick="window.open('${att.url}', '_blank')" style="margin: 5px 0; cursor: pointer; display: inline-block;">
+                            <img src="${att.url}" alt="${this.escapeHtml(att.name)}" style="max-width: 200px; max-height: 150px; border-radius: 12px; object-fit: cover;">
+                            <div class="attachment-name" style="font-size: 0.7rem; text-align: center; margin-top: 4px;">${this.escapeHtml(att.name)}</div>
                         </div>
-                        <i class="fas fa-download"></i>
-                    </div>`;
+                    `;
+                } else {
+                    attachmentsHtml += `
+                        <div class="attachment-file" onclick="window.open('${att.url}', '_blank')" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(0,0,0,0.08); border-radius: 10px; margin: 5px 0; cursor: pointer;">
+                            <div class="file-icon" style="font-size: 1.5rem;">
+                                <i class="fas fa-file-${this.getFileIcon(att.name)}"></i>
+                            </div>
+                            <div class="file-info" style="flex: 1; overflow: hidden;">
+                                <div class="file-name" style="font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(att.name)}</div>
+                                <div class="file-size" style="font-size: 0.65rem; opacity: 0.7;">${fileSize}</div>
+                            </div>
+                            <div class="download-icon">
+                                <i class="fas fa-download"></i>
+                            </div>
+                        </div>
+                    `;
                 }
-            }).join('');
+            }
+            attachmentsHtml += '</div>';
         }
+        
+        const messageText = message.text ? `<div class="message-text">${this.escapeHtml(message.text)}</div>` : '';
+        const messageTime = this.formatChatTime(message.timestamp);
+        const statusIcon = isCurrentUser ? 
+            `<span class="message-status"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check'}"></i></span>` : '';
         
         div.innerHTML = `
             <div class="message-bubble">
                 ${attachmentsHtml}
-                ${message.text ? `<div class="message-text">${this.escapeHtml(message.text)}</div>` : ''}
-            </div>
-            <div class="message-time">
-                ${this.formatChatTime(message.timestamp)}
-                ${isCurrentUser ? `<span class="message-status"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check delivered'}"></i></span>` : ''}
+                ${messageText}
+                <div class="message-time-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 5px;">
+                    <span class="message-time" style="font-size: 0.65rem; opacity: 0.7;">${messageTime}</span>
+                    ${statusIcon}
+                </div>
             </div>
         `;
         
         return div;
+    }
+    
+    getFileIcon(filename) {
+        const extension = filename.split('.').pop()?.toLowerCase();
+        const iconMap = {
+            'pdf': 'pdf',
+            'doc': 'word',
+            'docx': 'word',
+            'xls': 'excel',
+            'xlsx': 'excel',
+            'ppt': 'powerpoint',
+            'pptx': 'powerpoint',
+            'txt': 'alt',
+            'zip': 'archive',
+            'rar': 'archive',
+            'mp3': 'audio',
+            'mp4': 'video',
+            'jpg': 'image',
+            'jpeg': 'image',
+            'png': 'image',
+            'gif': 'image'
+        };
+        return iconMap[extension] || 'paperclip';
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    scrollToBottom(container) {
+        if (!container) return;
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
     }
     
     async sendChatMessage(chatId) {
@@ -1222,7 +1291,6 @@ class MoreMenuManager {
         
         if (!message) return;
         
-        // Disable send button while sending
         const sendBtn = document.getElementById('chat-send-btn');
         if (sendBtn) {
             sendBtn.disabled = true;
@@ -1240,14 +1308,12 @@ class MoreMenuManager {
             
             await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
             
-            // Update chat last message
             await this.db.collection('chats').doc(chatId).update({
                 lastMessage: message,
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
                 lastMessageBy: this.currentUser.uid
             });
             
-            // Clear input
             input.value = '';
             input.style.height = 'auto';
             
@@ -1263,32 +1329,47 @@ class MoreMenuManager {
     }
     
     async uploadChatAttachment(chatId) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to upload files', 'warning');
+            return;
+        }
+        
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*,application/pdf,.doc,.docx,.txt';
+        input.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
         input.multiple = true;
         
         input.onchange = async (e) => {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
             
-            this.showToast('Uploading attachments...', 'info');
+            this.showToast(`Uploading ${files.length} file(s)...`, 'info');
             
             const attachments = [];
+            let successCount = 0;
+            
             for (const file of files) {
                 try {
+                    if (file.size > 10 * 1024 * 1024) {
+                        this.showToast(`${file.name} is too large (max 10MB)`, 'error');
+                        continue;
+                    }
+                    
                     const fileExtension = file.name.split('.').pop();
-                    const filename = `chat/${chatId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+                    const filename = `chat_attachments/${chatId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
                     const storageRef = firebase.storage().ref(filename);
-                    const snapshot = await storageRef.put(file);
-                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    
+                    await storageRef.put(file);
+                    const downloadURL = await storageRef.getDownloadURL();
                     
                     attachments.push({
                         name: file.name,
                         url: downloadURL,
                         type: file.type,
-                        size: file.size
+                        size: file.size,
+                        fileType: file.type.startsWith('image/') ? 'image' : 'file'
                     });
+                    successCount++;
                 } catch (error) {
                     console.error('Error uploading attachment:', error);
                     this.showToast(`Failed to upload ${file.name}`, 'error');
@@ -1306,13 +1387,18 @@ class MoreMenuManager {
                 
                 await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
                 
+                const attachmentText = attachments.length === 1 ? 
+                    `📎 ${attachments[0].name}` : 
+                    `📎 ${attachments.length} attachments`;
+                
                 await this.db.collection('chats').doc(chatId).update({
-                    lastMessage: `📎 ${attachments.length} attachment(s)`,
+                    lastMessage: attachmentText,
                     lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
                     lastMessageBy: this.currentUser.uid
                 });
                 
-                this.showToast(`${attachments.length} file(s) uploaded`, 'success');
+                this.showToast(`${successCount} file(s) uploaded successfully!`, 'success');
+                this.loadChatMessages(chatId);
             }
         };
         
@@ -1320,12 +1406,11 @@ class MoreMenuManager {
     }
     
     setupChatListener(chatId) {
-        // Remove existing listener
         if (this.currentChatUnsubscribe) {
             this.currentChatUnsubscribe();
+            this.currentChatUnsubscribe = null;
         }
         
-        // Listen for new messages
         this.currentChatUnsubscribe = this.db.collection('chats').doc(chatId).collection('messages')
             .orderBy('timestamp', 'asc')
             .onSnapshot((snapshot) => {
@@ -1334,7 +1419,6 @@ class MoreMenuManager {
                         const message = { id: change.doc.id, ...change.doc.data() };
                         this.appendNewMessage(message);
                         
-                        // Mark as read if not from current user
                         if (message.senderId !== this.currentUser?.uid && !message.read) {
                             this.markMessageAsRead(chatId, change.doc.id);
                         }
@@ -1344,8 +1428,10 @@ class MoreMenuManager {
                 console.error('Chat listener error:', error);
             });
         
-        // Listen for typing indicators
         const typingRef = this.db.collection('chats').doc(chatId).collection('typing').doc('status');
+        if (this.typingUnsubscribe) {
+            this.typingUnsubscribe();
+        }
         this.typingUnsubscribe = typingRef.onSnapshot((doc) => {
             const typingStatus = document.getElementById('chat-typing-status');
             if (typingStatus && doc.exists && doc.data().isTyping && doc.data().userId !== this.currentUser?.uid) {
@@ -1372,7 +1458,6 @@ class MoreMenuManager {
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        // Auto-reset after 3 seconds
         if (isTyping) {
             setTimeout(async () => {
                 const doc = await typingRef.get();
@@ -1405,24 +1490,20 @@ class MoreMenuManager {
     
     async markMessageAsRead(chatId, messageId) {
         if (!this.currentUser) return;
-        
-        await this.db.collection('chats').doc(chatId).collection('messages').doc(messageId).update({
-            read: true
-        });
+        await this.db.collection('chats').doc(chatId).collection('messages').doc(messageId).update({ read: true });
     }
     
     appendNewMessage(message) {
         const messagesContainer = document.getElementById('chat-messages-area');
         if (!messagesContainer) return;
         
-        // Remove empty state if present
-        if (messagesContainer.querySelector('.empty-state')) {
+        if (messagesContainer.querySelector('.empty-chat')) {
             messagesContainer.innerHTML = '';
         }
         
         const msgElement = this.createMessageElement(message);
         messagesContainer.appendChild(msgElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        this.scrollToBottom(messagesContainer);
     }
     
     formatChatTime(timestamp) {
@@ -1450,14 +1531,6 @@ class MoreMenuManager {
         }
     }
     
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-    
     async startNewChat() {
         if (!this.currentUser) {
             this.showToast('Please sign in to start a chat', 'warning');
@@ -1465,8 +1538,7 @@ class MoreMenuManager {
             return;
         }
         
-        // Get users from Firestore (exclude current user)
-        const usersSnapshot = await this.db.collection('users').limit(30).get();
+        const usersSnapshot = await this.db.collection('users').limit(50).get();
         const users = usersSnapshot.docs
             .filter(doc => doc.id !== this.currentUser.uid)
             .map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1520,7 +1592,6 @@ class MoreMenuManager {
                         return;
                     }
                     
-                    // Check if chat already exists
                     const existingChat = await this.db.collection('chats')
                         .where('participants', 'array-contains', this.currentUser.uid)
                         .get();
@@ -1544,7 +1615,6 @@ class MoreMenuManager {
                         chatRef = await this.db.collection('chats').add(chatData);
                     }
                     
-                    // Add the message
                     await chatRef.collection('messages').add({
                         senderId: this.currentUser.uid,
                         senderName: this.currentUser.displayName || this.currentUser.email,
@@ -1562,8 +1632,6 @@ class MoreMenuManager {
                     this.showToast('Chat started!', 'success');
                     this.closeModal('new-chat-modal');
                     await this.loadConversations();
-                    
-                    // Open the chat immediately
                     this.loadChat(chatRef.id);
                 });
             }
@@ -1577,7 +1645,6 @@ class MoreMenuManager {
             return;
         }
         
-        // Check if chat already exists
         const existingChat = await this.db.collection('chats')
             .where('participants', 'array-contains', this.currentUser.uid)
             .get();
@@ -1596,13 +1663,11 @@ class MoreMenuManager {
                 participants: [this.currentUser.uid, userId],
                 lastMessage: initialMessage,
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                otherUserName: null
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             chatRef = await this.db.collection('chats').add(chatData);
         }
         
-        // Add the message
         await chatRef.collection('messages').add({
             senderId: this.currentUser.uid,
             senderName: this.currentUser.displayName || this.currentUser.email,
@@ -1619,8 +1684,6 @@ class MoreMenuManager {
         
         this.showToast('Message sent!', 'success');
         await this.loadConversations();
-        
-        // Open the chat
         this.loadChat(chatRef.id);
     }
     
@@ -1764,7 +1827,6 @@ class MoreMenuManager {
     
     async submitRating(rating) {
         try {
-            // Save individual rating
             await this.db.collection('ratings').add({
                 userId: this.currentUser.uid,
                 userName: this.currentUser.displayName || this.currentUser.email,
@@ -1773,7 +1835,6 @@ class MoreMenuManager {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            // Update founder stats using transaction
             const founderRef = this.db.collection('system_settings').doc('founder');
             await this.db.runTransaction(async (transaction) => {
                 const founderDoc = await transaction.get(founderRef);
@@ -1794,7 +1855,6 @@ class MoreMenuManager {
             this.hasRated = true;
             this.showToast(`✨ Thanks! You've added ${rating} stars! ✨`, 'success');
             
-            // Refresh the settings display
             const settingsContent = document.getElementById('settings-content');
             if (settingsContent) {
                 const newSettingsHTML = await this.getSettingsHTML();
@@ -1841,7 +1901,7 @@ class MoreMenuManager {
                     
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-info-circle"></i> About the Founder</h4>
-                        <p style="font-size: 0.85rem;">Victor Wanyama is a passionate full-stack developer dedicated to creating solutions that empower local communities. VikeServe was built to connect service providers with customers in Kenya and across the World.</p>
+                        <p style="font-size: 0.85rem;">Victor Wanyama is a passionate full-stack developer dedicated to creating solutions that empower local communities.</p>
                     </div>
                     
                     <div style="background: var(--light); border-radius: 12px; padding: 15px;">
@@ -1861,112 +1921,14 @@ class MoreMenuManager {
         this.showModalWithContent('founder-profile-modal', modalContent);
     }
     
-    async showTermsPopup() {
-        const termsDoc = await this.db.collection('system_settings').doc('terms').get();
-        const termsContent = termsDoc.exists ? termsDoc.data().content : this.getDefaultTermsContent();
-        
-        const modalContent = `
-            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
-                <div class="modal-header">
-                    <div class="modal-title">Terms of Service</div>
-                    <button class="close-modal-btn">&times;</button>
-                </div>
-                <div style="padding: 15px; max-height: 60vh; overflow-y: auto;">
-                    ${termsContent}
-                </div>
-                <div class="form-actions" style="padding: 15px;">
-                    <button class="btn btn-primary close-modal-btn">I Understand</button>
-                </div>
-            </div>
-        `;
-        
-        this.showModalWithContent('terms-modal', modalContent);
-    }
-    
-    async showAdPromotionGuide() {
-        const packagesSnapshot = await this.db.collection('ad_packages').get();
-        const packages = packagesSnapshot.docs.map(doc => doc.data());
-        
-        const modalContent = `
-            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
-                <div class="modal-header">
-                    <div class="modal-title"><i class="fas fa-rocket"></i> How to Promote Your Ad</div>
-                    <button class="close-modal-btn">&times;</button>
-                </div>
-                <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <i class="fas fa-bullhorn" style="font-size: 3rem; color: var(--primary);"></i>
-                    </div>
-                    
-                    <h4 style="color: var(--primary); margin-bottom: 15px;">Step-by-Step Guide to Promote Your Ad</h4>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">1</div>
-                            <div><strong>Sign In to Your Account</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Click on the user profile icon and sign in with your email or Google account.</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">2</div>
-                            <div><strong>Go to "My Ads"</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Tap the user profile icon, then select <strong>"My Ads"</strong> from the menu.</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">3</div>
-                            <div><strong>Create Your First Ad</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">If you don't have any ads yet, click <strong>"Post New Ad"</strong> and fill in your product or service details.</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">4</div>
-                            <div><strong>Select Your Promotion Package</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Choose from our available packages:</p>
-                        <ul style="margin-left: 60px; color: #666; font-size: 0.85rem;">
-                            ${packages.map(pkg => `<li>⭐ <strong>${pkg.name} (${pkg.duration} days)</strong> - KES ${pkg.price}</li>`).join('')}
-                        </ul>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                            <div style="width: 30px; height: 30px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">✓</div>
-                            <div><strong>Complete Payment</strong></div>
-                        </div>
-                        <p style="margin-left: 42px; color: #666; font-size: 0.9rem;">Select M-Pesa, Airtel Money, Credit Card, or PayPal to complete payment.</p>
-                    </div>
-                    
-                    <div style="background: #e8f4fd; border-radius: 10px; padding: 15px; margin-top: 15px;">
-                        <i class="fas fa-lightbulb" style="color: var(--primary);"></i>
-                        <strong style="margin-left: 8px;">Pro Tip:</strong>
-                        <p style="margin-top: 8px; font-size: 0.85rem; color: #555;">Promoted ads appear at the top of search results and get up to 5x more views!</p>
-                    </div>
-                </div>
-                <div class="form-actions" style="padding: 15px;">
-                    <button class="btn btn-primary close-modal-btn" style="width: 100%;">Got it! ✓</button>
-                </div>
-            </div>
-        `;
-        
-        this.showModalWithContent('promotion-guide-modal', modalContent);
-    }
-    
     handleSettingsAction(action) {
         const actions = {
             'share': () => this.shareApp(),
             'rate': () => this.showRatingModal(),
             'portfolio': () => window.open('https://vike-store.netlify.app/', '_blank'),
-            'terms': () => this.showTermsPopup(),
+            'terms': () => this.showToast('Terms page coming soon', 'info'),
             'profile': () => {
                 if (typeof window.switchTab === 'function') window.switchTab('account-tab');
-                this.showToast('Edit your profile', 'info');
             }
         };
         if (actions[action]) actions[action]();
@@ -1996,7 +1958,6 @@ class MoreMenuManager {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'none';
-            // Remove modal from DOM after closing to prevent memory leaks
             setTimeout(() => {
                 if (modal.parentNode && modal.style.display === 'none') {
                     modal.remove();
@@ -2015,26 +1976,7 @@ class MoreMenuManager {
         }
     }
     
-    showLanguageSelector() {
-        const languages = ['English', 'Kiswahili', 'French'];
-        let modalContent = `<div class="modal-content" style="z-index: 20002;"><div class="modal-header"><div class="modal-title">Select Language</div><button class="close-modal-btn">&times;</button></div><div class="language-list">`;
-        languages.forEach(lang => {
-            modalContent += `<div class="language-option" data-lang="${lang}" style="padding: 12px; cursor: pointer; border-bottom: 1px solid var(--grey);">${lang}</div>`;
-        });
-        modalContent += `</div></div>`;
-        
-        this.showModalWithContent('language-modal', modalContent);
-        
-        document.querySelectorAll('.language-option').forEach(opt => {
-            opt.addEventListener('click', () => {
-                this.showToast(`Language changed to ${opt.getAttribute('data-lang')}`, 'success');
-                this.closeModal('language-modal');
-            });
-        });
-    }
-    
     showModalWithContent(modalId, content) {
-        // Remove existing modal if it exists
         const existingModal = document.getElementById(modalId);
         if (existingModal) {
             existingModal.remove();
@@ -2055,7 +1997,6 @@ class MoreMenuManager {
         modal.style.overflowY = 'auto';
         document.body.appendChild(modal);
         
-        // Close modal when clicking outside
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeModal(modalId);
@@ -2063,7 +2004,7 @@ class MoreMenuManager {
         });
     }
     
-        shareApp() {
+    shareApp() {
         if (navigator.share) {
             navigator.share({ title: 'VikeServe', text: 'Check out VikeServe app!', url: 'https://vikeserve.com' });
         } else {
@@ -2073,7 +2014,6 @@ class MoreMenuManager {
     }
     
     onMenuOpen() {
-        // Refresh data when More menu is opened
         if (this.currentMoreTab === 'messages') {
             this.loadConversations();
         } else if (this.currentMoreTab === 'alerts') {
@@ -2087,7 +2027,6 @@ class MoreMenuManager {
     }
     
     onMenuClose() {
-        // Clean up chat listener when menu closes
         if (this.currentChatUnsubscribe) {
             this.currentChatUnsubscribe();
             this.currentChatUnsubscribe = null;
@@ -2096,6 +2035,7 @@ class MoreMenuManager {
             this.typingUnsubscribe();
             this.typingUnsubscribe = null;
         }
+        this.firstMessageDoc = null;
     }
     
     showToast(message, type = 'info') {
@@ -2138,8 +2078,7 @@ class MoreMenuManager {
     }
 }
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
-    console.log('✅ More Menu Manager fully loaded with Firestore integration');
+    console.log('✅ More Menu Manager fully loaded with Firestore and working chat');
 });

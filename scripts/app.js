@@ -33,14 +33,38 @@
         return { country: '', state: '', city: '', fullAddress: '' };
     };
     
-    window.showToast = window.showToast || function(msg, type) {
-        console.log(`${type}: ${msg}`);
-        setTimeout(() => {
-            if (typeof window._realShowToast === 'function') {
-                window._realShowToast(msg, type);
-            }
-        }, 100);
-    };
+    window.showToast = window.showToast || function(msg, type, duration = 3000) {
+    console.log(`${type}: ${msg}`);
+    
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+    
+    if (window._toastTimeout) clearTimeout(window._toastTimeout);
+    
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    else if (type === 'error') icon = 'fa-exclamation-circle';
+    else if (type === 'warning') icon = 'fa-exclamation-triangle';
+    
+    toast.innerHTML = `<i class="fas ${icon}"></i><div class="toast-message">${msg}</div>`;
+    toast.className = `toast toast-${type}`;
+    toast.classList.add('show');
+    
+    window._toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, duration);
+    
+    setTimeout(() => {
+        if (typeof window._realShowToast === 'function') {
+            window._realShowToast(msg, type);
+        }
+    }, 100);
+};
 })();
 
 class VikeServeApp {
