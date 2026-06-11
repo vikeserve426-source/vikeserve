@@ -1,7 +1,5 @@
 // more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
-// Issues fixed: Firebase integration, message tab, ratings, announcements, validation, FULL CHAT SYSTEM
-// NEW FIXES: Settings tab [object Promise] fixed, Firestore saving fixed
-// UPDATED: File attachments working, messages displaying properly, real-time chat
+// FIXES: Alert sender avatars, Reply with tagging, Report alerts, Chat display fix
 
 class MoreMenuManager {
     constructor() {
@@ -499,7 +497,6 @@ class MoreMenuManager {
             }
         });
         
-        // Search functionality for messages
         const searchInput = document.getElementById('message-search-input');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
@@ -875,33 +872,248 @@ class MoreMenuManager {
                 return;
             }
             
-            container.innerHTML = alerts.map(alert => `
-                <div class="alert-card" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'};">
-                    <div class="alert-header" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <div class="alert-title" style="font-weight: 600;">${this.escapeHtml(alert.title)}</div>
-                        <div class="alert-time" style="font-size: 0.7rem; color: #999;">${this.formatDate(alert.createdAt)}</div>
+            container.innerHTML = alerts.map(alert => {
+                // Get alert poster info
+                const posterName = alert.userName || 'Anonymous User';
+                const posterInitial = posterName.charAt(0).toUpperCase();
+                const isOwnAlert = this.currentUser && alert.userId === this.currentUser.uid;
+                
+                return `
+                    <div class="alert-card" data-alert-id="${alert.id}" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'};">
+                        <!-- Alert Poster Info -->
+                        <div class="alert-poster-info" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div class="poster-avatar" style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.2rem;">
+                                ${this.escapeHtml(posterInitial)}
+                            </div>
+                            <div class="poster-details">
+                                <div class="poster-name" style="font-weight: 600; font-size: 0.9rem;">${this.escapeHtml(posterName)}</div>
+                                <div class="poster-time" style="font-size: 0.7rem; color: var(--grey-dark);">
+                                    <i class="fas fa-clock"></i> ${this.formatDate(alert.createdAt)}
+                                </div>
+                            </div>
+                            ${alert.type === 'emergency' ? '<span style="margin-left: auto; background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem;">EMERGENCY</span>' : ''}
+                        </div>
+                        
+                        <div class="alert-title" style="font-weight: 600; font-size: 1rem; margin-bottom: 8px;">
+                            <i class="fas ${alert.type === 'emergency' ? 'fa-skull-crossbones' : alert.type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+                            ${this.escapeHtml(alert.title)}
+                        </div>
+                        
+                        <div class="alert-content" style="font-size: 0.85rem; margin: 8px 0; color: var(--dark);">
+                            ${this.escapeHtml(alert.description)}
+                        </div>
+                        
+                        <div class="alert-location" style="font-size: 0.75rem; margin-bottom: 12px;">
+                            <i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown location')}
+                        </div>
+                        
+                        <div class="alert-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${this.currentUser && !isOwnAlert ? `
+                                <button class="btn btn-sm btn-primary reply-to-alert-btn" data-reporter-id="${alert.userId}" data-alert-title="${this.escapeHtml(alert.title)}" data-alert-id="${alert.id}" style="flex: 1; padding: 8px;">
+                                    <i class="fas fa-reply"></i> Reply
+                                </button>
+                                <button class="btn btn-sm btn-outline report-alert-btn" data-alert-id="${alert.id}" data-alert-title="${this.escapeHtml(alert.title)}" style="flex: 1; padding: 8px;">
+                                    <i class="fas fa-flag"></i> Report
+                                </button>
+                            ` : ''}
+                            ${!this.currentUser ? `
+                                <button class="btn btn-sm btn-primary signin-to-reply-btn" style="flex: 1; padding: 8px;">
+                                    <i class="fas fa-sign-in-alt"></i> Sign in to Reply
+                                </button>
+                            ` : ''}
+                            ${isOwnAlert ? `
+                                <button class="btn btn-sm btn-outline delete-alert-btn" data-alert-id="${alert.id}" style="flex: 1; padding: 8px;">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
-                    <div class="alert-content" style="font-size: 0.85rem; margin: 8px 0;">${this.escapeHtml(alert.description)}</div>
-                    <div class="alert-location" style="font-size: 0.8rem;"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown')}</div>
-                    ${alert.urgency === 'high' ? '<div class="alert-urgent" style="margin-top: 8px;"><span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">URGENT</span></div>' : ''}
-                    ${this.currentUser ? `<button class="btn btn-sm btn-outline contact-reporter-btn" data-reporter-id="${alert.userId}" data-alert-title="${this.escapeHtml(alert.title)}" style="margin-top: 10px;"><i class="fas fa-comment"></i> Contact Reporter</button>` : ''}
-                </div>
-            `).join('');
+                `;
+            }).join('');
             
-            document.querySelectorAll('.contact-reporter-btn').forEach(btn => {
+            // Add event listeners for Reply buttons
+            document.querySelectorAll('.reply-to-alert-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const reporterId = btn.getAttribute('data-reporter-id');
                     const alertTitle = btn.getAttribute('data-alert-title');
-                    this.startChatWithUser(reporterId, `Hi, I saw your alert: "${alertTitle}". Can you provide more details?`);
+                    const alertId = btn.getAttribute('data-alert-id');
+                    this.replyToAlert(reporterId, alertTitle, alertId);
                 });
             });
+            
+            // Add event listeners for Report buttons
+            document.querySelectorAll('.report-alert-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const alertId = btn.getAttribute('data-alert-id');
+                    const alertTitle = btn.getAttribute('data-alert-title');
+                    this.reportAlertToAdmin(alertId, alertTitle);
+                });
+            });
+            
+            // Add event listeners for Delete buttons
+            document.querySelectorAll('.delete-alert-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const alertId = btn.getAttribute('data-alert-id');
+                    if (confirm('Are you sure you want to delete this alert?')) {
+                        await this.db.collection('community_alerts').doc(alertId).delete();
+                        this.showToast('Alert deleted', 'success');
+                        this.loadAlerts();
+                    }
+                });
+            });
+            
+            // Sign in button
+            document.querySelectorAll('.signin-to-reply-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
+                });
+            });
+            
         } catch (error) {
             console.error('Error loading alerts:', error);
             container.innerHTML = '<div class="error-state">Error loading alerts</div>';
         }
     }
     
-    // ========== ENHANCED CHAT IMPLEMENTATION ==========
+    async replyToAlert(reporterId, alertTitle, alertId) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to reply', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        const replyMessage = `Regarding your alert: "${alertTitle}"\n\n`;
+        
+        // Pre-fill the chat message with the alert reference
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">Reply to Alert</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px;">
+                        <div style="font-weight: 600;">Alert: ${this.escapeHtml(alertTitle)}</div>
+                        <div style="font-size: 0.8rem; color: var(--grey-dark);">Your reply will be sent as a direct message.</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Your Message</label>
+                        <textarea id="reply-message" class="form-input" rows="4" placeholder="Type your reply here...">${this.escapeHtml(replyMessage)}</textarea>
+                    </div>
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="send-reply-btn">Send Reply</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('reply-modal', modalContent);
+        
+        setTimeout(() => {
+            const sendBtn = document.getElementById('send-reply-btn');
+            if (sendBtn) {
+                sendBtn.addEventListener('click', async () => {
+                    const message = document.getElementById('reply-message')?.value;
+                    if (!message) {
+                        this.showToast('Please enter a message', 'error');
+                        return;
+                    }
+                    
+                    await this.startChatWithUser(reporterId, message);
+                    this.closeModal('reply-modal');
+                    this.showToast('Reply sent!', 'success');
+                });
+            }
+        }, 100);
+    }
+    
+    async reportAlertToAdmin(alertId, alertTitle) {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to report', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">Report Alert</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px;">
+                        <div style="font-weight: 600;">Alert: ${this.escapeHtml(alertTitle)}</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Reason for Report *</label>
+                        <select id="report-reason" class="form-input" required>
+                            <option value="">Select reason</option>
+                            <option value="spam">Spam or misleading</option>
+                            <option value="false_info">False information</option>
+                            <option value="harassment">Harassment or abuse</option>
+                            <option value="dangerous">Dangerous content</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Additional Details</label>
+                        <textarea id="report-details" class="form-input" rows="3" placeholder="Provide more information..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-danger" id="submit-report-btn">Submit Report</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('report-modal', modalContent);
+        
+        setTimeout(() => {
+            const submitBtn = document.getElementById('submit-report-btn');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async () => {
+                    const reason = document.getElementById('report-reason')?.value;
+                    const details = document.getElementById('report-details')?.value;
+                    
+                    if (!reason) {
+                        this.showToast('Please select a reason', 'error');
+                        return;
+                    }
+                    
+                    // Send report to admin/founder
+                    const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+                    const founderEmail = founderDoc.exists ? founderDoc.data().email : 'vikeserve426@gmail.com';
+                    
+                    // Save report to Firestore
+                    await this.db.collection('alert_reports').add({
+                        alertId: alertId,
+                        alertTitle: alertTitle,
+                        reporterId: this.currentUser.uid,
+                        reporterName: this.currentUser.displayName || this.currentUser.email,
+                        reason: reason,
+                        details: details,
+                        reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: 'pending'
+                    });
+                    
+                    // Also send email notification (via console log for now)
+                    console.log('Alert reported:', { alertTitle, reason, details, reporter: this.currentUser.email });
+                    
+                    this.showToast('Report submitted to admin. Thank you!', 'success');
+                    this.closeModal('report-modal');
+                });
+            }
+        }, 100);
+    }
+    
+    // ========== ENHANCED CHAT IMPLEMENTATION WITH FIXED DISPLAY ==========
     
     async loadConversations() {
         const container = document.getElementById('conversations-list-container');
@@ -1192,11 +1404,11 @@ class MoreMenuManager {
         const isSystem = message.senderId === 'system';
         
         const div = document.createElement('div');
-        div.className = `chat-message ${isSystem ? 'system' : (isCurrentUser ? 'sent' : 'received')}`;
+        div.className = `chat-message ${isSystem ? 'chat-message-system' : (isCurrentUser ? 'chat-message-sent' : 'chat-message-received')}`;
         
         let attachmentsHtml = '';
         if (message.attachments && message.attachments.length > 0) {
-            attachmentsHtml = '<div class="message-attachments">';
+            attachmentsHtml = '<div class="message-attachments" style="margin-bottom: 8px;">';
             for (const att of message.attachments) {
                 const isImage = att.type && att.type.startsWith('image/');
                 const fileSize = this.formatFileSize(att.size);
@@ -1228,13 +1440,13 @@ class MoreMenuManager {
             attachmentsHtml += '</div>';
         }
         
-        const messageText = message.text ? `<div class="message-text">${this.escapeHtml(message.text)}</div>` : '';
+        const messageText = message.text ? `<div class="message-text" style="word-wrap: break-word;">${this.escapeHtml(message.text)}</div>` : '';
         const messageTime = this.formatChatTime(message.timestamp);
         const statusIcon = isCurrentUser ? 
-            `<span class="message-status"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check'}"></i></span>` : '';
+            `<span class="message-status" style="margin-left: 5px;"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check'}"></i></span>` : '';
         
         div.innerHTML = `
-            <div class="message-bubble">
+            <div class="message-bubble" style="padding: 10px 14px; border-radius: 18px; max-width: 100%; word-wrap: break-word;">
                 ${attachmentsHtml}
                 ${messageText}
                 <div class="message-time-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 5px;">
