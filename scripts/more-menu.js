@@ -302,89 +302,117 @@ class MoreMenuManager {
     }
     
     async getSettingsHTML() {
-        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-        const founder = founderDoc.exists ? founderDoc.data() : { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0 };
+    const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+    const founder = founderDoc.exists ? founderDoc.data() : { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0, portfolioUrl: 'https://vike-store.netlify.app/' };
+    
+    return `
+        <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
         
-        return `
-            <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-palette"></i> App Preferences</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: #666;">Switch between light and dark theme</div></div>
-                    <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
+        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-palette"></i> App Preferences</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
+                <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: #666;">Switch between light and dark theme</div></div>
+                <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: #666;">Receive push notifications</div></div>
+                <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
+            </div>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-crown" style="font-size: 2rem;"></i>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
-                    <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: #666;">Receive push notifications</div></div>
-                    <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
+                <div>
+                    <h3 style="margin: 0;">${this.escapeHtml(founder.name)}</h3>
+                    <p style="margin: 0; opacity: 0.9;">Founder & Lead Developer</p>
                 </div>
             </div>
             
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-crown" style="font-size: 2rem;"></i>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0;">${this.escapeHtml(founder.name)}</h3>
-                        <p style="margin: 0; opacity: 0.9;">Founder & Lead Developer</p>
-                    </div>
-                </div>
-                
-                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
-                    <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
-                    <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Earned ⭐</div>
-                    <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
-                    <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
-                    <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}><i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate Founder'}</button>
-                    <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;"><i class="fas fa-user-circle"></i> View Profile</button>
-                </div>
+            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
+                <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Earned ⭐</div>
+                <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
+                <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
+                <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
             </div>
             
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
-                <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>How do I post a service?</strong>
-                        <i class="fas fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        Go to Services tab, click "List Your Service", fill in the details, and submit.
-                    </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}><i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate Founder'}</button>
+                <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;"><i class="fas fa-user-circle"></i> View Profile</button>
+            </div>
+        </div>
+        
+        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
+            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                    <strong>How do I post a service?</strong>
+                    <i class="fas fa-chevron-down faq-icon"></i>
                 </div>
-                <div class="faq-item">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                        <strong>Is my payment secure?</strong>
-                        <i class="fas fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                        Yes! All transactions are encrypted and secure.
-                    </div>
+                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
+                    Go to Services tab, click "List Your Service", fill in the details, and submit.
                 </div>
             </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
-                <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends</div></div>
-                    <i class="fas fa-chevron-right"></i>
+            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                    <strong>How do I promote my ad?</strong>
+                    <i class="fas fa-chevron-down faq-icon"></i>
                 </div>
-                <div class="support-option" data-action="rate" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>Rate Our App</strong><div style="font-size: 0.8rem; color: #666;">Share your feedback</div></div>
-                    <i class="fas fa-chevron-right"></i>
+                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
+                    Go to your ad, click "Promote", select a package, choose payment method, and complete payment.
                 </div>
             </div>
-            
-            <div style="text-align: center; margin-top: 20px; padding: 15px; color: #999;">
-                <div>VikeServe v1.0.0</div>
-                <div>© 2026 VikeServe Ltd.</div>
+            <div class="faq-item">
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                    <strong>Is my payment secure?</strong>
+                    <i class="fas fa-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
+                    Yes! All transactions are encrypted and processed securely through IntaSend.
+                </div>
             </div>
-        `;
-    }
+        </div>
+        
+        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-link"></i> Quick Links</h4>
+            <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
+                <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: #666;">Victor Wanyama - Web Developer</div></div>
+                <i class="fas fa-external-link-alt"></i>
+            </div>
+            <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
+                <div><strong>Terms & Conditions</strong><div style="font-size: 0.8rem; color: #666;">App usage guidelines</div></div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="support-option" data-action="privacy" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                <div><strong>Privacy Policy</strong><div style="font-size: 0.8rem; color: #666;">How we protect your data</div></div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </div>
+        
+        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
+            <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
+                <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends to the app</div></div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="support-option" data-action="rate" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                <div><strong>Rate Our App</strong><div style="font-size: 0.8rem; color: #666;">Share your feedback with us</div></div>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; padding: 15px; color: #999;">
+            <div>VikeServe v1.0.0</div>
+            <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
+            <div style="font-size: 0.7rem; margin-top: 8px;">
+                <a href="https://vikeserve.pages.dev/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+            </div>
+        </div>
+    `;
+}
     
     generateStarRatingHTML(rating) {
         const fullStars = Math.floor(rating);
@@ -2145,18 +2173,135 @@ async startChatWithUser(userId, initialMessage) {
     }
     
     handleSettingsAction(action) {
-        const actions = {
-            'share': () => this.shareApp(),
-            'rate': () => this.showRatingModal(),
-            'portfolio': () => window.open('https://vike-store.netlify.app/', '_blank'),
-            'terms': () => this.showToast('Terms page coming soon', 'info'),
-            'profile': () => {
-                if (typeof window.switchTab === 'function') window.switchTab('account-tab');
+    const actions = {
+        'share': () => this.shareApp(),
+        'rate': () => this.showRatingModal(),
+        'portfolio': () => {
+            window.open('https://vike-store.netlify.app/', '_blank');
+        },
+        'terms': () => this.showTermsPopup(),
+        'privacy': () => this.showPrivacyPolicy(),
+        'profile': () => {
+            if (typeof window.switchTab === 'function') window.switchTab('account-tab');
+        }
+    };
+    if (actions[action]) actions[action]();
+    else this.showToast('Feature coming soon', 'info');
+}
+
+async showTermsPopup() {
+    try {
+        const termsDoc = await this.db.collection('system_settings').doc('terms').get();
+        let termsContent = '';
+        
+        if (termsDoc.exists) {
+            termsContent = termsDoc.data().content;
+        } else {
+            termsContent = `
+                <h4>1. Acceptance of Terms</h4>
+                <p>By using VikeServe, you agree to these terms and conditions.</p>
+                
+                <h4>2. User Responsibilities</h4>
+                <p>You are responsible for the accuracy of information you provide and for your interactions with other users.</p>
+                
+                <h4>3. Prohibited Activities</h4>
+                <p>You may not post false information, spam, or engage in fraudulent activities.</p>
+                
+                <h4>4. Payments and Fees</h4>
+                <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
+                
+                <h4>5. Intellectual Property</h4>
+                <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
+                
+                <h4>6. Limitation of Liability</h4>
+                <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
+                
+                <h4>7. Termination</h4>
+                <p>We reserve the right to suspend accounts that violate these terms.</p>
+                
+                <h4>8. Changes to Terms</h4>
+                <p>We may update terms. Continued use means acceptance of changes.</p>
+                
+                <h4>9. Contact</h4>
+                <p>For questions, contact vikeserve426@gmail.com</p>
+            `;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; z-index: 20002;">
+                <div class="modal-header">
+                    <div class="modal-title">Terms of Service</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 15px; max-height: 60vh; overflow-y: auto;">
+                    ${termsContent}
+                </div>
+                <div class="form-actions" style="padding: 15px;">
+                    <button class="btn btn-primary close-modal-btn" style="width: 100%;">I Understand</button>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('terms-modal', modalContent);
+        
+        setTimeout(() => {
+            const understandBtn = document.querySelector('#terms-modal .close-modal-btn');
+            if (understandBtn) {
+                understandBtn.addEventListener('click', () => {
+                    this.closeModal('terms-modal');
+                });
             }
-        };
-        if (actions[action]) actions[action]();
-        else this.showToast('Feature coming soon', 'info');
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading terms:', error);
+        this.showToast('Unable to load terms. Please try again.', 'error');
     }
+}
+
+showPrivacyPolicy() {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 500px; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title">Privacy Policy</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 15px; max-height: 60vh; overflow-y: auto;">
+                <h4>Information We Collect</h4>
+                <p>We collect your name, email, phone number, location, and usage data to provide better services.</p>
+                
+                <h4>How We Use Your Information</h4>
+                <p>We use your information to connect you with service providers, process payments, and improve our app.</p>
+                
+                <h4>Data Security</h4>
+                <p>We use encryption and secure servers to protect your data. Your payment information is processed securely through IntaSend.</p>
+                
+                <h4>Third-Party Services</h4>
+                <p>We use Firebase for database and authentication, and IntaSend for payment processing.</p>
+                
+                <h4>Your Rights</h4>
+                <p>You can request to view, update, or delete your personal data by contacting us.</p>
+                
+                <h4>Contact Us</h4>
+                <p>For privacy questions, contact vikeserve426@gmail.com</p>
+            </div>
+            <div class="form-actions" style="padding: 15px;">
+                <button class="btn btn-primary close-modal-btn" style="width: 100%;">I Understand</button>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('privacy-modal', modalContent);
+    
+    setTimeout(() => {
+        const understandBtn = document.querySelector('#privacy-modal .close-modal-btn');
+        if (understandBtn) {
+            understandBtn.addEventListener('click', () => {
+                this.closeModal('privacy-modal');
+            });
+        }
+    }, 100);
+}
     
     async loadDataFromFirestore() {
         await Promise.all([
@@ -2228,13 +2373,18 @@ async startChatWithUser(userId, initialMessage) {
     }
     
     shareApp() {
-        if (navigator.share) {
-            navigator.share({ title: 'VikeServe', text: 'Check out VikeServe app!', url: 'https://vikeserve.com' });
-        } else {
-            navigator.clipboard.writeText('Check out VikeServe app!');
-            this.showToast('Link copied!', 'success');
-        }
+    const appUrl = 'https://vikeserve.pages.dev/';
+    if (navigator.share) {
+        navigator.share({
+            title: 'VikeServe',
+            text: 'Check out VikeServe app - your complete daily needs super app!',
+            url: appUrl
+        });
+    } else {
+        navigator.clipboard.writeText(appUrl);
+        this.showToast('Link copied! Share it with your friends.', 'success');
     }
+}
     
     onMenuOpen() {
         if (this.currentMoreTab === 'messages') {
