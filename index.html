@@ -641,6 +641,125 @@
             transition: all 0.3s;
         }
         .image-upload-area:hover { border-color: var(--primary); background: rgba(46, 134, 222, 0.05); }
+
+/* Payment Modal - Compact Mobile Styles */
+#ad-packages-full-modal .modal-content {
+    max-width: 480px !important;
+    width: 95% !important;
+    margin: 10px auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    border-radius: 20px !important;
+    padding: 0 !important;
+}
+
+#ad-packages-full-modal .modal-header {
+    position: sticky !important;
+    top: 0 !important;
+    background: white !important;
+    z-index: 10 !important;
+    padding: 12px 15px !important;
+    margin-bottom: 0 !important;
+}
+
+[data-theme="dark"] #ad-packages-full-modal .modal-header {
+    background: #2d333b !important;
+}
+
+#ad-packages-full-modal .promotion-steps {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    margin-bottom: 15px !important;
+    padding: 10px 0 !important;
+}
+
+#ad-packages-full-modal .step {
+    flex: 1 !important;
+    min-width: 50px !important;
+    font-size: 0.6rem !important;
+}
+
+#ad-packages-full-modal .step div:first-child {
+    width: 25px !important;
+    height: 25px !important;
+    font-size: 0.7rem !important;
+}
+
+#ad-packages-full-modal .packages-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+}
+
+#ad-packages-full-modal .package-card {
+    padding: 8px !important;
+    margin: 0 !important;
+}
+
+#ad-packages-full-modal .package-card div[style*="font-size: 1.5rem"] {
+    font-size: 1.1rem !important;
+}
+
+#ad-packages-full-modal .action-options {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+}
+
+#ad-packages-full-modal .action-option {
+    padding: 8px !important;
+    font-size: 0.7rem !important;
+}
+
+#ad-packages-full-modal .payment-methods-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+}
+
+#ad-packages-full-modal .payment-method {
+    padding: 8px !important;
+    font-size: 0.7rem !important;
+}
+
+#ad-packages-full-modal .form-group {
+    margin-bottom: 10px !important;
+}
+
+#ad-packages-full-modal .form-input {
+    padding: 8px 10px !important;
+    font-size: 0.85rem !important;
+}
+
+#ad-packages-full-modal .btn {
+    padding: 8px !important;
+    font-size: 0.8rem !important;
+}
+
+#ad-packages-full-modal h3 {
+    font-size: 0.9rem !important;
+    margin-bottom: 10px !important;
+}
+
+#ad-packages-full-modal #payment-summary {
+    padding: 10px !important;
+    margin-bottom: 12px !important;
+    font-size: 0.8rem !important;
+}
+
+@media (max-width: 480px) {
+    #ad-packages-full-modal .packages-grid,
+    #ad-packages-full-modal .action-options,
+    #ad-packages-full-modal .payment-methods-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    #ad-packages-full-modal .form-row {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+}
     </style>
 </head>
 <body>
