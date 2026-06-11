@@ -204,20 +204,21 @@ class MoreMenuManager {
     }
     
     getMessagesHTML() {
-        return `
-            <div class="section-title"><i class="fas fa-comments"></i> Messages</div>
+    return `
+        <div class="messages-container" style="display: flex; flex-direction: column; height: 100%; min-height: 500px;">
             <div class="search-bar" style="margin-bottom: 15px;">
                 <i class="fas fa-search search-icon"></i>
                 <input type="text" id="message-search-input" class="search-input" placeholder="Search conversations...">
             </div>
-            <div id="conversations-list-container">
+            <div id="conversations-list-container" style="flex: 1; overflow-y: auto;">
                 <div class="loading-spinner">Loading conversations...</div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
                 <button class="new-chat-btn btn btn-primary" style="width: auto; padding: 10px 24px;"><i class="fas fa-plus"></i> Start New Chat</button>
             </div>
-        `;
-    }
+        </div>
+    `;
+}
     
     getSafetyHTML() {
         return `
@@ -1220,86 +1221,105 @@ class MoreMenuManager {
     }
     
     showChatWindow(chatId, chatData, otherParticipant) {
-        const existingContainer = document.getElementById('chat-window-container');
-        if (existingContainer) {
-            existingContainer.remove();
+    // Remove existing chat container if any
+    const existingContainer = document.getElementById('chat-window-container');
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+    
+    // Hide conversations list and show chat
+    const conversationsContainer = document.getElementById('conversations-list-container');
+    const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
+    const searchBar = document.querySelector('#messages-content .search-bar');
+    
+    if (conversationsContainer) conversationsContainer.style.display = 'none';
+    if (newChatBtn) newChatBtn.style.display = 'none';
+    if (searchBar) searchBar.style.display = 'none';
+    
+    const otherName = otherParticipant?.displayName || otherParticipant?.email || 'User';
+    const otherAvatar = otherName.charAt(0).toUpperCase();
+    
+    const chatHTML = `
+        <div id="chat-window-container" style="display: flex; flex-direction: column; height: 100%; min-height: 500px; background: white; border-radius: 12px; overflow: hidden;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--primary); color: white;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${this.escapeHtml(otherAvatar)}</div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1rem;">${this.escapeHtml(otherName)}</h3>
+                        <p id="chat-typing-status" style="font-size: 0.7rem; opacity: 0.8; margin: 0;"></p>
+                    </div>
+                </div>
+                <button id="chat-back-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            
+            <div id="chat-messages-area" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--light);">
+                <div class="loading-spinner">Loading messages...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: white; border-top: 1px solid var(--grey);">
+                <button id="chat-attach-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--grey-dark); padding: 8px;">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <textarea id="chat-message-input" placeholder="Type a message..." rows="1" style="flex: 1; border: 1px solid var(--grey); border-radius: 20px; padding: 10px 15px; resize: none; font-family: inherit; font-size: 0.9rem; background: var(--light); color: var(--dark);"></textarea>
+                <button id="chat-send-btn" style="background: var(--primary); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const messagesContent = document.getElementById('messages-content');
+    if (messagesContent) {
+        messagesContent.insertAdjacentHTML('beforeend', chatHTML);
+    }
+    
+    // Setup event listeners
+    setTimeout(() => {
+        const input = document.getElementById('chat-message-input');
+        const sendBtn = document.getElementById('chat-send-btn');
+        const attachBtn = document.getElementById('chat-attach-btn');
+        const backBtn = document.getElementById('chat-back-btn');
+        
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendChatMessage(chatId);
+                }
+            });
+            
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+            
+            let typingTimeout;
+            input.addEventListener('input', () => {
+                this.sendTypingIndicator(chatId, true);
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    this.sendTypingIndicator(chatId, false);
+                }, 1000);
+            });
         }
         
-        const otherName = otherParticipant?.displayName || otherParticipant?.email || 'User';
-        const otherAvatar = otherName.charAt(0).toUpperCase();
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
+        }
         
-        const chatHTML = `
-            <div id="chat-window-container" class="chat-container">
-                <div class="chat-header">
-                    <div class="chat-header-info">
-                        <div class="chat-header-avatar">${this.escapeHtml(otherAvatar)}</div>
-                        <div class="chat-header-details">
-                            <h3>${this.escapeHtml(otherName)}</h3>
-                            <p id="chat-typing-status" style="font-size: 0.7rem; opacity: 0.8; margin: 0;"></p>
-                        </div>
-                    </div>
-                    <button class="chat-header-close" onclick="moreMenuManager.closeChatWindow()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div id="chat-messages-area" class="chat-messages-area">
-                    <div class="loading-spinner">Loading messages...</div>
-                </div>
-                
-                <div class="chat-input-area">
-                    <button class="chat-attach-btn" id="chat-attach-btn">
-                        <i class="fas fa-paperclip"></i>
-                    </button>
-                    <textarea id="chat-message-input" placeholder="Type a message..." rows="1"></textarea>
-                    <button class="chat-send-btn" id="chat-send-btn">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        `;
+        if (attachBtn) {
+            attachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
+        }
         
-        document.body.appendChild(this.createElementFromHTML(chatHTML));
-        
-        setTimeout(() => {
-            const input = document.getElementById('chat-message-input');
-            const sendBtn = document.getElementById('chat-send-btn');
-            const attachBtn = document.getElementById('chat-attach-btn');
-            
-            if (input) {
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.sendChatMessage(chatId);
-                    }
-                });
-                
-                input.addEventListener('input', function() {
-                    this.style.height = 'auto';
-                    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-                });
-                
-                let typingTimeout;
-                input.addEventListener('input', () => {
-                    this.sendTypingIndicator(chatId, true);
-                    clearTimeout(typingTimeout);
-                    typingTimeout = setTimeout(() => {
-                        this.sendTypingIndicator(chatId, false);
-                    }, 1000);
-                });
-            }
-            
-            if (sendBtn) {
-                sendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
-            }
-            
-            if (attachBtn) {
-                attachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
-            }
-        }, 100);
-        
-        this.loadChatMessages(chatId);
-    }
+        if (backBtn) {
+            backBtn.addEventListener('click', () => this.closeChatWindow());
+        }
+    }, 100);
+    
+    this.loadChatMessages(chatId);
+}
     
     createElementFromHTML(htmlString) {
         const div = document.createElement('div');
@@ -1308,20 +1328,30 @@ class MoreMenuManager {
     }
     
     closeChatWindow() {
-        const container = document.getElementById('chat-window-container');
-        if (container) {
-            container.remove();
-        }
-        if (this.currentChatUnsubscribe) {
-            this.currentChatUnsubscribe();
-            this.currentChatUnsubscribe = null;
-        }
-        if (this.typingUnsubscribe) {
-            this.typingUnsubscribe();
-            this.typingUnsubscribe = null;
-        }
-        this.firstMessageDoc = null;
+    const chatContainer = document.getElementById('chat-window-container');
+    if (chatContainer) {
+        chatContainer.remove();
     }
+    
+    // Show conversations list again
+    const conversationsContainer = document.getElementById('conversations-list-container');
+    const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
+    const searchBar = document.querySelector('#messages-content .search-bar');
+    
+    if (conversationsContainer) conversationsContainer.style.display = 'block';
+    if (newChatBtn) newChatBtn.style.display = 'block';
+    if (searchBar) searchBar.style.display = 'flex';
+    
+    if (this.currentChatUnsubscribe) {
+        this.currentChatUnsubscribe();
+        this.currentChatUnsubscribe = null;
+    }
+    if (this.typingUnsubscribe) {
+        this.typingUnsubscribe();
+        this.typingUnsubscribe = null;
+    }
+    this.firstMessageDoc = null;
+}
     
     async loadChatMessages(chatId, loadMore = false) {
         const messagesContainer = document.getElementById('chat-messages-area');
@@ -1400,64 +1430,62 @@ class MoreMenuManager {
     }
     
     createMessageElement(message) {
-        const isCurrentUser = message.senderId === this.currentUser?.uid;
-        const isSystem = message.senderId === 'system';
-        
-        const div = document.createElement('div');
-        div.className = `chat-message ${isSystem ? 'chat-message-system' : (isCurrentUser ? 'chat-message-sent' : 'chat-message-received')}`;
-        
-        let attachmentsHtml = '';
-        if (message.attachments && message.attachments.length > 0) {
-            attachmentsHtml = '<div class="message-attachments" style="margin-bottom: 8px;">';
-            for (const att of message.attachments) {
-                const isImage = att.type && att.type.startsWith('image/');
-                const fileSize = this.formatFileSize(att.size);
-                
-                if (isImage) {
-                    attachmentsHtml += `
-                        <div class="attachment-image" onclick="window.open('${att.url}', '_blank')" style="margin: 5px 0; cursor: pointer; display: inline-block;">
-                            <img src="${att.url}" alt="${this.escapeHtml(att.name)}" style="max-width: 200px; max-height: 150px; border-radius: 12px; object-fit: cover;">
-                            <div class="attachment-name" style="font-size: 0.7rem; text-align: center; margin-top: 4px;">${this.escapeHtml(att.name)}</div>
+    const isCurrentUser = message.senderId === this.currentUser?.uid;
+    const isSystem = message.senderId === 'system';
+    
+    const div = document.createElement('div');
+    div.style.cssText = `display: flex; flex-direction: column; margin-bottom: 12px; ${isCurrentUser ? 'align-items: flex-end;' : 'align-items: flex-start;'}`;
+    
+    let attachmentsHtml = '';
+    if (message.attachments && message.attachments.length > 0) {
+        attachmentsHtml = '<div style="margin-bottom: 8px;">';
+        for (const att of message.attachments) {
+            const isImage = att.type && att.type.startsWith('image/');
+            const fileSize = this.formatFileSize(att.size);
+            
+            if (isImage) {
+                attachmentsHtml += `
+                    <div onclick="window.open('${att.url}', '_blank')" style="margin: 5px 0; cursor: pointer; display: inline-block;">
+                        <img src="${att.url}" alt="${this.escapeHtml(att.name)}" style="max-width: 200px; max-height: 150px; border-radius: 12px; object-fit: cover;">
+                        <div style="font-size: 0.7rem; text-align: center; margin-top: 4px;">${this.escapeHtml(att.name)}</div>
+                    </div>
+                `;
+            } else {
+                attachmentsHtml += `
+                    <div onclick="window.open('${att.url}', '_blank')" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(0,0,0,0.08); border-radius: 10px; margin: 5px 0; cursor: pointer;">
+                        <div style="font-size: 1.5rem;">
+                            <i class="fas fa-file-${this.getFileIcon(att.name)}"></i>
                         </div>
-                    `;
-                } else {
-                    attachmentsHtml += `
-                        <div class="attachment-file" onclick="window.open('${att.url}', '_blank')" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(0,0,0,0.08); border-radius: 10px; margin: 5px 0; cursor: pointer;">
-                            <div class="file-icon" style="font-size: 1.5rem;">
-                                <i class="fas fa-file-${this.getFileIcon(att.name)}"></i>
-                            </div>
-                            <div class="file-info" style="flex: 1; overflow: hidden;">
-                                <div class="file-name" style="font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(att.name)}</div>
-                                <div class="file-size" style="font-size: 0.65rem; opacity: 0.7;">${fileSize}</div>
-                            </div>
-                            <div class="download-icon">
-                                <i class="fas fa-download"></i>
-                            </div>
+                        <div style="flex: 1; overflow: hidden;">
+                            <div style="font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(att.name)}</div>
+                            <div style="font-size: 0.65rem; opacity: 0.7;">${fileSize}</div>
                         </div>
-                    `;
-                }
+                        <div><i class="fas fa-download"></i></div>
+                    </div>
+                `;
             }
-            attachmentsHtml += '</div>';
         }
-        
-        const messageText = message.text ? `<div class="message-text" style="word-wrap: break-word;">${this.escapeHtml(message.text)}</div>` : '';
-        const messageTime = this.formatChatTime(message.timestamp);
-        const statusIcon = isCurrentUser ? 
-            `<span class="message-status" style="margin-left: 5px;"><i class="fas ${message.read ? 'fa-check-double read' : 'fa-check'}"></i></span>` : '';
-        
-        div.innerHTML = `
-            <div class="message-bubble" style="padding: 10px 14px; border-radius: 18px; max-width: 100%; word-wrap: break-word;">
-                ${attachmentsHtml}
-                ${messageText}
-                <div class="message-time-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 5px;">
-                    <span class="message-time" style="font-size: 0.65rem; opacity: 0.7;">${messageTime}</span>
-                    ${statusIcon}
-                </div>
-            </div>
-        `;
-        
-        return div;
+        attachmentsHtml += '</div>';
     }
+    
+    const messageText = message.text ? `<div style="word-wrap: break-word;">${this.escapeHtml(message.text)}</div>` : '';
+    const messageTime = this.formatChatTime(message.timestamp);
+    const statusIcon = isCurrentUser ? 
+        `<span style="margin-left: 5px;"><i class="fas ${message.read ? 'fa-check-double' : 'fa-check'}" style="${message.read ? 'color: #4CAF50;' : 'color: #999;'}"></i></span>` : '';
+    
+    div.innerHTML = `
+        <div style="max-width: 80%; padding: 10px 14px; border-radius: 18px; background: ${isCurrentUser ? 'var(--primary)' : 'white'}; color: ${isCurrentUser ? 'white' : 'var(--dark)'}; box-shadow: 0 1px 2px rgba(0,0,0,0.1); ${isCurrentUser ? 'border-bottom-right-radius: 4px;' : 'border-bottom-left-radius: 4px;'}">
+            ${attachmentsHtml}
+            ${messageText}
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 5px;">
+                <span style="font-size: 0.65rem; opacity: 0.7;">${messageTime}</span>
+                ${statusIcon}
+            </div>
+        </div>
+    `;
+    
+    return div;
+}
     
     getFileIcon(filename) {
         const extension = filename.split('.').pop()?.toLowerCase();
