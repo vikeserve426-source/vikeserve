@@ -2314,7 +2314,7 @@ async startChatWithUser(userId, initialMessage) {
                         <div style="margin-top: 10px;">
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                                 <i class="fas fa-map-marker-alt" style="width: 25px; color: var(--primary);"></i>
-                                <span><strong>County:</strong> ${this.escapeHtml(founder.county || 'Kakamega')}</span>
+                                <span><strong>County:</strong> ${this.escapeHtml(founder.county || 'Bungoma')}</span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                                 <i class="fas fa-globe-africa" style="width: 25px; color: var(--primary);"></i>
@@ -2326,7 +2326,7 @@ async startChatWithUser(userId, initialMessage) {
                     <!-- Education -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-graduation-cap"></i> Education</h4>
-                        <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.schools || 'Kakamega High School, JKUAT')}</p>
+                        <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.schools || 'Nalondo Boys High School, KYU')}</p>
                     </div>
                     
                     <!-- Achievements -->
