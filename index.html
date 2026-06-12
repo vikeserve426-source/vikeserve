@@ -1405,56 +1405,60 @@
         </div>
 
         <!-- Gas Refill Post Modal -->
-        <div id="gas-refill-post-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="modal-title">Offer Gas Refill Service</div>
-                    <button class="close-modal-btn">&times;</button>
+<div id="gas-refill-post-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">Offer Gas Refill Service</div>
+            <button class="close-modal-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Service Title *</label>
+                <input type="text" id="gas-title" class="form-input" placeholder="e.g., Fast LPG Gas Refill">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Gas Type *</label>
+                    <select id="gas-type" class="form-input">
+                        <option value="">Select Gas Type</option>
+                        <option value="lpg">LPG Cooking Gas</option>
+                        <option value="industrial">Industrial Gas</option>
+                    </select>
                 </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label class="form-label">Service Title *</label>
-                        <input type="text" id="gas-title" class="form-input" placeholder="e.g., Fast LPG Gas Refill">
-                    </div>
-                    <div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Gas Type *</label>
-        <select id="gas-type" class="form-input">
-            <option value="">Select Gas Type</option>
-            <option value="lpg">LPG Cooking Gas</option>
-            <option value="industrial">Industrial Gas</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label class="form-label">Cylinder Size *</label>
-        <input type="text" id="gas-cylinder-size" class="form-input" placeholder="e.g., 3kg, 6kg, 13kg, 50kg">
-    </div>
-</div>
-<div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Brand</label>
-        <input type="text" id="gas-brand" class="form-input" placeholder="e.g., K-Gas, Pro Gas, Total, Oryx">
-    </div>
-</div>
-                    <div class="form-group">
-                        <label class="form-label">Location *</label>
-                        <input type="text" id="gas-location" class="form-input" placeholder="Your location">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description *</label>
-                        <textarea id="gas-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Contact Phone *</label>
-                        <input type="tel" id="gas-phone" class="form-input" placeholder="e.g., 0712345678">
-                    </div>
-                    <div class="form-actions">
-                        <button class="btn btn-outline close-modal-btn">Cancel</button>
-                        <button class="btn btn-primary" id="submit-gas-btn">List Service</button>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">Cylinder Size *</label>
+                    <input type="text" id="gas-cylinder-size" class="form-input" placeholder="e.g., 3kg, 6kg, 13kg, 50kg">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Price (KES) *</label>
+                    <input type="number" id="gas-price" class="form-input" placeholder="e.g., 500">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Brand</label>
+                    <input type="text" id="gas-brand" class="form-input" placeholder="e.g., K-Gas, Pro Gas, Total, Oryx">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Location *</label>
+                <input type="text" id="gas-location" class="form-input" placeholder="Your location">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description *</label>
+                <textarea id="gas-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contact Phone *</label>
+                <input type="tel" id="gas-phone" class="form-input" placeholder="e.g., 0712345678">
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-outline close-modal-btn">Cancel</button>
+                <button class="btn btn-primary" id="submit-gas-btn">List Service</button>
+            </div>
         </div>
+    </div>
+</div>
 
         <!-- Water Delivery Post Modal -->
         <div id="water-delivery-post-modal" class="modal">

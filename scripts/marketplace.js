@@ -1039,11 +1039,21 @@ function resetGasRefillForm() {
     const fields = ['gas-title', 'gas-type', 'gas-cylinder-size', 'gas-price', 'gas-brand', 'gas-location', 'gas-description', 'gas-phone'];
     fields.forEach(id => {
         const field = document.getElementById(id);
-        if (field) field.value = '';
+        if (field) {
+            if (field.tagName === 'SELECT') {
+                field.selectedIndex = 0;
+            } else {
+                field.value = '';
+            }
+        }
     });
+    console.log('Gas refill form reset');
 }
 
 async function submitGasRefillListing() {
+    console.log('submitGasRefillListing called');
+    
+    // Get all form values with detailed logging
     const title = document.getElementById('gas-title')?.value.trim();
     const gasType = document.getElementById('gas-type')?.value;
     const cylinderSize = document.getElementById('gas-cylinder-size')?.value;
@@ -1053,25 +1063,56 @@ async function submitGasRefillListing() {
     const description = document.getElementById('gas-description')?.value.trim();
     const phone = document.getElementById('gas-phone')?.value.trim();
     
+    // Debug logging
+    console.log('Form values:', { title, gasType, cylinderSize, price, brand, location, description, phone });
+    
     const user = firebase.auth().currentUser;
     if (!user) {
-        showToast('Please sign in to list a service', 'error');
+        window.showToast('Please sign in to list a service', 'error');
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
     
-    if (!title || !gasType || !cylinderSize || !price || !location || !description || !phone) {
-        showToast('Please fill in all required fields', 'error');
+    // Check each required field individually for better error messages
+    if (!title) {
+        window.showToast('Please enter a title', 'error');
+        return;
+    }
+    if (!gasType) {
+        window.showToast('Please select gas type', 'error');
+        return;
+    }
+    if (!cylinderSize) {
+        window.showToast('Please enter cylinder size', 'error');
+        return;
+    }
+    if (!price) {
+        window.showToast('Please enter price', 'error');
+        return;
+    }
+    if (!location) {
+        window.showToast('Please enter location', 'error');
+        return;
+    }
+    if (!description) {
+        window.showToast('Please enter description', 'error');
+        return;
+    }
+    if (!phone) {
+        window.showToast('Please enter phone number', 'error');
         return;
     }
     
+    // Show loading toast
+    window.showToast('Saving gas refill service...', 'info');
+    
+    // Clean the data - remove undefined values
     const gasData = {
         category: 'gas-refill',
         title: title,
         gasType: gasType,
         cylinderSize: cylinderSize,
         price: parseInt(price),
-        brand: brand || 'Not specified',
         location: location,
         description: description,
         phone: phone,
@@ -1084,16 +1125,36 @@ async function submitGasRefillListing() {
         userEmail: user.email
     };
     
+    // Only add brand if it exists
+    if (brand && brand.trim() !== '') {
+        gasData.brand = brand.trim();
+    }
+    
+    console.log('Saving gas data:', gasData);
+    
     try {
-        await firebase.firestore().collection('marketplace_items').add(gasData);
-        showToast('✅ Gas refill service listed successfully!', 'success');
+        const docRef = await firebase.firestore().collection('marketplace_items').add(gasData);
+        console.log('Gas service saved with ID:', docRef.id);
+        
+        window.showToast('✅ Gas refill service listed successfully!', 'success');
+        
+        // Close modal
         const modal = document.getElementById('gas-refill-post-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // Reset form
         resetGasRefillForm();
-        loadMarketplaceItems('gas-refill');
+        
+        // Reload items
+        setTimeout(() => {
+            loadMarketplaceItems('gas-refill');
+        }, 500);
+        
     } catch (error) {
         console.error('Error saving gas service:', error);
-        showToast(`Error: ${error.message}`, 'error');
+        window.showToast(`Error: ${error.message}`, 'error');
     }
 }
 
