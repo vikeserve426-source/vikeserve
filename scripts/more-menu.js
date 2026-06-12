@@ -1343,26 +1343,38 @@ showChatWindow(chatId, chatData, otherParticipant) {
 }
 
 closeChatWindow() {
-    // Remove the chat window container first
+    // Clean up listeners first
+    if (this.currentChatUnsubscribe) {
+        this.currentChatUnsubscribe();
+        this.currentChatUnsubscribe = null;
+    }
+    if (this.typingUnsubscribe) {
+        this.typingUnsubscribe();
+        this.typingUnsubscribe = null;
+    }
+    this.firstMessageDoc = null;
+    
+    // Remove the chat window container
     const chatContainer = document.getElementById('chat-window-container');
     if (chatContainer) {
         chatContainer.remove();
     }
     
+    // Reset messages content - remove all inline styles and restore original HTML
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
+        // Remove all inline styles
+        messagesContent.removeAttribute('style');
+        // Restore original HTML
         messagesContent.innerHTML = this.getMessagesHTML();
-        messagesContent.style.overflow = '';
-        messagesContent.style.display = '';
-        messagesContent.style.flexDirection = '';
-        messagesContent.style.height = '';
         
+        // Reload conversations
+        this.loadConversations();
+        
+        // Re-attach event listeners
         setTimeout(() => {
-            this.loadConversations();
-            
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
-                // Remove old listener to avoid duplicates
                 const newSearchInput = searchInput.cloneNode(true);
                 searchInput.parentNode.replaceChild(newSearchInput, searchInput);
                 newSearchInput.addEventListener('input', (e) => {
@@ -2012,6 +2024,15 @@ async startChatWithUser(userId, initialMessage) {
         chatWindow.remove();
     }
     
+    // ========== IMPORTANT: Reset messages-content styling ==========
+    const messagesContent = document.getElementById('messages-content');
+    if (messagesContent) {
+        // Remove all inline styles that were added by showChatWindow
+        messagesContent.removeAttribute('style');
+        // Reset to original HTML
+        messagesContent.innerHTML = this.getMessagesHTML();
+    }
+    
     // Also close any chat-related modals
     const chatModals = document.querySelectorAll('.modal:not(#auth-modal)');
     chatModals.forEach(modal => {
@@ -2032,28 +2053,24 @@ async startChatWithUser(userId, initialMessage) {
     
     // Refresh content based on tab
     if (tabId === 'messages') {
-        // Reset messages content to original state
-        const messagesContent = document.getElementById('messages-content');
-        if (messagesContent) {
-            messagesContent.innerHTML = this.getMessagesHTML();
-            messagesContent.style.overflow = '';
-            messagesContent.style.display = '';
-            messagesContent.style.flexDirection = '';
-            messagesContent.style.height = '';
-        }
         this.loadConversations();
         
         // Re-attach search input listener
         setTimeout(() => {
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
+                // Remove old listener to avoid duplicates
+                const newSearchInput = searchInput.cloneNode(true);
+                searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+                newSearchInput.addEventListener('input', (e) => {
                     this.filterConversations(e.target.value);
                 });
             }
             const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
             if (newChatBtn) {
-                newChatBtn.addEventListener('click', () => this.startNewChat());
+                const newBtn = newChatBtn.cloneNode(true);
+                newChatBtn.parentNode.replaceChild(newBtn, newChatBtn);
+                newBtn.addEventListener('click', () => this.startNewChat());
             }
         }, 100);
     }
@@ -2063,6 +2080,14 @@ async startChatWithUser(userId, initialMessage) {
         this.loadInternships();
         this.loadAttachments();
         this.loadTraining();
+    }
+    if (tabId === 'settings') {
+        // Refresh settings to ensure dark mode toggle works
+        this.getSettingsHTML().then(html => {
+            const settingsContent = document.getElementById('settings-content');
+            if (settingsContent) settingsContent.innerHTML = html;
+            this.setupEventListeners();
+        });
     }
 }
     
