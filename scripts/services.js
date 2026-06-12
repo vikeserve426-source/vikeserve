@@ -54,69 +54,85 @@ class ServicesManager {
     }
 
     async createService(serviceData, imageFiles = []) {
-        try {
-            const user = auth.currentUser;
-            if (!user) throw new Error('User must be logged in');
+    try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('User must be logged in');
 
-            let imageUrls = [];
-            if (imageFiles.length > 0) {
-                imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
-            }
-
-            const serviceWithMetadata = {
-                ...serviceData,
-                userId: user.uid,
-                userName: user.displayName || user.email,
-                status: 'active',
-                images: imageUrls,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                rating: 0,
-                ratingCount: 0,
-                viewCount: 0,
-                isJob: false
-            };
-            
-            const docRef = await this.servicesCollection.add(serviceWithMetadata);
-            return { success: true, id: docRef.id, imageUrls };
-        } catch (error) {
-            console.error('Error creating service:', error);
-            return { success: false, error: error.message };
+        let imageUrls = [];
+        if (imageFiles && imageFiles.length > 0) {
+            imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
         }
+
+        // Clean serviceData - remove any undefined values
+        const cleanedData = {};
+        Object.keys(serviceData).forEach(key => {
+            if (serviceData[key] !== undefined && serviceData[key] !== null && serviceData[key] !== '') {
+                cleanedData[key] = serviceData[key];
+            }
+        });
+
+        const serviceWithMetadata = {
+            ...cleanedData,
+            userId: user.uid,
+            userName: user.displayName || user.email,
+            status: 'active',
+            images: imageUrls,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            rating: 0,
+            ratingCount: 0,
+            viewCount: 0,
+            isJob: false
+        };
+        
+        const docRef = await this.servicesCollection.add(serviceWithMetadata);
+        return { success: true, id: docRef.id, imageUrls };
+    } catch (error) {
+        console.error('Error creating service:', error);
+        return { success: false, error: error.message };
     }
+}
 
     async createJob(jobData, imageFiles = []) {
-        try {
-            const user = auth.currentUser;
-            if (!user) throw new Error('User must be logged in');
+    try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('User must be logged in');
 
-            let imageUrls = [];
-            if (imageFiles.length > 0) {
-                imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
-            }
-
-            const jobWithMetadata = {
-                ...jobData,
-                userId: user.uid,
-                userName: user.displayName || user.email,
-                images: imageUrls,
-                status: 'active',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                viewCount: 0,
-                applicants: 0,
-                isJob: true,
-                rating: 0,
-                ratingCount: 0
-            };
-            
-            const docRef = await this.servicesCollection.add(jobWithMetadata);
-            return { success: true, id: docRef.id };
-        } catch (error) {
-            console.error('Error creating job:', error);
-            return { success: false, error: error.message };
+        let imageUrls = [];
+        if (imageFiles && imageFiles.length > 0) {
+            imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
         }
+
+        // Clean jobData - remove any undefined values
+        const cleanedData = {};
+        Object.keys(jobData).forEach(key => {
+            if (jobData[key] !== undefined && jobData[key] !== null && jobData[key] !== '') {
+                cleanedData[key] = jobData[key];
+            }
+        });
+
+        const jobWithMetadata = {
+            ...cleanedData,
+            userId: user.uid,
+            userName: user.displayName || user.email,
+            images: imageUrls,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            viewCount: 0,
+            applicants: 0,
+            isJob: true,
+            rating: 0,
+            ratingCount: 0
+        };
+        
+        const docRef = await this.servicesCollection.add(jobWithMetadata);
+        return { success: true, id: docRef.id };
+    } catch (error) {
+        console.error('Error creating job:', error);
+        return { success: false, error: error.message };
     }
+}
 
     async uploadServiceImages(files, serviceId) {
     const imageUrls = [];
@@ -757,31 +773,44 @@ async function submitService() {
     window.showToast('Saving service to database...', 'info');
     
     const additionalData = {};
-    switch(serviceType) {
-        case 'vehicle-hire':
-            additionalData.vehicleType = document.getElementById('service-vehicle-type')?.value;
-            additionalData.capacity = document.getElementById('service-capacity')?.value;
-            break;
-        case 'boda':
-            additionalData.bodaType = document.getElementById('service-boda-type')?.value;
-            break;
-        case 'construction':
-            additionalData.skillType = document.getElementById('service-skill-type')?.value;
-            additionalData.experience = document.getElementById('service-experience')?.value;
-            break;
+switch(serviceType) {
+    case 'vehicle-hire':
+        const vehicleType = document.getElementById('service-vehicle-type')?.value;
+        const capacity = document.getElementById('service-capacity')?.value;
+        if (vehicleType) additionalData.vehicleType = vehicleType;
+        if (capacity) additionalData.capacity = capacity;
+        break;
+    case 'boda':
+        const bodaType = document.getElementById('service-boda-type')?.value;
+        if (bodaType) additionalData.bodaType = bodaType;
+        break;
+    case 'construction':
+        const skillType = document.getElementById('service-skill-type')?.value;
+        const experience = document.getElementById('service-experience')?.value;
+        if (skillType) additionalData.skillType = skillType;
+        if (experience) additionalData.experience = experience;
+        break;
+}
+
+// Build service data, only include defined values
+const serviceData = {
+    title: title,
+    description: description,
+    price: parseInt(price),
+    location: location,
+    phone: phone,
+    serviceType: serviceType,
+    category: serviceType,
+    status: 'active',
+    ...additionalData
+};
+
+// Remove any undefined values
+Object.keys(serviceData).forEach(key => {
+    if (serviceData[key] === undefined) {
+        delete serviceData[key];
     }
-    
-    const serviceData = {
-        title: title,
-        description: description,
-        price: parseInt(price),
-        location: location,
-        phone: phone,
-        serviceType: serviceType,
-        category: serviceType,
-        status: 'active',
-        ...additionalData
-    };
+});
     
     const result = await servicesManager.createService(serviceData, imageFiles);
     
