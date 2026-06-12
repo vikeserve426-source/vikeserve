@@ -129,6 +129,7 @@ function createMarketplaceItemElement(item) {
     div.className = 'market-item';
     div.setAttribute('data-ad-id', item.id);
     div.setAttribute('data-category', item.category);
+    div.setAttribute('data-seller-id', item.userId);
     
     let isPromoted = item.promoted === true;
     let daysLeft = 0;
@@ -172,21 +173,24 @@ function createMarketplaceItemElement(item) {
             <div class="market-item-location">
                 <i class="fas fa-map-marker-alt"></i> ${escapeHtml(item.location || 'Location not specified')}
             </div>
-            <!-- SELLER PROFILE SECTION - ADDED -->
-            <div class="market-item-seller" style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 0; border-top: 1px solid var(--grey); border-bottom: 1px solid var(--grey);">
+            <!-- SELLER PROFILE SECTION WITH RATINGS -->
+            <div class="market-item-seller" style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 0; border-top: 1px solid var(--grey); border-bottom: 1px solid var(--grey); cursor: pointer;" data-seller-id="${item.userId}">
                 <div class="seller-avatar" style="width: 28px; height: 28px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; font-weight: bold;">
                     ${(item.userName || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div class="seller-info" style="flex: 1;">
                     <div class="seller-name" style="font-size: 0.75rem; font-weight: 500;">${escapeHtml(item.userName || 'Unknown Seller')}</div>
                     <div class="seller-rating" style="font-size: 0.65rem; color: var(--warning);">
-                        ${ratingStars} ${sellerRating > 0 ? `<span style="color: var(--grey-dark);">(${sellerRatingCount})</span>` : '<span style="color: var(--grey-dark);">No ratings</span>'}
+                        ${ratingStars} ${sellerRating > 0 ? `<span style="color: var(--grey-dark);">(${sellerRatingCount} reviews)</span>` : '<span style="color: var(--grey-dark);">No ratings yet</span>'}
                     </div>
                 </div>
             </div>
-            <div class="market-item-actions">
-                <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="width:100%;">
-                    <i class="fas fa-comment"></i> Contact Seller
+            <div class="market-item-actions" style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="flex: 1;">
+                    <i class="fas fa-comment"></i> Contact
+                </button>
+                <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" data-seller-name="${escapeHtml(item.userName || 'Seller')}" style="flex: 1;">
+                    <i class="fas fa-user"></i> Profile
                 </button>
             </div>
         </div>
@@ -197,6 +201,22 @@ function createMarketplaceItemElement(item) {
         contactBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             contactSeller(item.phone || item.id);
+        });
+    }
+    
+    const profileBtn = div.querySelector('.view-seller-profile-btn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewSellerProfile(profileBtn.getAttribute('data-seller-id'));
+        });
+    }
+    
+    const sellerInfoDiv = div.querySelector('.market-item-seller');
+    if (sellerInfoDiv) {
+        sellerInfoDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewSellerProfile(sellerInfoDiv.getAttribute('data-seller-id'));
         });
     }
     

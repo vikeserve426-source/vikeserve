@@ -312,13 +312,78 @@ async function loadServices(category = null, limit = 20) {
 function createServiceElement(service) {
     const div = document.createElement('div');
     div.className = 'service-card';
+    div.setAttribute('data-provider-id', service.userId);
+    
+    // Get rating info
+    const rating = service.rating || service.averageRating || 0;
+    const ratingCount = service.ratingCount || service.totalReviews || 0;
+    const ratingStars = generateStarRating(rating);
+    
     div.innerHTML = `
-        <div class="service-header"><div class="service-title">${escapeHtml(service.title)}</div><div class="service-price">KES ${service.price}</div></div>
-        <div class="service-provider"><div class="provider-avatar">${(service.providerName || service.userName || 'P').charAt(0)}</div><div class="provider-info"><div class="provider-name">${escapeHtml(service.providerName || service.userName || 'Service Provider')}</div><div class="provider-rating">${generateStarRating(service.rating || 0)}<span>(${service.ratingCount || 0})</span></div></div></div>
+        <div class="service-header">
+            <div class="service-title">${escapeHtml(service.title)}</div>
+            <div class="service-price">KES ${service.price}</div>
+        </div>
+        <div class="service-provider" style="cursor: pointer;" data-provider-id="${service.userId}">
+            <div class="provider-avatar">${(service.providerName || service.userName || 'P').charAt(0)}</div>
+            <div class="provider-info">
+                <div class="provider-name">${escapeHtml(service.providerName || service.userName || 'Service Provider')}</div>
+                <div class="provider-rating">
+                    ${ratingStars}
+                    <span>(${ratingCount || 0} reviews)</span>
+                </div>
+            </div>
+        </div>
         <div class="service-description">${escapeHtml((service.description || 'No description available').substring(0, 100))}...</div>
-        <div class="service-meta"><span class="service-category">${escapeHtml(service.category)}</span><span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span></div>
-        <button class="btn-promote promote-service-btn" data-service-id="${service.id}"><i class="fas fa-rocket"></i> Promote</button>
+        <div class="service-meta">
+            <span class="service-category">${escapeHtml(service.category)}</span>
+            <span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span>
+        </div>
+        <div class="service-actions" style="display: flex; gap: 8px; margin-top: 12px;">
+            <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-info-circle"></i> Details</button>
+            <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}" style="flex: 1;"><i class="fas fa-user"></i> Profile</button>
+        </div>
+        <button class="btn-promote promote-service-btn" data-service-id="${service.id}" style="margin-top: 8px; width: 100%;"><i class="fas fa-rocket"></i> Promote</button>
     `;
+    
+    // Add click handler for provider info
+    const providerDiv = div.querySelector('.service-provider');
+    if (providerDiv) {
+        providerDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const providerId = providerDiv.getAttribute('data-provider-id');
+            const providerName = service.providerName || service.userName || 'Provider';
+            if (typeof window.viewSellerProfile === 'function') {
+                window.viewSellerProfile(providerId);
+            } else {
+                window.showToast('View profile feature coming soon', 'info');
+            }
+        });
+    }
+    
+    // Add view details button
+    const detailBtn = div.querySelector('.view-service-detail-btn');
+    if (detailBtn) {
+        detailBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewServiceDetails(service.id);
+        });
+    }
+    
+    // Add view profile button
+    const profileBtn = div.querySelector('.view-provider-profile-btn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const providerId = profileBtn.getAttribute('data-provider-id');
+            const providerName = profileBtn.getAttribute('data-provider-name');
+            if (typeof window.viewSellerProfile === 'function') {
+                window.viewSellerProfile(providerId);
+            } else {
+                window.showToast('View profile feature coming soon', 'info');
+            }
+        });
+    }
     
     const promoteBtn = div.querySelector('.promote-service-btn');
     if (promoteBtn) {
@@ -1493,5 +1558,165 @@ window.closeEditServiceModal = closeEditServiceModal;
 window.editJobItem = editJobItem;
 window.saveEditedJob = saveEditedJob;
 window.closeEditJobModal = closeEditJobModal;
+
+// ========== VIEW SERVICE DETAILS ==========
+async function viewServiceDetails(serviceId) {
+    try {
+        const doc = await firebase.firestore().collection('services').doc(serviceId).get();
+        if (!doc.exists) {
+            window.showToast('Service not found', 'error');
+            return;
+        }
+        
+        const service = { id: doc.id, ...doc.data() };
+        
+        // Get provider rating
+        let providerRating = 0;
+        let providerRatingCount = 0;
+        if (service.userId) {
+            try {
+                const userDoc = await firebase.firestore().collection('users').doc(service.userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    providerRating = userData.averageRating || userData.rating || 0;
+                    providerRatingCount = userData.totalReviews || userData.ratingCount || 0;
+                }
+            } catch (err) {
+                console.error('Error fetching provider rating:', err);
+            }
+        }
+        
+        const ratingStars = generateStarRating(providerRating);
+        const currentUser = firebase.auth().currentUser;
+        const isOwner = currentUser && service.userId === currentUser.uid;
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title">${escapeHtml(service.title)}</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 15px;">
+                    ${service.images && service.images.length > 0 ? `
+                        <div style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
+                            ${service.images.map(img => `<img src="${img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <!-- PROVIDER PROFILE SECTION -->
+                    <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px;">
+                        <div class="provider-avatar" style="width: 45px; height: 45px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;">
+                            ${(service.userName || 'P').charAt(0).toUpperCase()}
+                        </div>
+                        <div class="provider-info" style="flex: 1;">
+                            <div class="provider-name" style="font-weight: 600;">${escapeHtml(service.userName || 'Service Provider')}</div>
+                            <div class="provider-rating" style="font-size: 0.8rem; color: var(--warning);">
+                                ${ratingStars} ${providerRating > 0 ? `<span style="color: var(--grey-dark);">(${providerRatingCount} reviews)</span>` : '<span style="color: var(--grey-dark);">No ratings yet</span>'}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline view-provider-detail-profile-btn" data-provider-id="${service.userId}" style="padding: 6px 12px;">View Profile</button>
+                    </div>
+                    
+                    <div style="background: var(--light); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">KES ${service.price}</div>
+                        <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                            <span style="background: var(--grey); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">${escapeHtml(service.category || 'Service')}</span>
+                            <span style="background: var(--grey); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span>
+                            ${service.duration ? `<span style="background: var(--grey); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;"><i class="fas fa-clock"></i> ${escapeHtml(service.duration)}</span>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group"><label class="form-label">Description</label><p style="line-height: 1.5;">${escapeHtml(service.description)}</p></div>
+                    <div class="form-group"><label class="form-label">Contact</label><p><i class="fas fa-phone"></i> ${escapeHtml(service.phone || 'Contact via app')}</p></div>
+                    
+                    ${!isOwner ? `
+                        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book Service</button>
+                            <button class="btn btn-outline contact-provider-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
+                        </div>
+                    ` : `
+                        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button class="btn btn-outline edit-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger delete-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('service-detail-modal', modalContent);
+        }
+        
+        setTimeout(() => {
+            const contactBtn = document.querySelector('#service-detail-modal .contact-provider-btn');
+            if (contactBtn) {
+                contactBtn.addEventListener('click', () => {
+                    const phone = contactBtn.getAttribute('data-phone');
+                    if (phone) window.location.href = `tel:${phone}`;
+                });
+            }
+            
+            const bookBtn = document.querySelector('#service-detail-modal .book-service-from-detail-btn');
+            if (bookBtn) {
+                bookBtn.addEventListener('click', async () => {
+                    const user = firebase.auth().currentUser;
+                    if (!user) {
+                        window.showToast('Please sign in to book this service', 'warning');
+                        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+                        return;
+                    }
+                    if (typeof window.showBookingModal === 'function') {
+                        window.showBookingModal(service);
+                    }
+                });
+            }
+            
+            const profileBtn = document.querySelector('#service-detail-modal .view-provider-detail-profile-btn');
+            if (profileBtn) {
+                profileBtn.addEventListener('click', () => {
+                    const providerId = profileBtn.getAttribute('data-provider-id');
+                    if (typeof window.viewSellerProfile === 'function') {
+                        window.viewSellerProfile(providerId);
+                    }
+                });
+            }
+            
+            const editBtn = document.querySelector('#service-detail-modal .edit-service-detail-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => {
+                    if (typeof window.editServiceItem === 'function') {
+                        window.editServiceItem(service.id);
+                    }
+                });
+            }
+            
+            const deleteBtn = document.querySelector('#service-detail-modal .delete-service-detail-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async () => {
+                    if (confirm('Are you sure you want to delete this service?')) {
+                        try {
+                            await firebase.firestore().collection('services').doc(service.id).delete();
+                            window.showToast('Service deleted successfully', 'success');
+                            if (typeof window.closeModal === 'function') {
+                                window.closeModal('service-detail-modal');
+                            }
+                            loadServices();
+                        } catch (error) {
+                            window.showToast('Error deleting service', 'error');
+                        }
+                    }
+                });
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error viewing service details:', error);
+        window.showToast('Error loading service details', 'error');
+    }
+}
+
+// Make viewServiceDetails available globally
+window.viewServiceDetails = viewServiceDetails;
 
 console.log('✅ Services.js fully loaded with booking feature');

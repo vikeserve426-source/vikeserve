@@ -1,5 +1,6 @@
 // more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
 // FIXES: Alert sender avatars, Reply with tagging, Report alerts, Chat display fix
+// UPDATED: Settings UI - Removed duplicate rate button, added founder bio, changed labels
 
 class MoreMenuManager {
     constructor() {
@@ -45,6 +46,11 @@ class MoreMenuManager {
                 ratingCount: 0,
                 averageRating: 5.0,
                 portfolioUrl: 'https://vike-store.netlify.app/',
+                county: 'Kakamega',
+                country: 'Kenya',
+                schools: 'Kakamega High School, Jomo Kenyatta University of Agriculture and Technology (JKUAT)',
+                achievements: 'Full Stack Developer, Firebase Expert, App Creator',
+                bio: 'Passionate full-stack developer creating solutions that empower local communities.',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
@@ -303,7 +309,18 @@ class MoreMenuManager {
     
     async getSettingsHTML() {
     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-    const founder = founderDoc.exists ? founderDoc.data() : { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0, portfolioUrl: 'https://vike-store.netlify.app/' };
+    const founder = founderDoc.exists ? founderDoc.data() : { 
+        name: 'Victor Wanyama', 
+        totalStars: 0, 
+        ratingCount: 0, 
+        averageRating: 5.0, 
+        portfolioUrl: 'https://vike-store.netlify.app/',
+        county: 'Kakamega',
+        country: 'Kenya',
+        schools: 'Kakamega High School, Jomo Kenyatta University of Agriculture and Technology (JKUAT)',
+        achievements: 'Full Stack Developer, Firebase Expert, App Creator',
+        bio: 'Passionate full-stack developer creating solutions that empower local communities.'
+    };
     
     return `
         <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
@@ -320,28 +337,64 @@ class MoreMenuManager {
             </div>
         </div>
         
+        <!-- RATE VIKESERVE SECTION -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
                 <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-crown" style="font-size: 2rem;"></i>
+                    <i class="fas fa-star" style="font-size: 2rem;"></i>
                 </div>
                 <div>
-                    <h3 style="margin: 0;">${this.escapeHtml(founder.name)}</h3>
-                    <p style="margin: 0; opacity: 0.9;">Founder & Lead Developer</p>
+                    <h3 style="margin: 0;">Rate VikeServe</h3>
+                    <p style="margin: 0; opacity: 0.9;">Help us improve</p>
                 </div>
             </div>
             
             <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
                 <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
-                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Earned ⭐</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
                 <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
                 <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
                 <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
             </div>
             
             <div style="display: flex; gap: 10px;">
-                <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}><i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate Founder'}</button>
-                <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;"><i class="fas fa-user-circle"></i> View Profile</button>
+                <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
+                    <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
+                </button>
+                <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;">
+                    <i class="fas fa-user-circle"></i> Founder
+                </button>
+            </div>
+        </div>
+        
+        <!-- FOUNDER DETAILS SECTION -->
+        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-user-tie"></i> About the Founder</h4>
+            <div style="margin-top: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <i class="fas fa-user" style="width: 25px; color: var(--primary);"></i>
+                    <span><strong>Name:</strong> ${this.escapeHtml(founder.name)}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <i class="fas fa-map-marker-alt" style="width: 25px; color: var(--primary);"></i>
+                    <span><strong>County:</strong> ${this.escapeHtml(founder.county || 'Kakamega')}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <i class="fas fa-globe-africa" style="width: 25px; color: var(--primary);"></i>
+                    <span><strong>Country:</strong> ${this.escapeHtml(founder.country || 'Kenya')}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <i class="fas fa-graduation-cap" style="width: 25px; color: var(--primary);"></i>
+                    <span><strong>Education:</strong> ${this.escapeHtml(founder.schools || 'JKUAT')}</span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;">
+                    <i class="fas fa-medal" style="width: 25px; color: var(--primary); margin-top: 3px;"></i>
+                    <span><strong>Achievements:</strong> ${this.escapeHtml(founder.achievements || 'Full Stack Developer, Firebase Expert')}</span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <i class="fas fa-info-circle" style="width: 25px; color: var(--primary); margin-top: 3px;"></i>
+                    <span><strong>Bio:</strong> ${this.escapeHtml(founder.bio || 'Passionate developer creating solutions for local communities.')}</span>
+                </div>
             </div>
         </div>
         
@@ -394,12 +447,8 @@ class MoreMenuManager {
         
         <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
             <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
-            <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
+            <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
                 <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends to the app</div></div>
-                <i class="fas fa-chevron-right"></i>
-            </div>
-            <div class="support-option" data-action="rate" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                <div><strong>Rate Our App</strong><div style="font-size: 0.8rem; color: #666;">Share your feedback with us</div></div>
                 <i class="fas fa-chevron-right"></i>
             </div>
         </div>
@@ -2217,13 +2266,13 @@ async startChatWithUser(userId, initialMessage) {
     
     async showFounderProfile() {
         const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-        const founder = founderDoc.data() || { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0 };
+        const founder = founderDoc.data() || { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0, email: 'vikeserve426@gmail.com', county: 'Kakamega', country: 'Kenya', schools: 'Kakamega High School, JKUAT', achievements: 'Full Stack Developer, Firebase Expert, App Creator', bio: 'Passionate full-stack developer dedicated to creating solutions that empower local communities.' };
         
         const announcementsSnapshot = await this.db.collection('announcements')
             .orderBy('date', 'desc')
             .limit(10)
             .get();
-        const announcements = announcementsSnapshot.docs.map(doc => doc.data());
+        const announcements = announcementsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
@@ -2238,6 +2287,8 @@ async startChatWithUser(userId, initialMessage) {
                         </div>
                         <h2 style="margin: 0;">${this.escapeHtml(founder.name)}</h2>
                         <p style="color: var(--grey-dark);">Founder & Lead Developer</p>
+                        <p><i class="fas fa-envelope"></i> ${this.escapeHtml(founder.email || 'vikeserve426@gmail.com')}</p>
+                        
                         <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-top: 10px;">
                             <div style="display: flex; justify-content: space-around;">
                                 <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${(founder.totalStars || 0).toLocaleString()}</div><div style="font-size: 0.7rem;">Total Stars</div></div>
@@ -2247,20 +2298,52 @@ async startChatWithUser(userId, initialMessage) {
                         </div>
                     </div>
                     
+                    <!-- Personal Details -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-                        <h4><i class="fas fa-info-circle"></i> About the Founder</h4>
-                        <p style="font-size: 0.85rem;">Victor Wanyama is a passionate full-stack developer dedicated to creating solutions that empower local communities.</p>
+                        <h4><i class="fas fa-user-circle"></i> Personal Details</h4>
+                        <div style="margin-top: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <i class="fas fa-map-marker-alt" style="width: 25px; color: var(--primary);"></i>
+                                <span><strong>County:</strong> ${this.escapeHtml(founder.county || 'Kakamega')}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <i class="fas fa-globe-africa" style="width: 25px; color: var(--primary);"></i>
+                                <span><strong>Country:</strong> ${this.escapeHtml(founder.country || 'Kenya')}</span>
+                            </div>
+                        </div>
                     </div>
                     
+                    <!-- Education -->
+                    <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        <h4><i class="fas fa-graduation-cap"></i> Education</h4>
+                        <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.schools || 'Kakamega High School, JKUAT')}</p>
+                    </div>
+                    
+                    <!-- Achievements -->
+                    <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        <h4><i class="fas fa-trophy"></i> Achievements</h4>
+                        <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.achievements || 'Full Stack Developer, Firebase Expert, App Creator')}</p>
+                    </div>
+                    
+                    <!-- Bio -->
+                    <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        <h4><i class="fas fa-info-circle"></i> About</h4>
+                        <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.bio || 'Passionate full-stack developer dedicated to creating solutions that empower local communities.')}</p>
+                    </div>
+                    
+                    <!-- App Updates & Announcements -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px;">
                         <h4><i class="fas fa-megaphone"></i> App Updates & Announcements</h4>
-                        ${announcements.map(ann => `
-                            <div style="border-bottom: 1px solid var(--grey); padding: 10px 0;">
-                                <strong>${this.escapeHtml(ann.title)}</strong>
-                                <p style="font-size: 0.8rem; margin-top: 5px;">${this.escapeHtml(ann.message)}</p>
-                                <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(ann.date)}</div>
-                            </div>
-                        `).join('')}
+                        <div id="announcements-list" style="margin-top: 10px;">
+                            ${announcements.map(ann => `
+                                <div style="border-bottom: 1px solid var(--grey); padding: 10px 0;">
+                                    <strong>${this.escapeHtml(ann.title)}</strong>
+                                    <p style="font-size: 0.8rem; margin-top: 5px;">${this.escapeHtml(ann.message)}</p>
+                                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.formatDate(ann.date)}</div>
+                                </div>
+                            `).join('')}
+                            ${announcements.length === 0 ? '<p style="font-size: 0.8rem;">No announcements yet.</p>' : ''}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2272,7 +2355,6 @@ async startChatWithUser(userId, initialMessage) {
     handleSettingsAction(action) {
     const actions = {
         'share': () => this.shareApp(),
-        'rate': () => this.showRatingModal(),
         'portfolio': () => {
             window.open('https://vike-store.netlify.app/', '_blank');
         },
@@ -2552,3 +2634,71 @@ document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
     console.log('✅ More Menu Manager fully loaded with Firestore and working chat');
 });
+
+// ========== ADMIN FUNCTION TO ADD ANNOUNCEMENTS ==========
+// To use: copy and paste in browser console after signing in as admin
+window.addAppAnnouncement = async function(title, message) {
+    try {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+            console.log('❌ Please sign in first');
+            return { success: false, error: 'Not signed in' };
+        }
+        
+        const announcement = {
+            title: title,
+            message: message,
+            date: firebase.firestore.FieldValue.serverTimestamp(),
+            isRead: false,
+            isGlobal: true,
+            createdBy: currentUser.uid,
+            createdByName: currentUser.displayName || currentUser.email
+        };
+        
+        await firebase.firestore().collection('announcements').add(announcement);
+        console.log(`✅ Announcement added: "${title}"`);
+        
+        // Refresh the founder profile if open
+        const founderModal = document.getElementById('founder-profile-modal');
+        if (founderModal && founderModal.style.display === 'flex') {
+            window.moreMenuManager.showFounderProfile();
+        }
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error adding announcement:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// Helper function to update founder details from Firebase Console
+window.updateFounderDetails = async function(details) {
+    try {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser || currentUser.email !== 'vikeserve426@gmail.com') {
+            console.log('❌ Only founder can update these details');
+            return { success: false, error: 'Admin only' };
+        }
+        
+        const founderRef = firebase.firestore().collection('system_settings').doc('founder');
+        await founderRef.update({
+            ...details,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ Founder details updated:', details);
+        
+        // Refresh settings
+        const settingsContent = document.getElementById('settings-content');
+        if (settingsContent) {
+            const newHTML = await window.moreMenuManager.getSettingsHTML();
+            settingsContent.innerHTML = newHTML;
+            window.moreMenuManager.setupEventListeners();
+        }
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating founder details:', error);
+        return { success: false, error: error.message };
+    }
+};
