@@ -1343,6 +1343,12 @@ showChatWindow(chatId, chatData, otherParticipant) {
 }
 
 closeChatWindow() {
+    // Remove the chat window container first
+    const chatContainer = document.getElementById('chat-window-container');
+    if (chatContainer) {
+        chatContainer.remove();
+    }
+    
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
         messagesContent.innerHTML = this.getMessagesHTML();
@@ -1356,18 +1362,24 @@ closeChatWindow() {
             
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
+                // Remove old listener to avoid duplicates
+                const newSearchInput = searchInput.cloneNode(true);
+                searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+                newSearchInput.addEventListener('input', (e) => {
                     this.filterConversations(e.target.value);
                 });
             }
             
             const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
             if (newChatBtn) {
-                newChatBtn.addEventListener('click', () => this.startNewChat());
+                const newBtn = newChatBtn.cloneNode(true);
+                newChatBtn.parentNode.replaceChild(newBtn, newChatBtn);
+                newBtn.addEventListener('click', () => this.startNewChat());
             }
         }, 100);
     }
     
+    // Clean up listeners
     if (this.currentChatUnsubscribe) {
         this.currentChatUnsubscribe();
         this.currentChatUnsubscribe = null;
@@ -1979,20 +1991,80 @@ async startChatWithUser(userId, initialMessage) {
     }
     
     switchMoreTab(tabId) {
-        console.log('Switching to tab:', tabId);
-        this.currentMoreTab = tabId;
+    console.log('Switching to tab:', tabId);
+    
+    // ========== CLOSE ANY OPEN CHAT FIRST ==========
+    // Close the chat window if it exists
+    const chatWindow = document.getElementById('chat-window-container');
+    if (chatWindow) {
+        // Clean up listeners
+        if (this.currentChatUnsubscribe) {
+            this.currentChatUnsubscribe();
+            this.currentChatUnsubscribe = null;
+        }
+        if (this.typingUnsubscribe) {
+            this.typingUnsubscribe();
+            this.typingUnsubscribe = null;
+        }
+        this.firstMessageDoc = null;
         
-        document.querySelectorAll('.more-tab-btn').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-        
-        document.querySelectorAll('.more-tab-content').forEach(content => content.classList.remove('active'));
-        const targetContent = document.getElementById(`${tabId}-content`);
-        if (targetContent) targetContent.classList.add('active');
-        
-        if (tabId === 'messages') this.loadConversations();
-        if (tabId === 'alerts') this.loadAlerts();
+        // Remove the chat window
+        chatWindow.remove();
     }
+    
+    // Also close any chat-related modals
+    const chatModals = document.querySelectorAll('.modal:not(#auth-modal)');
+    chatModals.forEach(modal => {
+        if (modal.id !== 'auth-modal' && modal.id !== 'rating-modal') {
+            modal.remove();
+        }
+    });
+    
+    this.currentMoreTab = tabId;
+    
+    document.querySelectorAll('.more-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    document.querySelectorAll('.more-tab-content').forEach(content => content.classList.remove('active'));
+    const targetContent = document.getElementById(`${tabId}-content`);
+    if (targetContent) targetContent.classList.add('active');
+    
+    // Refresh content based on tab
+    if (tabId === 'messages') {
+        // Reset messages content to original state
+        const messagesContent = document.getElementById('messages-content');
+        if (messagesContent) {
+            messagesContent.innerHTML = this.getMessagesHTML();
+            messagesContent.style.overflow = '';
+            messagesContent.style.display = '';
+            messagesContent.style.flexDirection = '';
+            messagesContent.style.height = '';
+        }
+        this.loadConversations();
+        
+        // Re-attach search input listener
+        setTimeout(() => {
+            const searchInput = document.getElementById('message-search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    this.filterConversations(e.target.value);
+                });
+            }
+            const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
+            if (newChatBtn) {
+                newChatBtn.addEventListener('click', () => this.startNewChat());
+            }
+        }, 100);
+    }
+    if (tabId === 'alerts') this.loadAlerts();
+    if (tabId === 'education') {
+        this.loadTeachers();
+        this.loadInternships();
+        this.loadAttachments();
+        this.loadTraining();
+    }
+}
     
     async showRatingModal() {
         if (!this.currentUser) {
