@@ -467,7 +467,7 @@ class MoreMenuManager {
             <div>VikeServe v1.0.0</div>
             <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
             <div style="font-size: 0.7rem; margin-top: 8px;">
-                <a href="https://vikeserve.pages.dev/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+                <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
             </div>
         </div>
     `;
