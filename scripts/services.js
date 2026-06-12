@@ -569,7 +569,15 @@ if (editBtn) {
 
 // ========== PROMOTE SERVICE ==========
 function promoteService(serviceId) {
-    const modalContent = `
+    console.log('promoteService called for ID:', serviceId);
+    
+    // Create modal manually to ensure event handlers work
+    const modal = document.createElement('div');
+    modal.id = 'promote-service-modal';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '20001';
+    modal.innerHTML = `
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <div class="modal-title">Promote Service</div>
@@ -577,6 +585,7 @@ function promoteService(serviceId) {
             </div>
             <div style="padding: 20px;">
                 <p>To promote your service, it needs to be listed in the Marketplace.</p>
+                <p style="font-size: 0.8rem; color: var(--grey-dark); margin-top: 10px;">This will copy your service to the marketplace where you can promote it.</p>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-outline close-modal-btn">Cancel</button>
                     <button class="btn btn-primary" id="convert-and-promote-btn">Convert to Marketplace & Promote</button>
@@ -585,46 +594,106 @@ function promoteService(serviceId) {
         </div>
     `;
     
-    if (typeof window.showModalWithContent === 'function') {
-        window.showModalWithContent('promote-service-modal', modalContent);
-    }
+    document.body.appendChild(modal);
     
-    setTimeout(() => {
-        const convertBtn = document.getElementById('convert-and-promote-btn');
-        if (convertBtn) {
-            convertBtn.addEventListener('click', async () => {
-                const result = await servicesManager.getServiceById(serviceId);
-                if (result.success) {
-                    const service = result.data;
-                    const marketplaceData = {
-                        category: 'services',
-                        title: service.title,
-                        description: service.description,
-                        price: service.price,
-                        location: service.location,
-                        phone: service.phone,
-                        images: service.images || [],
-                        status: 'active',
-                        promoted: false,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        userId: service.userId,
-                        userName: service.userName,
-                        userEmail: service.userEmail,
-                        originalServiceId: serviceId
-                    };
-                    
-                    const docRef = await firebase.firestore().collection('marketplace_items').add(marketplaceData);
-                    window.showToast('Service copied to Marketplace! Now you can promote it.', 'success');
-                    if (typeof window.closeModal === 'function') {
-                        window.closeModal('promote-service-modal');
+    // Close button handler
+    const closeBtns = modal.querySelectorAll('.close-modal-btn');
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modal.remove();
+        });
+    });
+    
+    // Convert and promote button handler
+    const convertBtn = document.getElementById('convert-and-promote-btn');
+    if (convertBtn) {
+        convertBtn.addEventListener('click', async () => {
+            console.log('Convert button clicked for service:', serviceId);
+            
+            // Show loading state
+            convertBtn.disabled = true;
+            convertBtn.innerHTML = '<div class="spinner"></div> Converting...';
+            
+            try {
+                // Get the service data
+                const serviceDoc = await firebase.firestore().collection('services').doc(serviceId).get();
+                
+                if (!serviceDoc.exists) {
+                    window.showToast('Service not found', 'error');
+                    modal.remove();
+                    return;
+                }
+                
+                const service = serviceDoc.data();
+                console.log('Service data retrieved:', service);
+                
+                // Check if current user is the owner
+                const currentUser = firebase.auth().currentUser;
+                if (!currentUser || service.userId !== currentUser.uid) {
+                    window.showToast('You can only promote your own services', 'error');
+                    modal.remove();
+                    return;
+                }
+                
+                // Prepare marketplace data
+                const marketplaceData = {
+                    category: 'services',
+                    title: service.title || 'Service',
+                    description: service.description || '',
+                    price: service.price || 0,
+                    location: service.location || 'Nairobi',
+                    phone: service.phone || '',
+                    images: service.images || [],
+                    status: 'active',
+                    promoted: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    userId: service.userId,
+                    userName: service.userName || currentUser.displayName || currentUser.email,
+                    userEmail: service.userEmail || currentUser.email,
+                    originalServiceId: serviceId,
+                    condition: 'excellent',
+                    negotiable: false,
+                    delivery: false
+                };
+                
+                // Remove any undefined values
+                Object.keys(marketplaceData).forEach(key => {
+                    if (marketplaceData[key] === undefined) {
+                        delete marketplaceData[key];
                     }
+                });
+                
+                // Save to marketplace
+                const docRef = await firebase.firestore().collection('marketplace_items').add(marketplaceData);
+                console.log('Service copied to marketplace with ID:', docRef.id);
+                
+                window.showToast('✅ Service copied to Marketplace! Now you can promote it.', 'success');
+                
+                // Close modal
+                modal.remove();
+                
+                // Show ad packages modal for promotion
+                setTimeout(() => {
                     if (typeof window.showAdPackagesModal === 'function') {
                         window.showAdPackagesModal(docRef.id);
+                    } else {
+                        window.showToast('Click Promote on your marketplace item to boost visibility', 'info');
+                        // Switch to marketplace tab
+                        const marketplaceTab = document.querySelector('[data-tab="marketplace-tab"]');
+                        if (marketplaceTab) {
+                            marketplaceTab.click();
+                        }
                     }
-                }
-            });
-        }
-    }, 100);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error converting service to marketplace:', error);
+                window.showToast('Error: ' + error.message, 'error');
+                convertBtn.disabled = false;
+                convertBtn.innerHTML = 'Convert to Marketplace & Promote';
+            }
+        });
+    }
 }
 
 // ========== SERVICE POST MODAL FUNCTIONS ==========
