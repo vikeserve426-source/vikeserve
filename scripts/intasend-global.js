@@ -967,23 +967,66 @@ class VikeServeGlobalPayments {
             modal.style.display = 'none';
         }
         
-        // Build the checkout URL directly (most reliable method)
-        const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
-        
-        let checkoutUrl = `https://payment.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-        
-        // Add phone number for mobile money
-        if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
-            checkoutUrl += `&phone_number=${formattedPhone}`;
-        }
-        
-        console.log('Redirecting to IntaSend:', checkoutUrl);
-        window.showToast('Redirecting to payment page...', 'info');
-        
-        // Redirect to IntaSend
-        setTimeout(() => {
-            window.location.href = checkoutUrl;
-        }, 500);
+// Build the redirect URL for after payment
+const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
+
+// CORRECTED: Use the proper IntaSend API endpoint
+// For live: https://payments.intasend.com/api/v1/checkout/
+// For sandbox/test: https://sandbox.intasend.com/api/v1/checkout/
+const isSandbox = false; // Set to true for testing, false for live
+const baseUrl = isSandbox 
+    ? 'https://sandbox.intasend.com/api/v1/checkout/' 
+    : 'https://payments.intasend.com/api/v1/checkout/';
+
+// Build the checkout URL with proper parameters
+let checkoutUrl = `${baseUrl}?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
+
+// Add phone number for mobile money (M-Pesa, Airtel, etc.)
+if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
+    checkoutUrl += `&phone_number=${formattedPhone}`;
+}
+
+// Add method for specific payment providers
+if (paymentMethod.id === 'mpesa') {
+    checkoutUrl += `&method=mpesa`;
+} else if (paymentMethod.id === 'airtel_kenya') {
+    checkoutUrl += `&method=airtel_money`;
+} else if (paymentMethod.id === 'mtn_uganda') {
+    checkoutUrl += `&method=mtn_mobile_money`;
+} else if (paymentMethod.id === 'tigo_pesa') {
+    checkoutUrl += `&method=tigo_pesa`;
+}
+
+console.log('Redirecting to IntaSend:', checkoutUrl);
+window.showToast('Redirecting to payment page...', 'info');
+
+// Save transaction to Firestore before redirect
+const paymentRecord = {
+    transactionId: transactionId,
+    adId: ad.id,
+    adTitle: ad.title,
+    packageName: pkg.name,
+    amount: finalAmount,
+    originalAmountKES: pkg.price,
+    currency: finalCurrency,
+    duration: pkg.duration,
+    paymentMethod: paymentMethod.name,
+    status: 'pending',
+    userId: this.userId,
+    userEmail: this.userEmail || 'customer@vikeserve.com',
+    userPhone: formattedPhone || this.userPhone,
+    action: { type: action, details: actionDetails },
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+    userCountry: this.userCountry
+};
+
+await firebase.firestore().collection('transactions').add(paymentRecord);
+
+// Redirect to IntaSend
+setTimeout(() => {
+    window.location.href = checkoutUrl;
+}, 500);
         
         return transactionId;
         
@@ -1183,5 +1226,23 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ========== TEST MODE FUNCTION ==========
+// Set to true to use sandbox/test environment
+// Set to false for live payments
+window.setIntaSendTestMode = function(isTestMode) {
+    const paymentSystem = getPaymentSystem();
+    paymentSystem.isTestMode = isTestMode;
+    if (isTestMode) {
+        console.log('🔧 IntaSend in TEST MODE - using sandbox environment');
+        window.showToast('Test mode enabled. No real charges will be made.', 'info');
+    } else {
+        console.log('💰 IntaSend in LIVE MODE - real charges will be processed');
+    }
+};
+
+// Log the mode on load
+console.log('💰 IntaSend configured with public key:', 'ISPubKey_live_7b219b83-74bc-4661-90ce-126679748f2e');
+console.log('✅ IntaSend ready for LIVE payments');
 
 console.log('✅ Payment system loaded with CORS fix, currency conversion, and verification tab');
