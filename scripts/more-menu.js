@@ -315,9 +315,9 @@ class MoreMenuManager {
         ratingCount: 0, 
         averageRating: 5.0, 
         portfolioUrl: 'https://vike-store.netlify.app/',
-        county: 'Kakamega',
+        county: 'Bungoma',
         country: 'Kenya',
-        schools: 'Kakamega High School, Jomo Kenyatta University of Agriculture and Technology (JKUAT)',
+        schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
         achievements: 'Full Stack Developer, Firebase Expert, App Creator',
         bio: 'Passionate full-stack developer creating solutions that empower local communities.'
     };
@@ -371,35 +371,73 @@ class MoreMenuManager {
         <!-- Founder bio now only appears when clicking the "Founder" button -->
         
         <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
-            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong>How do I post a service?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                    Go to Services tab, click "List Your Service", fill in the details, and submit.
-                </div>
-            </div>
-            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong>How do I promote my ad?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                    Go to your ad, click "Promote", select a package, choose payment method, and complete payment.
-                </div>
-            </div>
-            <div class="faq-item">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong>Is my payment secure?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 0; color: #666; font-size: 0.85rem;">
-                    Yes! All transactions are encrypted and processed securely through IntaSend.
-                </div>
-            </div>
+    <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
+    
+    <!-- FAQ 1: How to post a service -->
+    <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
+        <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+            <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 8px;"></i> How do I post a service?</strong>
+            <i class="fas fa-chevron-down faq-icon"></i>
         </div>
+        <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
+            <p>Follow these simple steps to post your service:</p>
+            <ol style="margin: 8px 0 0 20px; padding-left: 0;">
+                <li>Tap on the <strong>Services</strong> tab at the bottom of the app</li>
+                <li>Click the <strong>"List Your Service"</strong> button</li>
+                <li>Fill in your service details (title, description, price, location)</li>
+                <li>Add photos of your service (optional but recommended)</li>
+                <li>Click <strong>"Submit"</strong> to publish your service</li>
+            </ol>
+            <p style="margin-top: 8px;">✅ Your service will be visible to all users immediately after posting.</p>
+        </div>
+    </div>
+    
+    <!-- FAQ 2: How to promote an ad -->
+    <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
+        <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+            <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 8px;"></i> How do I promote my ad?</strong>
+            <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
+            <p>Promote your ad to reach more customers:</p>
+            <ol style="margin: 8px 0 0 20px; padding-left: 0;">
+                <li>Go to your posted ad in <strong>Marketplace</strong> or <strong>Services</strong> tab</li>
+                <li>Click the <strong>"Promote"</strong> button on your ad (only visible to you as the owner)</li>
+                <li>Choose a promotion package:
+                    <ul style="margin: 5px 0 5px 20px;">
+                        <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
+                        <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
+                        <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
+                        <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
+                    </ul>
+                </li>
+                <li>Select your preferred payment method (M-Pesa, Airtel Money, or Card)</li>
+                <li>Complete payment to boost your ad visibility</li>
+            </ol>
+            <p style="margin-top: 8px;">📢 Promoted ads appear at the top of search results and get a special "PROMOTED" badge!</p>
+        </div>
+    </div>
+    
+    <!-- FAQ 3: Is payment secure -->
+    <div class="faq-item">
+        <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+            <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 8px;"></i> Is my payment secure?</strong>
+            <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
+            <p>✅ Yes, your payments are completely secure! Here's why:</p>
+            <ul style="margin: 8px 0 0 20px; padding-left: 0;">
+                <li>🔒 All transactions are encrypted using SSL/TLS technology</li>
+                <li>🏦 Payments are processed through <strong>IntaSend</strong>, a PCI-DSS compliant payment gateway</li>
+                <li>💳 We never store your card information on our servers</li>
+                <li>🛡️ All transactions are monitored for fraudulent activity</li>
+                <li>📧 You'll receive a receipt via email after every payment</li>
+                <li>🔄 Refund policy available for failed transactions</li>
+            </ul>
+            <p style="margin-top: 8px;">For any payment issues, contact us at <strong>vikeserve426@gmail.com</strong></p>
+        </div>
+    </div>
+</div>
         
         <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
             <h4><i class="fas fa-link"></i> Quick Links</h4>
