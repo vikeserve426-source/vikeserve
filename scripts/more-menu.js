@@ -337,7 +337,7 @@ class MoreMenuManager {
             </div>
         </div>
         
-        <!-- RATE VIKESERVE SECTION -->
+        <!-- RATE VIKESERVE SECTION (only button, no visible bio) -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
                 <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -367,36 +367,8 @@ class MoreMenuManager {
             </div>
         </div>
         
-        <!-- FOUNDER DETAILS SECTION -->
-        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4><i class="fas fa-user-tie"></i> About the Founder</h4>
-            <div style="margin-top: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <i class="fas fa-user" style="width: 25px; color: var(--primary);"></i>
-                    <span><strong>Name:</strong> ${this.escapeHtml(founder.name)}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <i class="fas fa-map-marker-alt" style="width: 25px; color: var(--primary);"></i>
-                    <span><strong>County:</strong> ${this.escapeHtml(founder.county || 'Kakamega')}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <i class="fas fa-globe-africa" style="width: 25px; color: var(--primary);"></i>
-                    <span><strong>Country:</strong> ${this.escapeHtml(founder.country || 'Kenya')}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <i class="fas fa-graduation-cap" style="width: 25px; color: var(--primary);"></i>
-                    <span><strong>Education:</strong> ${this.escapeHtml(founder.schools || 'JKUAT')}</span>
-                </div>
-                <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;">
-                    <i class="fas fa-medal" style="width: 25px; color: var(--primary); margin-top: 3px;"></i>
-                    <span><strong>Achievements:</strong> ${this.escapeHtml(founder.achievements || 'Full Stack Developer, Firebase Expert')}</span>
-                </div>
-                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <i class="fas fa-info-circle" style="width: 25px; color: var(--primary); margin-top: 3px;"></i>
-                    <span><strong>Bio:</strong> ${this.escapeHtml(founder.bio || 'Passionate developer creating solutions for local communities.')}</span>
-                </div>
-            </div>
-        </div>
+        <!-- REMOVED: The visible Founder Details Section is now GONE -->
+        <!-- Founder bio now only appears when clicking the "Founder" button -->
         
         <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
             <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
