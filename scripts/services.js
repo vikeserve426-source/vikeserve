@@ -314,10 +314,21 @@ function createServiceElement(service) {
     div.className = 'service-card';
     div.setAttribute('data-provider-id', service.userId);
     
+    // Get current user
+    const currentUser = firebase.auth().currentUser;
+    const isOwner = currentUser && service.userId === currentUser.uid;
+    
     // Get rating info
     const rating = service.rating || service.averageRating || 0;
     const ratingCount = service.ratingCount || service.totalReviews || 0;
     const ratingStars = generateStarRating(rating);
+    
+    // Only show promote button if user is the owner
+    const promoteButtonHtml = isOwner ? `
+        <button class="btn-promote promote-service-btn" data-service-id="${service.id}" style="margin-top: 8px; width: 100%;">
+            <i class="fas fa-rocket"></i> Promote
+        </button>
+    ` : '';
     
     div.innerHTML = `
         <div class="service-header">
@@ -343,7 +354,7 @@ function createServiceElement(service) {
             <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-info-circle"></i> Details</button>
             <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}" style="flex: 1;"><i class="fas fa-user"></i> Profile</button>
         </div>
-        <button class="btn-promote promote-service-btn" data-service-id="${service.id}" style="margin-top: 8px; width: 100%;"><i class="fas fa-rocket"></i> Promote</button>
+        ${promoteButtonHtml}
     `;
     
     // Add click handler for provider info
@@ -352,7 +363,6 @@ function createServiceElement(service) {
         providerDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             const providerId = providerDiv.getAttribute('data-provider-id');
-            const providerName = service.providerName || service.userName || 'Provider';
             if (typeof window.viewSellerProfile === 'function') {
                 window.viewSellerProfile(providerId);
             } else {
@@ -372,15 +382,19 @@ function createServiceElement(service) {
     
     // Add view profile button
     const profileBtn = div.querySelector('.view-provider-profile-btn');
-if (profileBtn) {
-    profileBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const providerId = profileBtn.getAttribute('data-provider-id');
-        const providerName = profileBtn.getAttribute('data-provider-name');
-        viewProviderProfile(providerId);
-    });
-}
+    if (profileBtn) {
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const providerId = profileBtn.getAttribute('data-provider-id');
+            if (typeof window.viewSellerProfile === 'function') {
+                window.viewSellerProfile(providerId);
+            } else {
+                window.showToast('View profile feature coming soon', 'info');
+            }
+        });
+    }
     
+    // Only add promote button listener if it exists (owner only)
     const promoteBtn = div.querySelector('.promote-service-btn');
     if (promoteBtn) {
         promoteBtn.addEventListener('click', (e) => {
@@ -547,16 +561,16 @@ function showServiceDetailsModal(service) {
                 <div class="service-description" style="margin: 15px 0;"><strong>Description:</strong><br>${escapeHtml(service.description)}</div>
                 <div class="service-contact"><i class="fas fa-phone"></i> ${escapeHtml(service.phone || 'Contact via app')}</div>
                 ${!isOwner ? `
-                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="btn btn-primary contact-service-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
-                        <button class="btn btn-outline book-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book</button>
-                    </div>
-                ` : `
-                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="btn btn-outline edit-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn btn-danger delete-service-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
-                    </div>
-                `}
+    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book Service</button>
+        <button class="btn btn-outline contact-provider-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
+    </div>
+` : `
+    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-outline edit-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
+        <button class="btn btn-danger delete-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
+    </div>
+`}
             </div>
         </div>
     `;
