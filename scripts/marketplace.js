@@ -197,12 +197,17 @@ function createMarketplaceItemElement(item) {
     `;
     
     const contactBtn = div.querySelector('.contact-seller-btn');
-    if (contactBtn) {
-        contactBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            contactSeller(item.phone || item.id);
-        });
-    }
+if (contactBtn) {
+    contactBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Use chat instead of phone call
+        if (item.userId) {
+            startChatWithSeller(item.userId, item.userName);
+        } else {
+            window.showToast('Seller contact info coming soon', 'info');
+        }
+    });
+}
     
     const profileBtn = div.querySelector('.view-seller-profile-btn');
     if (profileBtn) {
@@ -481,66 +486,166 @@ function whatsappSeller(phone) {
 
 // ========== VIEW SELLER PROFILE ==========
 async function viewSellerProfile(sellerId) {
-    if (!sellerId) return;
+    if (!sellerId) {
+        window.showToast('Invalid seller ID', 'error');
+        return;
+    }
     
     try {
+        window.showToast('Loading profile...', 'info');
+        
         const userDoc = await firebase.firestore().collection('users').doc(sellerId).get();
         if (!userDoc.exists) {
-    window.showToast('Seller profile not found', 'error');
-    return;
-}
+            window.showToast('Seller profile not found', 'error');
+            return;
+        }
         
         const seller = userDoc.data();
-        const ratingStars = generateStarRating(seller.averageRating || seller.rating || 0);
+        const sellerName = seller.displayName || seller.userName || 'User';
+        const sellerEmail = seller.email || '';
+        const sellerPhone = seller.phone || '';
+        const sellerRating = seller.averageRating || seller.rating || 0;
+        const sellerRatingCount = seller.totalReviews || seller.ratingCount || 0;
+        const ratingStars = generateStarRating(sellerRating);
+        
+        // Get seller's items count
+        let itemsCount = 0;
+        try {
+            const itemsSnapshot = await firebase.firestore().collection('marketplace_items')
+                .where('userId', '==', sellerId)
+                .where('status', '==', 'active')
+                .get();
+            itemsCount = itemsSnapshot.size;
+        } catch (err) {
+            console.error('Error getting items count:', err);
+        }
+        
+        // Get seller's services count
+        let servicesCount = 0;
+        try {
+            const servicesSnapshot = await firebase.firestore().collection('services')
+                .where('userId', '==', sellerId)
+                .where('status', '==', 'active')
+                .get();
+            servicesCount = servicesSnapshot.size;
+        } catch (err) {
+            console.error('Error getting services count:', err);
+        }
         
         const modalContent = `
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-header">
+            <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+                <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                     <div class="modal-title"><i class="fas fa-user-circle"></i> Seller Profile</div>
-                    <button class="close-modal-btn">&times;</button>
+                    <button class="close-modal-btn" onclick="closeSellerProfileModal()">&times;</button>
                 </div>
                 <div style="padding: 20px; text-align: center;">
-                    <div class="seller-avatar" style="width: 80px; height: 80px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; margin: 0 auto 15px;">
-                        ${(seller.displayName || seller.userName || 'U').charAt(0).toUpperCase()}
+                    <div class="seller-avatar" style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; margin: 0 auto 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        ${sellerName.charAt(0).toUpperCase()}
                     </div>
-                    <h3>${escapeHtml(seller.displayName || seller.userName || 'Unknown Seller')}</h3>
+                    <h3 style="margin: 0 0 5px 0;">${escapeHtml(sellerName)}</h3>
                     <div class="seller-rating" style="margin: 10px 0;">
-                        ${ratingStars} ${(seller.averageRating || seller.rating || 0).toFixed(1)} (${seller.totalReviews || seller.ratingCount || 0} reviews)
+                        ${ratingStars}
+                        <span style="margin-left: 8px; color: var(--grey-dark);">${sellerRating > 0 ? sellerRating.toFixed(1) : 'No ratings yet'}</span>
+                        ${sellerRatingCount > 0 ? `<span style="color: var(--grey-dark);">(${sellerRatingCount} reviews)</span>` : ''}
                     </div>
-                    ${seller.bio ? `<p style="margin: 10px 0; color: var(--grey-dark);">${escapeHtml(seller.bio)}</p>` : ''}
-                    ${seller.location ? `<p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(seller.location)}</p>` : ''}
+                    
+                    <div style="display: flex; justify-content: space-around; margin: 20px 0; padding: 15px 0; background: var(--light); border-radius: 12px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${itemsCount + servicesCount}</div>
+                            <div style="font-size: 0.7rem; color: var(--grey-dark);">Listings</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${sellerRatingCount}</div>
+                            <div style="font-size: 0.7rem; color: var(--grey-dark);">Reviews</div>
+                        </div>
+                    </div>
+                    
+                    ${seller.bio ? `<p style="margin: 10px 0; color: var(--grey-dark); font-size: 0.85rem; padding: 0 10px;">${escapeHtml(seller.bio)}</p>` : ''}
+                    ${seller.location ? `<p style="margin: 5px 0;"><i class="fas fa-map-marker-alt" style="color: var(--primary);"></i> ${escapeHtml(seller.location)}</p>` : ''}
+                    ${sellerEmail ? `<p style="margin: 5px 0;"><i class="fas fa-envelope" style="color: var(--primary);"></i> ${escapeHtml(sellerEmail)}</p>` : ''}
+                    ${sellerPhone ? `<p style="margin: 5px 0;"><i class="fas fa-phone" style="color: var(--primary);"></i> ${escapeHtml(sellerPhone)}</p>` : ''}
+                    
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="btn btn-primary contact-seller-from-profile-btn" data-seller-id="${sellerId}" data-seller-name="${escapeHtml(seller.displayName || seller.userName)}">Contact Seller</button>
+                        <button class="btn btn-primary" id="contact-seller-from-profile" style="flex: 1;">
+                            <i class="fas fa-comment"></i> Send Message
+                        </button>
+                        <button class="btn btn-outline" id="view-seller-listings" style="flex: 1;">
+                            <i class="fas fa-store"></i> View Listings
+                        </button>
                     </div>
                 </div>
             </div>
         `;
         
-        if (typeof window.showModalWithContent === 'function') {
-            window.showModalWithContent('seller-profile-modal', modalContent);
+        // Create and show modal
+        const modal = document.createElement('div');
+        modal.id = 'seller-profile-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20002';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        // Close button handler
+        window.closeSellerProfileModal = function() {
+            const modalEl = document.getElementById('seller-profile-modal');
+            if (modalEl) modalEl.remove();
+        };
+        
+        // Contact seller button
+        const contactBtn = document.getElementById('contact-seller-from-profile');
+        if (contactBtn) {
+            contactBtn.addEventListener('click', async () => {
+                const currentUser = firebase.auth().currentUser;
+                if (!currentUser) {
+                    window.showToast('Please sign in to send a message', 'warning');
+                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
+                    modal.remove();
+                    return;
+                }
+                
+                // Use the moreMenuManager to start chat if available
+                if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+                    await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your listings on VikeServe.`);
+                    window.showToast('Chat started! Check your messages.', 'success');
+                    modal.remove();
+                    
+                    // Switch to messages tab in more menu
+                    if (typeof window.switchTab === 'function') {
+                        window.switchTab('more-tab');
+                    }
+                    if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                        setTimeout(() => {
+                            window.moreMenuManager.switchMoreTab('messages');
+                        }, 500);
+                    }
+                } else {
+                    window.showToast('Opening chat...', 'info');
+                    modal.remove();
+                }
+            });
         }
         
-        setTimeout(() => {
-            const contactBtn = document.querySelector('#seller-profile-modal .contact-seller-from-profile-btn');
-            if (contactBtn) {
-                contactBtn.addEventListener('click', () => {
-                    if (typeof window.closeModal === 'function') {
-                        window.closeModal('seller-profile-modal');
+        // View seller listings button
+        const listingsBtn = document.getElementById('view-seller-listings');
+        if (listingsBtn) {
+            listingsBtn.addEventListener('click', () => {
+                modal.remove();
+                // Filter marketplace to show only this seller's items
+                if (typeof window.loadMarketplaceItems === 'function') {
+                    window.showToast(`Loading ${escapeHtml(sellerName)}'s listings...`, 'info');
+                    // For now, just show all items - user can search by seller name
+                    if (typeof window.switchTab === 'function') {
+                        window.switchTab('marketplace-tab');
                     }
-                    // Start chat with seller
-                    if (typeof window.startChatWithUser === 'function') {
-                        window.startChatWithUser(sellerId, `Hi! I'm interested in your items on VikeServe.`);
-                    } else {
-                        showToast('Chat feature coming soon', 'info');
-                    }
-                });
-            }
-        }, 100);
+                }
+            });
+        }
         
     } catch (error) {
-    console.error('Error loading seller profile:', error);
-    window.showToast('Error loading seller profile', 'error');
-}
+        console.error('Error loading seller profile:', error);
+        window.showToast('Error loading seller profile: ' + error.message, 'error');
+    }
 }
 
 // ========== EDIT AND DELETE FUNCTIONS ==========
@@ -1568,5 +1673,53 @@ window.showLandPostModal = showLandPostModal;
 window.submitLandListing = submitLandListing;
 window.setupFilterButtons = setupFilterButtons;
 window.viewSellerProfile = viewSellerProfile;
+
+// ========== START CHAT WITH SELLER ==========
+async function startChatWithSeller(sellerId, sellerName) {
+    const currentUser = firebase.auth().currentUser;
+    if (!currentUser) {
+        window.showToast('Please sign in to send a message', 'warning');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    if (!sellerId) {
+        window.showToast('Invalid seller', 'error');
+        return;
+    }
+    
+    // Don't allow chatting with yourself
+    if (sellerId === currentUser.uid) {
+        window.showToast('You cannot chat with yourself', 'info');
+        return;
+    }
+    
+    try {
+        // Check if moreMenuManager is available
+        if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+            await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your items on VikeServe.`);
+            window.showToast('Chat started! Check your messages.', 'success');
+            
+            // Switch to messages tab
+            if (typeof window.switchTab === 'function') {
+                window.switchTab('more-tab');
+            }
+            if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                setTimeout(() => {
+                    window.moreMenuManager.switchMoreTab('messages');
+                }, 500);
+            }
+        } else {
+            // Fallback: create a basic chat
+            window.showToast('Opening chat...', 'info');
+        }
+    } catch (error) {
+        console.error('Error starting chat:', error);
+        window.showToast('Error starting chat: ' + error.message, 'error');
+    }
+}
+
+// Make function available globally
+window.startChatWithSeller = startChatWithSeller;
 
 console.log('✅ Marketplace.js fully loaded with Firebase Storage integration');

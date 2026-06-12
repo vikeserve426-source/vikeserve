@@ -372,18 +372,14 @@ function createServiceElement(service) {
     
     // Add view profile button
     const profileBtn = div.querySelector('.view-provider-profile-btn');
-    if (profileBtn) {
-        profileBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const providerId = profileBtn.getAttribute('data-provider-id');
-            const providerName = profileBtn.getAttribute('data-provider-name');
-            if (typeof window.viewSellerProfile === 'function') {
-                window.viewSellerProfile(providerId);
-            } else {
-                window.showToast('View profile feature coming soon', 'info');
-            }
-        });
-    }
+if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const providerId = profileBtn.getAttribute('data-provider-id');
+        const providerName = profileBtn.getAttribute('data-provider-name');
+        viewProviderProfile(providerId);
+    });
+}
     
     const promoteBtn = div.querySelector('.promote-service-btn');
     if (promoteBtn) {
@@ -1718,5 +1714,122 @@ async function viewServiceDetails(serviceId) {
 
 // Make viewServiceDetails available globally
 window.viewServiceDetails = viewServiceDetails;
+
+// ========== VIEW PROVIDER PROFILE ==========
+async function viewProviderProfile(providerId) {
+    if (!providerId) {
+        window.showToast('Invalid provider ID', 'error');
+        return;
+    }
+    
+    try {
+        window.showToast('Loading profile...', 'info');
+        
+        const userDoc = await firebase.firestore().collection('users').doc(providerId).get();
+        if (!userDoc.exists) {
+            window.showToast('Provider profile not found', 'error');
+            return;
+        }
+        
+        const provider = userDoc.data();
+        const providerName = provider.displayName || provider.userName || 'Service Provider';
+        const providerRating = provider.averageRating || provider.rating || 0;
+        const providerRatingCount = provider.totalReviews || provider.ratingCount || 0;
+        const ratingStars = generateStarRating(providerRating);
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+                <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                    <div class="modal-title"><i class="fas fa-user-circle"></i> Provider Profile</div>
+                    <button class="close-modal-btn" onclick="closeProviderProfileModal()">&times;</button>
+                </div>
+                <div style="padding: 20px; text-align: center;">
+                    <div class="provider-avatar" style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; margin: 0 auto 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        ${providerName.charAt(0).toUpperCase()}
+                    </div>
+                    <h3 style="margin: 0 0 5px 0;">${escapeHtml(providerName)}</h3>
+                    <div class="provider-rating" style="margin: 10px 0;">
+                        ${ratingStars}
+                        <span style="margin-left: 8px; color: var(--grey-dark);">${providerRating > 0 ? providerRating.toFixed(1) : 'No ratings yet'}</span>
+                        ${providerRatingCount > 0 ? `<span style="color: var(--grey-dark);">(${providerRatingCount} reviews)</span>` : ''}
+                    </div>
+                    
+                    ${provider.bio ? `<p style="margin: 10px 0; color: var(--grey-dark); font-size: 0.85rem; padding: 0 10px;">${escapeHtml(provider.bio)}</p>` : ''}
+                    ${provider.location ? `<p style="margin: 5px 0;"><i class="fas fa-map-marker-alt" style="color: var(--primary);"></i> ${escapeHtml(provider.location)}</p>` : ''}
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary" id="contact-provider-from-profile" style="flex: 1;">
+                            <i class="fas fa-comment"></i> Send Message
+                        </button>
+                        <button class="btn btn-outline" id="view-provider-services" style="flex: 1;">
+                            <i class="fas fa-tools"></i> View Services
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modal = document.createElement('div');
+        modal.id = 'provider-profile-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20002';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        window.closeProviderProfileModal = function() {
+            const modalEl = document.getElementById('provider-profile-modal');
+            if (modalEl) modalEl.remove();
+        };
+        
+        const contactBtn = document.getElementById('contact-provider-from-profile');
+        if (contactBtn) {
+            contactBtn.addEventListener('click', async () => {
+                const currentUser = firebase.auth().currentUser;
+                if (!currentUser) {
+                    window.showToast('Please sign in to send a message', 'warning');
+                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
+                    modal.remove();
+                    return;
+                }
+                
+                if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+                    await window.moreMenuManager.startChatWithUser(providerId, `Hi! I'm interested in your services on VikeServe.`);
+                    window.showToast('Chat started! Check your messages.', 'success');
+                    modal.remove();
+                    
+                    if (typeof window.switchTab === 'function') {
+                        window.switchTab('more-tab');
+                    }
+                    if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                        setTimeout(() => {
+                            window.moreMenuManager.switchMoreTab('messages');
+                        }, 500);
+                    }
+                } else {
+                    window.showToast('Opening chat...', 'info');
+                    modal.remove();
+                }
+            });
+        }
+        
+        const servicesBtn = document.getElementById('view-provider-services');
+        if (servicesBtn) {
+            servicesBtn.addEventListener('click', () => {
+                modal.remove();
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('services-tab');
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error loading provider profile:', error);
+        window.showToast('Error loading provider profile: ' + error.message, 'error');
+    }
+}
+
+// Make function available globally
+window.viewProviderProfile = viewProviderProfile;
 
 console.log('✅ Services.js fully loaded with booking feature');
