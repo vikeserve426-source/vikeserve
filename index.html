@@ -355,25 +355,75 @@
         
         /* Toast */
         .toast {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: white;
-            border-radius: 10px;
-            padding: 12px 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            z-index: 2000;
-            transition: transform 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .toast.show { transform: translateX(-50%) translateY(0); }
-        .toast-success { border-left: 4px solid var(--success); }
-        .toast-error { border-left: 4px solid var(--danger); }
-        .toast-warning { border-left: 4px solid var(--warning); }
-        .toast-info { border-left: 4px solid var(--primary); }
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: white;
+    border-radius: 12px;
+    padding: 12px 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+    max-width: 90%;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+[data-theme="dark"] .toast {
+    background: #2d333b;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast-success {
+    border-left: 4px solid #27ae60;
+}
+
+.toast-error {
+    border-left: 4px solid #e74c3c;
+}
+
+.toast-warning {
+    border-left: 4px solid #f39c12;
+}
+
+.toast-info {
+    border-left: 4px solid #2E86DE;
+}
+
+.toast-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.toast-icon i {
+    margin: 0;
+}
+
+.toast-message {
+    font-size: 0.85rem;
+    font-weight: 500;
+    flex: 1;
+}
+
+@media (max-width: 480px) {
+    .toast {
+        bottom: 65px;
+        padding: 10px 16px;
+        max-width: 95%;
+    }
+    
+    .toast-message {
+        font-size: 0.8rem;
+    }
+}
         
         /* Market Items */
         .market-items {

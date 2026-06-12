@@ -77,11 +77,20 @@ function generateStarRating(rating) {
 async function uploadMarketplaceImages(files, itemId) {
     const imageUrls = [];
     
+    // Check if storage is available globally
+    if (typeof firebase === 'undefined' || !firebase.storage) {
+        console.warn('Firebase Storage not available');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Storage service unavailable. Images not uploaded.', 'warning');
+        }
+        return imageUrls;
+    }
+    
     for (const file of files) {
         try {
             const fileExtension = file.name.split('.').pop();
             const filename = `marketplace/${itemId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-            const storageRef = storage.ref(filename);
+            const storageRef = firebase.storage().ref(filename);
             const snapshot = await storageRef.put(file);
             const downloadURL = await snapshot.ref.getDownloadURL();
             imageUrls.push(downloadURL);
@@ -457,9 +466,9 @@ async function viewSellerProfile(sellerId) {
     try {
         const userDoc = await firebase.firestore().collection('users').doc(sellerId).get();
         if (!userDoc.exists) {
-            showToast('Seller profile not found', 'error');
-            return;
-        }
+    window.showToast('Seller profile not found', 'error');
+    return;
+}
         
         const seller = userDoc.data();
         const ratingStars = generateStarRating(seller.averageRating || seller.rating || 0);
@@ -509,9 +518,9 @@ async function viewSellerProfile(sellerId) {
         }, 100);
         
     } catch (error) {
-        console.error('Error loading seller profile:', error);
-        showToast('Error loading seller profile', 'error');
-    }
+    console.error('Error loading seller profile:', error);
+    window.showToast('Error loading seller profile', 'error');
+}
 }
 
 // ========== EDIT AND DELETE FUNCTIONS ==========
@@ -519,17 +528,289 @@ async function editMarketplaceItem(itemId) {
     try {
         const doc = await firebase.firestore().collection('marketplace_items').doc(itemId).get();
         if (!doc.exists) {
-            showToast('Item not found', 'error');
+            window.showToast('Item not found', 'error');
             return;
         }
         
         const item = doc.data();
-        showToast('Edit functionality coming soon', 'info');
+        
+        // Check if current user is the owner
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser || item.userId !== currentUser.uid) {
+            window.showToast('You can only edit your own items', 'error');
+            return;
+        }
+        
+        // Close any open modals first
+        const existingModal = document.getElementById('edit-item-modal');
+        if (existingModal) existingModal.remove();
+        
+        // Create edit modal content
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-edit"></i> Edit Item</div>
+                    <button class="close-modal-btn" onclick="closeEditModal()">&times;</button>
+                </div>
+                <div style="padding: 10px 0;">
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select id="edit-category" class="form-input">
+                            <option value="electronics" ${item.category === 'electronics' ? 'selected' : ''}>📱 Electronics</option>
+                            <option value="phones" ${item.category === 'phones' ? 'selected' : ''}>📱 Phones</option>
+                            <option value="furniture" ${item.category === 'furniture' ? 'selected' : ''}>🛋️ Furniture</option>
+                            <option value="mitumba" ${item.category === 'mitumba' ? 'selected' : ''}>👕 Mitumba</option>
+                            <option value="vehicles" ${item.category === 'vehicles' ? 'selected' : ''}>🚗 Vehicles</option>
+                            <option value="books" ${item.category === 'books' ? 'selected' : ''}>📚 Books</option>
+                            <option value="sports" ${item.category === 'sports' ? 'selected' : ''}>⚽ Sports</option>
+                            <option value="home-appliances" ${item.category === 'home-appliances' ? 'selected' : ''}>🔌 Appliances</option>
+                            <option value="other" ${item.category === 'other' ? 'selected' : ''}>📦 Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" id="edit-title" class="form-input" value="${escapeHtml(item.title)}" placeholder="Item title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="edit-description" class="form-input" rows="4" placeholder="Item description">${escapeHtml(item.description)}</textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="edit-price" class="form-input" value="${item.price}" placeholder="Price">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Condition *</label>
+                            <select id="edit-condition" class="form-input">
+                                <option value="new" ${item.condition === 'new' ? 'selected' : ''}>🆕 Brand New</option>
+                                <option value="like-new" ${item.condition === 'like-new' ? 'selected' : ''}>✨ Like New</option>
+                                <option value="excellent" ${item.condition === 'excellent' ? 'selected' : ''}>⭐ Excellent</option>
+                                <option value="good" ${item.condition === 'good' ? 'selected' : ''}>👍 Good</option>
+                                <option value="fair" ${item.condition === 'fair' ? 'selected' : ''}>🔄 Fair</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="edit-location" class="form-input" value="${escapeHtml(item.location)}" placeholder="Your location">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" id="edit-phone" class="form-input" value="${escapeHtml(item.phone)}" placeholder="Phone number">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">WhatsApp</label>
+                            <input type="tel" id="edit-whatsapp" class="form-input" value="${escapeHtml(item.whatsapp || item.phone)}" placeholder="WhatsApp number">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="edit-negotiable" ${item.negotiable ? 'checked' : ''}> Price Negotiable
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="edit-delivery" ${item.delivery ? 'checked' : ''}> Delivery Available
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select id="edit-status" class="form-input">
+                            <option value="active" ${item.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Sold</option>
+                            <option value="inactive" ${item.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                    
+                    ${item.images && item.images.length > 0 ? `
+                        <div class="form-group">
+                            <label class="form-label">Current Images</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                                ${item.images.map((img, idx) => `
+                                    <div style="position: relative; display: inline-block;">
+                                        <img src="${img}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">
+                                        <button type="button" class="remove-existing-image" data-img-url="${img}" style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="edit-existing-images" value='${JSON.stringify(item.images)}'>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="image-upload-area" onclick="document.getElementById('edit-images').click()" style="margin: 10px 0;">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to add new images</p>
+                        <span>Optional: Add more images</span>
+                    </div>
+                    <input type="file" id="edit-images" multiple accept="image/*" style="display: none;">
+                    <div id="edit-image-preview-container" class="image-preview-container"></div>
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                        <button class="btn btn-primary" id="save-edit-btn" data-item-id="${itemId}">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Create and show modal
+        const modal = document.createElement('div');
+        modal.id = 'edit-item-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20001';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        // Setup image preview for new images
+        const editImageInput = document.getElementById('edit-images');
+        if (editImageInput) {
+            editImageInput.addEventListener('change', (e) => {
+                const previewContainer = document.getElementById('edit-image-preview-container');
+                if (previewContainer) {
+                    previewContainer.innerHTML = '';
+                    Array.from(e.target.files).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const preview = document.createElement('div');
+                            preview.className = 'image-preview-item';
+                            preview.innerHTML = `
+                                <img src="${event.target.result}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">
+                                <button type="button" class="remove-image-preview" style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">×</button>
+                            `;
+                            previewContainer.appendChild(preview);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+            });
+        }
+        
+        // Handle remove existing images
+        document.querySelectorAll('.remove-existing-image').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const imgUrl = btn.getAttribute('data-img-url');
+                let existingImages = JSON.parse(document.getElementById('edit-existing-images')?.value || '[]');
+                existingImages = existingImages.filter(url => url !== imgUrl);
+                document.getElementById('edit-existing-images').value = JSON.stringify(existingImages);
+                btn.closest('div').remove();
+                window.showToast('Image will be removed on save', 'info');
+            });
+        });
+        
+        // Save button handler
+        const saveBtn = document.getElementById('save-edit-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await saveEditedItem(itemId);
+            });
+        }
+        
     } catch (error) {
-        console.error('Error editing item:', error);
-        showToast('Error loading item for edit', 'error');
+        console.error('Error loading item for edit:', error);
+        window.showToast('Error loading item for edit: ' + error.message, 'error');
     }
 }
+
+// ========== SAVE EDITED ITEM ==========
+async function saveEditedItem(itemId) {
+    try {
+        // Get form values
+        const category = document.getElementById('edit-category')?.value;
+        const title = document.getElementById('edit-title')?.value.trim();
+        const description = document.getElementById('edit-description')?.value.trim();
+        const price = document.getElementById('edit-price')?.value;
+        const condition = document.getElementById('edit-condition')?.value;
+        const location = document.getElementById('edit-location')?.value.trim();
+        const phone = document.getElementById('edit-phone')?.value.trim();
+        const whatsapp = document.getElementById('edit-whatsapp')?.value.trim();
+        const negotiable = document.getElementById('edit-negotiable')?.checked;
+        const delivery = document.getElementById('edit-delivery')?.checked;
+        const status = document.getElementById('edit-status')?.value;
+        
+        // Validation
+        if (!title || !description || !price || !location || !phone) {
+            window.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        window.showToast('Saving changes...', 'info');
+        
+        // Get existing images
+        let existingImages = [];
+        const existingImagesInput = document.getElementById('edit-existing-images');
+        if (existingImagesInput && existingImagesInput.value) {
+            existingImages = JSON.parse(existingImagesInput.value);
+        }
+        
+        // Upload new images
+        const imageInput = document.getElementById('edit-images');
+        let newImages = [];
+        if (imageInput && imageInput.files && imageInput.files.length > 0) {
+            window.showToast('Uploading new images...', 'info');
+            const imageFiles = Array.from(imageInput.files);
+            newImages = await uploadMarketplaceImages(imageFiles, itemId);
+        }
+        
+        // Combine images
+        const allImages = [...existingImages, ...newImages];
+        
+        // Update Firestore
+        await firebase.firestore().collection('marketplace_items').doc(itemId).update({
+            category: category,
+            title: title,
+            description: description,
+            price: parseInt(price),
+            condition: condition,
+            location: location,
+            phone: phone,
+            whatsapp: whatsapp || phone,
+            negotiable: negotiable || false,
+            delivery: delivery || false,
+            status: status,
+            images: allImages,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        window.showToast('✅ Item updated successfully!', 'success');
+        
+        // Close modal
+        closeEditModal();
+        
+        // Reload items
+        setTimeout(() => {
+            loadMarketplaceItems(currentCategory || 'all');
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error saving edited item:', error);
+        window.showToast('Error saving changes: ' + error.message, 'error');
+    }
+}
+
+// ========== CLOSE EDIT MODAL ==========
+function closeEditModal() {
+    const modal = document.getElementById('edit-item-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Make functions available globally
+window.closeEditModal = closeEditModal;
+window.saveEditedItem = saveEditedItem;
 
 async function deleteMarketplaceItem(itemId) {
     if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) return;
@@ -542,9 +823,9 @@ async function deleteMarketplaceItem(itemId) {
         }
         loadMarketplaceItems(currentCategory);
     } catch (error) {
-        console.error('Error deleting item:', error);
-        showToast('Error deleting item: ' + error.message, 'error');
-    }
+    console.error('Error deleting item:', error);
+    window.showToast('Error deleting item: ' + error.message, 'error');
+}
 }
 
 // ========== SUBMIT MARKETPLACE ITEM (WITH IMAGE UPLOAD) ==========
@@ -573,14 +854,38 @@ async function submitMarketplaceItem() {
         return;
     }
     
-    if (!category || !title || !description || !price || price <= 0 || !condition || !location || !phone) {
-        if (typeof window.showToast === 'function') window.showToast('Please fill in all required fields', 'error');
+    // Validation
+    if (!category) {
+        window.showToast('Please select a category', 'error');
+        return;
+    }
+    if (!title) {
+        window.showToast('Please enter a title', 'error');
+        return;
+    }
+    if (!description) {
+        window.showToast('Please enter a description', 'error');
+        return;
+    }
+    if (!price || price <= 0) {
+        window.showToast('Please enter a valid price', 'error');
+        return;
+    }
+    if (!condition) {
+        window.showToast('Please select a condition', 'error');
+        return;
+    }
+    if (!location) {
+        window.showToast('Please enter a location', 'error');
+        return;
+    }
+    if (!phone) {
+        window.showToast('Please enter a phone number', 'error');
         return;
     }
     
-    if (typeof window.showToast === 'function') {
-        window.showToast('Saving item...', 'info');
-    }
+    // Show loading toast
+    window.showToast('Saving item...', 'info');
     
     const itemId = firebase.firestore().collection('marketplace_items').doc().id;
     
@@ -593,8 +898,8 @@ async function submitMarketplaceItem() {
         location: location,
         phone: phone,
         whatsapp: whatsapp || phone,
-        negotiable: negotiable,
-        delivery: delivery,
+        negotiable: negotiable || false,
+        delivery: delivery || false,
         status: 'active',
         promoted: false,
         images: [],
@@ -607,32 +912,40 @@ async function submitMarketplaceItem() {
     try {
         // Upload images if any
         const imageInput = document.getElementById('market-images');
-        if (imageInput && imageInput.files.length > 0) {
+        if (imageInput && imageInput.files && imageInput.files.length > 0) {
+            window.showToast('Uploading images...', 'info');
             const imageFiles = Array.from(imageInput.files);
             const uploadedUrls = await uploadMarketplaceImages(imageFiles, itemId);
             itemData.images = uploadedUrls;
         }
         
+        // Save to Firestore
         await firebase.firestore().collection('marketplace_items').doc(itemId).set(itemData);
         console.log('Item saved to Firebase with ID:', itemId);
         
-        if (typeof window.showToast === 'function') {
-            window.showToast('✅ Item listed successfully!', 'success');
+        window.showToast('✅ Item listed successfully!', 'success');
+        
+        // Close modal
+        const modal = document.getElementById('marketplace-post-modal');
+        if (modal) {
+            modal.style.display = 'none';
         }
         
-        const modal = document.getElementById('marketplace-post-modal');
-        if (modal) modal.style.display = 'none';
-        
+        // Reset form
         resetMarketplaceForm();
+        
+        // Reload items
         setTimeout(() => {
-            loadMarketplaceItems('all');
-            if (typeof window.switchTab === 'function') window.switchTab('marketplace-tab');
+            loadMarketplaceItems(currentCategory || 'all');
+            // Switch to marketplace tab if not already there
+            if (typeof window.switchTab === 'function') {
+                window.switchTab('marketplace-tab');
+            }
         }, 500);
+        
     } catch (error) {
         console.error('Error saving item:', error);
-        if (typeof window.showToast === 'function') {
-            window.showToast(`Error: ${error.message}`, 'error');
-        }
+        window.showToast(`Error: ${error.message}`, 'error');
     }
 }
 
@@ -655,9 +968,9 @@ function showMarketplacePostModal() {
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
     } else {
-        console.error('marketplace-post-modal not found');
-        if (typeof window.showToast === 'function') window.showToast('Form not available', 'error');
-    }
+    console.error('marketplace-post-modal not found');
+    window.showToast('Form not available', 'error');
+}
 }
 
 // ========== FILTER BUTTON HANDLERS ==========
@@ -1074,6 +1387,74 @@ function setupMarketplaceButtons() {
             });
         }
     });
+    
+    // ========== ADD THIS CODE FOR SUBMIT BUTTON ==========
+    const submitMarketplaceBtn = document.getElementById('submit-marketplace-btn');
+    if (submitMarketplaceBtn) {
+        const newBtn = submitMarketplaceBtn.cloneNode(true);
+        submitMarketplaceBtn.parentNode.replaceChild(newBtn, submitMarketplaceBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitMarketplaceItem();
+        });
+    }
+    
+    // ========== ADD SUBMIT BUTTONS FOR OTHER MODALS ==========
+    const submitGasBtn = document.getElementById('submit-gas-btn');
+    if (submitGasBtn) {
+        const newBtn = submitGasBtn.cloneNode(true);
+        submitGasBtn.parentNode.replaceChild(newBtn, submitGasBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitGasRefillListing();
+        });
+    }
+    
+    const submitWaterBtn = document.getElementById('submit-water-btn');
+    if (submitWaterBtn) {
+        const newBtn = submitWaterBtn.cloneNode(true);
+        submitWaterBtn.parentNode.replaceChild(newBtn, submitWaterBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitWaterDeliveryListing();
+        });
+    }
+    
+    const submitHotelBtn = document.getElementById('submit-hotel-btn');
+    if (submitHotelBtn) {
+        const newBtn = submitHotelBtn.cloneNode(true);
+        submitHotelBtn.parentNode.replaceChild(newBtn, submitHotelBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitHotelListing();
+        });
+    }
+    
+    const submitPropertyBtn = document.getElementById('submit-property-btn');
+    if (submitPropertyBtn) {
+        const newBtn = submitPropertyBtn.cloneNode(true);
+        submitPropertyBtn.parentNode.replaceChild(newBtn, submitPropertyBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitProperty();
+        });
+    }
+    
+    const submitLandBtn = document.getElementById('submit-land-btn');
+    if (submitLandBtn) {
+        const newBtn = submitLandBtn.cloneNode(true);
+        submitLandBtn.parentNode.replaceChild(newBtn, submitLandBtn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            submitLandListing();
+        });
+    }
 }
 
 // ========== INITIALIZE ==========

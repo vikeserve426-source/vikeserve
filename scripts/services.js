@@ -4,7 +4,10 @@
 class ServicesManager {
     constructor() {
         this.db = db;
-        this.storage = storage;
+        // Fix: Use global storage or fallback
+        this.storage = typeof storage !== 'undefined' ? storage : 
+                      (typeof window.storage !== 'undefined' ? window.storage : 
+                      (typeof firebase !== 'undefined' && firebase.storage ? firebase.storage() : null));
         this.currentListeners = {};
         this.servicesCollection = collections.services();
         this.usersCollection = collections.users();
@@ -116,21 +119,36 @@ class ServicesManager {
     }
 
     async uploadServiceImages(files, serviceId) {
-        const imageUrls = [];
-        for (const file of files) {
-            try {
-                const fileExtension = file.name.split('.').pop();
-                const filename = `services/${serviceId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-                const storageRef = this.storage.ref(filename);
-                const snapshot = await storageRef.put(file);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-                imageUrls.push(downloadURL);
-            } catch (error) {
-                console.error('Error uploading service image:', error);
-            }
+    const imageUrls = [];
+    
+    if (!files || files.length === 0) return imageUrls;
+    
+    // Check if storage is available
+    if (!this.storage) {
+        console.warn('Firebase Storage not available');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Storage service unavailable', 'warning');
         }
         return imageUrls;
     }
+    
+    for (const file of files) {
+        try {
+            const fileExtension = file.name.split('.').pop();
+            const filename = `services/${serviceId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+            const storageRef = this.storage.ref(filename);
+            const snapshot = await storageRef.put(file);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+            imageUrls.push(downloadURL);
+        } catch (error) {
+            console.error('Error uploading service image:', error);
+            if (typeof window.showToast === 'function') {
+                window.showToast('Error uploading image: ' + error.message, 'error');
+            }
+        }
+    }
+    return imageUrls;
+}
 
     async getServiceById(serviceId) {
         try {
@@ -472,13 +490,17 @@ function showServiceDetailsModal(service) {
     
     setTimeout(() => {
         const contactBtn = document.querySelector('#service-details-modal .contact-service-btn');
-        if (contactBtn) {
-            contactBtn.addEventListener('click', () => {
-                const phone = contactBtn.getAttribute('data-phone');
-                if (phone) window.location.href = `tel:${phone}`;
-                else window.showToast('Contact info coming soon', 'info');
-            });
+if (contactBtn) {
+    contactBtn.addEventListener('click', () => {
+        const phone = contactBtn.getAttribute('data-phone');
+        if (phone) window.location.href = `tel:${phone}`;
+        else {
+            if (typeof window.showToast === 'function') {
+                window.showToast('Contact info coming soon', 'info');
+            }
         }
+    });
+}
         
         const bookBtn = document.querySelector('#service-details-modal .book-service-btn');
         if (bookBtn) {
@@ -501,11 +523,12 @@ function showServiceDetailsModal(service) {
         }
         
         const editBtn = document.querySelector('#service-details-modal .edit-service-btn');
-        if (editBtn) {
-            editBtn.addEventListener('click', () => {
-                window.showToast('Edit feature coming soon', 'info');
-            });
-        }
+if (editBtn) {
+    editBtn.addEventListener('click', async () => {
+        const serviceId = editBtn.getAttribute('data-service-id');
+        await editServiceItem(serviceId);
+    });
+}
         
         const deleteBtn = document.querySelector('#service-details-modal .delete-service-btn');
         if (deleteBtn) {
@@ -993,5 +1016,384 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ========== EDIT SERVICE FUNCTIONALITY ==========
+async function editServiceItem(serviceId) {
+    try {
+        const doc = await firebase.firestore().collection('services').doc(serviceId).get();
+        if (!doc.exists) {
+            window.showToast('Service not found', 'error');
+            return;
+        }
+        
+        const service = doc.data();
+        
+        // Check if current user is the owner
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser || service.userId !== currentUser.uid) {
+            window.showToast('You can only edit your own services', 'error');
+            return;
+        }
+        
+        // Close any open modals first
+        const existingModal = document.getElementById('edit-service-modal');
+        if (existingModal) existingModal.remove();
+        
+        // Create edit modal content
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-edit"></i> Edit Service</div>
+                    <button class="close-modal-btn" onclick="closeEditServiceModal()">&times;</button>
+                </div>
+                <div style="padding: 10px 0;">
+                    <div class="form-group">
+                        <label class="form-label">Service Type</label>
+                        <select id="edit-service-type" class="form-input">
+                            <option value="vehicle-hire" ${service.serviceType === 'vehicle-hire' ? 'selected' : ''}>Vehicle Hire</option>
+                            <option value="boda" ${service.serviceType === 'boda' ? 'selected' : ''}>Boda Boda</option>
+                            <option value="construction" ${service.serviceType === 'construction' ? 'selected' : ''}>Construction Worker</option>
+                            <option value="fundis" ${service.serviceType === 'fundis' ? 'selected' : ''}>Skilled Fundis</option>
+                            <option value="cleaning" ${service.serviceType === 'cleaning' ? 'selected' : ''}>Cleaning Services</option>
+                            <option value="delivery" ${service.serviceType === 'delivery' ? 'selected' : ''}>Delivery Services</option>
+                            <option value="other" ${service.serviceType === 'other' ? 'selected' : ''}>Other Service</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" id="edit-service-title" class="form-input" value="${escapeHtml(service.title)}" placeholder="Service title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="edit-service-description" class="form-input" rows="4" placeholder="Service description">${escapeHtml(service.description)}</textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="edit-service-price" class="form-input" value="${service.price}" placeholder="Price">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location *</label>
+                            <input type="text" id="edit-service-location" class="form-input" value="${escapeHtml(service.location)}" placeholder="Your location">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Phone Number *</label>
+                        <input type="tel" id="edit-service-phone" class="form-input" value="${escapeHtml(service.phone || '')}" placeholder="Phone number">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select id="edit-service-status" class="form-input">
+                            <option value="active" ${service.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${service.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                    
+                    ${service.images && service.images.length > 0 ? `
+                        <div class="form-group">
+                            <label class="form-label">Current Images</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                ${service.images.map(img => `
+                                    <div style="position: relative;">
+                                        <img src="${img}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="image-upload-area" onclick="document.getElementById('edit-service-images').click()" style="margin: 10px 0;">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to add new images</p>
+                    </div>
+                    <input type="file" id="edit-service-images" multiple accept="image/*" style="display: none;">
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline" onclick="closeEditServiceModal()">Cancel</button>
+                        <button class="btn btn-primary" id="save-service-edit-btn" data-service-id="${serviceId}">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Create and show modal
+        const modal = document.createElement('div');
+        modal.id = 'edit-service-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20001';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        // Save button handler
+        const saveBtn = document.getElementById('save-service-edit-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await saveEditedService(serviceId);
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error loading service for edit:', error);
+        window.showToast('Error loading service for edit: ' + error.message, 'error');
+    }
+}
+
+// ========== SAVE EDITED SERVICE ==========
+async function saveEditedService(serviceId) {
+    try {
+        const title = document.getElementById('edit-service-title')?.value.trim();
+        const description = document.getElementById('edit-service-description')?.value.trim();
+        const price = document.getElementById('edit-service-price')?.value;
+        const location = document.getElementById('edit-service-location')?.value.trim();
+        const phone = document.getElementById('edit-service-phone')?.value.trim();
+        const serviceType = document.getElementById('edit-service-type')?.value;
+        const status = document.getElementById('edit-service-status')?.value;
+        
+        if (!title || !description || !price || !location || !phone) {
+            window.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        window.showToast('Saving changes...', 'info');
+        
+        // Upload new images if any
+        const imageInput = document.getElementById('edit-service-images');
+        let newImages = [];
+        if (imageInput && imageInput.files && imageInput.files.length > 0) {
+            window.showToast('Uploading new images...', 'info');
+            const imageFiles = Array.from(imageInput.files);
+            newImages = await servicesManager.uploadServiceImages(imageFiles, serviceId);
+        }
+        
+        // Get existing images from current service
+        const currentDoc = await firebase.firestore().collection('services').doc(serviceId).get();
+        const existingImages = currentDoc.data()?.images || [];
+        
+        // Combine images
+        const allImages = [...existingImages, ...newImages];
+        
+        // Update Firestore
+        await firebase.firestore().collection('services').doc(serviceId).update({
+            title: title,
+            description: description,
+            price: parseInt(price),
+            location: location,
+            phone: phone,
+            serviceType: serviceType,
+            category: serviceType,
+            status: status,
+            images: allImages,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        window.showToast('✅ Service updated successfully!', 'success');
+        
+        // Close modal
+        closeEditServiceModal();
+        
+        // Reload services
+        setTimeout(() => {
+            loadServices();
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error saving edited service:', error);
+        window.showToast('Error saving changes: ' + error.message, 'error');
+    }
+}
+
+// ========== CLOSE EDIT SERVICE MODAL ==========
+function closeEditServiceModal() {
+    const modal = document.getElementById('edit-service-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ========== EDIT JOB FUNCTIONALITY ==========
+async function editJobItem(jobId) {
+    try {
+        const doc = await firebase.firestore().collection('services').doc(jobId).get();
+        if (!doc.exists) {
+            window.showToast('Job not found', 'error');
+            return;
+        }
+        
+        const job = doc.data();
+        
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser || job.userId !== currentUser.uid) {
+            window.showToast('You can only edit your own jobs', 'error');
+            return;
+        }
+        
+        const existingModal = document.getElementById('edit-job-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-edit"></i> Edit Job</div>
+                    <button class="close-modal-btn" onclick="closeEditJobModal()">&times;</button>
+                </div>
+                <div style="padding: 10px 0;">
+                    <div class="form-group">
+                        <label class="form-label">Job Title *</label>
+                        <input type="text" id="edit-job-title" class="form-input" value="${escapeHtml(job.title)}" placeholder="Job title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Job Category *</label>
+                        <select id="edit-job-category" class="form-input">
+                            <option value="construction" ${job.category === 'construction' ? 'selected' : ''}>Construction</option>
+                            <option value="cleaning" ${job.category === 'cleaning' ? 'selected' : ''}>Cleaning</option>
+                            <option value="delivery" ${job.category === 'delivery' ? 'selected' : ''}>Delivery</option>
+                            <option value="farming" ${job.category === 'farming' ? 'selected' : ''}>Farming</option>
+                            <option value="teaching" ${job.category === 'teaching' ? 'selected' : ''}>Teaching</option>
+                            <option value="driving" ${job.category === 'driving' ? 'selected' : ''}>Driving</option>
+                            <option value="technical" ${job.category === 'technical' ? 'selected' : ''}>Technical</option>
+                            <option value="other" ${job.category === 'other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="edit-job-description" class="form-input" rows="4" placeholder="Job description">${escapeHtml(job.description)}</textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="edit-job-price" class="form-input" value="${job.price}" placeholder="Price">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location *</label>
+                            <input type="text" id="edit-job-location" class="form-input" value="${escapeHtml(job.location)}" placeholder="Job location">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Duration</label>
+                            <select id="edit-job-duration" class="form-input">
+                                <option value="once" ${job.duration === 'once' ? 'selected' : ''}>One-time</option>
+                                <option value="daily" ${job.duration === 'daily' ? 'selected' : ''}>Daily</option>
+                                <option value="weekly" ${job.duration === 'weekly' ? 'selected' : ''}>Weekly</option>
+                                <option value="monthly" ${job.duration === 'monthly' ? 'selected' : ''}>Monthly</option>
+                                <option value="long-term" ${job.duration === 'long-term' ? 'selected' : ''}>Long-term</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Urgent</label>
+                            <select id="edit-job-urgent" class="form-input">
+                                <option value="no" ${!job.urgent ? 'selected' : ''}>No</option>
+                                <option value="yes" ${job.urgent ? 'selected' : ''}>Yes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="edit-job-phone" class="form-input" value="${escapeHtml(job.phone)}" placeholder="Phone number">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select id="edit-job-status" class="form-input">
+                            <option value="active" ${job.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="filled" ${job.status === 'filled' ? 'selected' : ''}>Filled</option>
+                            <option value="inactive" ${job.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-outline" onclick="closeEditJobModal()">Cancel</button>
+                        <button class="btn btn-primary" id="save-job-edit-btn" data-job-id="${jobId}">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modal = document.createElement('div');
+        modal.id = 'edit-job-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20001';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        const saveBtn = document.getElementById('save-job-edit-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await saveEditedJob(jobId);
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error loading job for edit:', error);
+        window.showToast('Error loading job for edit: ' + error.message, 'error');
+    }
+}
+
+async function saveEditedJob(jobId) {
+    try {
+        const title = document.getElementById('edit-job-title')?.value.trim();
+        const category = document.getElementById('edit-job-category')?.value;
+        const description = document.getElementById('edit-job-description')?.value.trim();
+        const price = document.getElementById('edit-job-price')?.value;
+        const location = document.getElementById('edit-job-location')?.value.trim();
+        const duration = document.getElementById('edit-job-duration')?.value;
+        const urgent = document.getElementById('edit-job-urgent')?.value;
+        const phone = document.getElementById('edit-job-phone')?.value.trim();
+        const status = document.getElementById('edit-job-status')?.value;
+        
+        if (!title || !category || !description || !price || !location || !phone) {
+            window.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        window.showToast('Saving changes...', 'info');
+        
+        await firebase.firestore().collection('services').doc(jobId).update({
+            title: title,
+            category: category,
+            description: description,
+            price: parseInt(price),
+            location: location,
+            duration: duration || 'once',
+            urgent: urgent === 'yes',
+            phone: phone,
+            status: status,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        window.showToast('✅ Job updated successfully!', 'success');
+        closeEditJobModal();
+        setTimeout(() => loadServices(), 500);
+        
+    } catch (error) {
+        console.error('Error saving edited job:', error);
+        window.showToast('Error saving changes: ' + error.message, 'error');
+    }
+}
+
+function closeEditJobModal() {
+    const modal = document.getElementById('edit-job-modal');
+    if (modal) modal.remove();
+}
+
+// Export edit functions
+window.editServiceItem = editServiceItem;
+window.saveEditedService = saveEditedService;
+window.closeEditServiceModal = closeEditServiceModal;
+window.editJobItem = editJobItem;
+window.saveEditedJob = saveEditedJob;
+window.closeEditJobModal = closeEditJobModal;
 
 console.log('✅ Services.js fully loaded with booking feature');

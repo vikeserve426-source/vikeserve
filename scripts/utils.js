@@ -36,7 +36,9 @@ function formatTimeAgo(timestamp) {
     }
 }
 
-// ========== TOAST NOTIFICATIONS ==========
+// ========== TOAST NOTIFICATIONS (UPDATED - WITH TIMEOUT MANAGEMENT) ==========
+let activeToastTimeout = null;
+
 function showToast(message, type = 'info') {
     console.log(`🔔 [${type}]: ${message}`);
     
@@ -46,30 +48,54 @@ function showToast(message, type = 'info') {
         toast.id = 'toast';
         toast.className = 'toast';
         toast.innerHTML = `
-            <i class="toast-icon"></i>
+            <div class="toast-icon"></div>
             <div class="toast-message"></div>
         `;
         document.body.appendChild(toast);
     }
     
-    const toastIcon = toast.querySelector('.toast-icon');
-    if (toastIcon) {
-        toastIcon.className = 'toast-icon';
-        if (type === 'success') toastIcon.classList.add('fas', 'fa-check-circle');
-        else if (type === 'error') toastIcon.classList.add('fas', 'fa-exclamation-circle');
-        else if (type === 'warning') toastIcon.classList.add('fas', 'fa-exclamation-triangle');
-        else toastIcon.classList.add('fas', 'fa-info-circle');
+    // Clear any existing timeout to prevent conflicts
+    if (activeToastTimeout) {
+        clearTimeout(activeToastTimeout);
+        activeToastTimeout = null;
     }
     
-    const toastMessage = toast.querySelector('.toast-message');
-    if (toastMessage) toastMessage.textContent = message;
+    // Remove show class first to reset animation
+    toast.classList.remove('show');
     
-    toast.className = `toast toast-${type}`;
-    toast.classList.add('show');
-    
+    // Small delay to ensure CSS transition resets
     setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
+        const toastIcon = toast.querySelector('.toast-icon');
+        if (toastIcon) {
+            toastIcon.innerHTML = '';
+            toastIcon.className = 'toast-icon';
+            if (type === 'success') toastIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+            else if (type === 'error') toastIcon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+            else if (type === 'warning') toastIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            else toastIcon.innerHTML = '<i class="fas fa-info-circle"></i>';
+        }
+        
+        const toastMessage = toast.querySelector('.toast-message');
+        if (toastMessage) toastMessage.textContent = message;
+        
+        toast.className = `toast toast-${type}`;
+        toast.classList.add('show');
+        
+        // Auto-hide after 3 seconds
+        activeToastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+            activeToastTimeout = null;
+        }, 3000);
+        
+        // Also hide when clicked (good UX)
+        toast.onclick = () => {
+            toast.classList.remove('show');
+            if (activeToastTimeout) {
+                clearTimeout(activeToastTimeout);
+                activeToastTimeout = null;
+            }
+        };
+    }, 10);
 }
 
 // ========== MODAL MANAGEMENT ==========
