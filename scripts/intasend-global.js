@@ -1014,7 +1014,7 @@ class VikeServeGlobalPayments {
         }
     }
 
-    async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails, usePoints = false, pointsDiscountResult = null) {
+async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails, usePoints = false, pointsDiscountResult = null) {
     const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
@@ -1036,13 +1036,6 @@ class VikeServeGlobalPayments {
             }
         }
         
-        let finalCurrency = 'KES';
-        
-        if (this.userCurrency !== 'KES') {
-            finalAmount = await this.convertCurrency(finalAmount, 'KES', this.userCurrency);
-            finalCurrency = this.userCurrency;
-        }
-        
         let formattedPhone = paymentDetails.phone || '';
         if (formattedPhone && formattedPhone.startsWith('0')) {
             formattedPhone = '254' + formattedPhone.substring(1);
@@ -1058,7 +1051,7 @@ class VikeServeGlobalPayments {
             packageName: pkg.name,
             amount: finalAmount,
             originalAmountKES: pkg.price,
-            currency: finalCurrency,
+            currency: 'KES',
             duration: pkg.duration,
             paymentMethod: paymentMethod.name,
             status: 'pending',
@@ -1076,39 +1069,14 @@ class VikeServeGlobalPayments {
         
         await firebase.firestore().collection('transactions').add(paymentRecord);
         
-        // Build the redirect URL
-        const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
-        
-        // CORRECTED: Use the official IntaSend checkout URL
-        // Live API endpoint: https://intasend.com/api/v1/checkout/
-        let checkoutUrl = `https://intasend.com/api/v1/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-        
-        if (formattedPhone && formattedPhone.length >= 12) {
-            checkoutUrl += `&phone_number=${formattedPhone}`;
-        }
-        
-        if (paymentMethod.id === 'mpesa') {
-            checkoutUrl += `&method=mpesa`;
-        } else if (paymentMethod.id === 'airtel_kenya') {
-            checkoutUrl += `&method=airtel_money`;
-        } else if (paymentMethod.id === 'card') {
-            checkoutUrl += `&method=card`;
-        } else if (paymentMethod.id === 'paypal') {
-            checkoutUrl += `&method=paypal`;
-        }
-        
-        console.log('Redirecting to IntaSend:', checkoutUrl);
-        window.showToast('Redirecting to payment page...', 'info');
-        
+        // Close the promotion modal
         const modal = document.getElementById('ad-packages-full-modal');
         if (modal) {
             modal.style.display = 'none';
         }
         
-        // Direct redirect
-        setTimeout(() => {
-            window.location.href = checkoutUrl;
-        }, 500);
+        // Show the IntaSend payment modal
+        this.showIntaSendPaymentModal(finalAmount, transactionId, formattedPhone);
         
         return transactionId;
         
@@ -1117,6 +1085,86 @@ class VikeServeGlobalPayments {
         window.showToast(error.message || 'Payment service error. Please try again.', 'error');
         return null;
     }
+}
+
+// ========== SHOW INTASEND PAYMENT MODAL (USING SDK) ==========
+showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
+    // Create modal container
+    const paymentModal = document.createElement('div');
+    paymentModal.id = 'intasend-payment-modal';
+    paymentModal.className = 'modal';
+    paymentModal.style.display = 'flex';
+    paymentModal.style.zIndex = '20003';
+    paymentModal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-credit-card"></i> Complete Payment</div>
+                <button class="close-modal-btn" onclick="closeIntaSendPaymentModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px;">
+                    KES ${amount}
+                </div>
+                <p>Click the button below to complete your payment securely via IntaSend.</p>
+                <button id="intaSendPayNowBtn" class="intaSendPayButton" 
+                    data-amount="${amount}" 
+                    data-currency="KES" 
+                    data-email="${this.userEmail || 'customer@vikeserve.com'}" 
+                    data-phone_number="${phoneNumber || ''}" 
+                    data-api_ref="${transactionId}" 
+                    data-redirect_url="${window.location.origin}/?payment_status=success&api_ref=${transactionId}"
+                    style="background: linear-gradient(135deg, #2E86DE, #1A56B0); border-radius: 8px; border: none; color: white; font-weight: 600; padding: 14px 24px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 15px;">
+                    <i class="fas fa-lock"></i> Pay KES ${amount}
+                </button>
+                <p style="font-size: 0.7rem; color: var(--grey-dark); margin-top: 15px;">
+                    <i class="fas fa-shield-alt"></i> Secured by IntaSend
+                </p>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(paymentModal);
+    
+    // Initialize IntaSend SDK
+    if (typeof window.IntaSend !== 'undefined') {
+        new window.IntaSend({
+            publicAPIKey: this.config.intasend.publicKey,
+            live: true  // Set to false for sandbox testing
+        })
+        .on("COMPLETE", async (results) => {
+            console.log("Payment successful", results);
+            window.showToast("Payment successful! Activating your ad...", "success");
+            
+            // Close the payment modal
+            closeIntaSendPaymentModal();
+            
+            // Activate the promotion
+            if (results.api_ref) {
+                await this.activatePromotion(results.api_ref);
+                
+                // Refresh marketplace
+                if (typeof window.loadMarketplaceItems === 'function') {
+                    setTimeout(() => window.loadMarketplaceItems('all'), 500);
+                }
+            }
+        })
+        .on("FAILED", (results) => {
+            console.log("Payment failed", results);
+            window.showToast("Payment failed. Please try again.", "error");
+        })
+        .on("IN-PROGRESS", (results) => {
+            console.log("Payment in progress", results);
+        });
+    } else {
+        console.error("IntaSend SDK not loaded. Please add the SDK script to your HTML.");
+        window.showToast("Payment system loading. Please refresh and try again.", "error");
+    }
+    
+    // Close modal function
+    window.closeIntaSendPaymentModal = () => {
+        const modal = document.getElementById('intasend-payment-modal');
+        if (modal) modal.remove();
+    };
 }
 
     async startPaymentStatusCheck(transactionId) {
