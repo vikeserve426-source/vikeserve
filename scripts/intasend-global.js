@@ -1015,119 +1015,105 @@ class VikeServeGlobalPayments {
     }
 
     async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetails, usePoints = false, pointsDiscountResult = null) {
-        const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+    const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
+    
+    try {
+        // Calculate final amount with points discount
+        let finalAmount = pkg.price;
+        let pointsUsed = 0;
+        let discount = 0;
         
-        try {
-            // Calculate final amount with points discount
-            let finalAmount = pkg.price;
-            let pointsUsed = 0;
-            let discount = 0;
+        if (usePoints && pointsDiscountResult && pointsDiscountResult.pointsToUse > 0) {
+            finalAmount = pointsDiscountResult.finalAmount;
+            pointsUsed = pointsDiscountResult.pointsToUse;
+            discount = pointsDiscountResult.discount;
             
-            if (usePoints && pointsDiscountResult && pointsDiscountResult.pointsToUse > 0) {
-                finalAmount = pointsDiscountResult.finalAmount;
-                pointsUsed = pointsDiscountResult.pointsToUse;
-                discount = pointsDiscountResult.discount;
-                console.log(`💎 Using ${pointsUsed} points, discount KES ${discount}, final amount KES ${finalAmount}`);
-                
-                // Redeem the points
-                if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.redeemPointsForDiscount) {
-                    const redeemResult = await window.reviewsManager.redeemPointsForDiscount(this.userId, pointsUsed, pkg.name);
-                    if (redeemResult.success) {
-                        console.log('Points redeemed successfully');
-                        this.userPoints -= pointsUsed;
-                    } else {
-                        console.error('Points redemption failed:', redeemResult.error);
-                    }
-                }
+            if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.redeemPointsForDiscount) {
+                await window.reviewsManager.redeemPointsForDiscount(this.userId, pointsUsed, pkg.name);
+                this.userPoints -= pointsUsed;
             }
-            
-            let finalCurrency = 'KES';
-            
-            if (this.userCurrency !== 'KES') {
-                finalAmount = await this.convertCurrency(finalAmount, 'KES', this.userCurrency);
-                finalCurrency = this.userCurrency;
-            }
-            
-            let formattedPhone = paymentDetails.phone || '';
-            if (formattedPhone && formattedPhone.startsWith('0')) {
-                formattedPhone = '254' + formattedPhone.substring(1);
-            } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
-                formattedPhone = '254' + formattedPhone;
-            }
-            
-            // Save transaction to Firestore
-            const paymentRecord = {
-                transactionId: transactionId,
-                adId: ad.id,
-                adTitle: ad.title,
-                packageName: pkg.name,
-                amount: finalAmount,
-                originalAmountKES: pkg.price,
-                currency: finalCurrency,
-                duration: pkg.duration,
-                paymentMethod: paymentMethod.name,
-                status: 'pending',
-                userId: this.userId,
-                userEmail: this.userEmail || 'customer@vikeserve.com',
-                userPhone: formattedPhone || this.userPhone,
-                action: { type: action, details: actionDetails },
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                userCountry: this.userCountry,
-                pointsUsed: pointsUsed,
-                pointsDiscount: discount,
-                usedPoints: usePoints
-            };
-            
-            await firebase.firestore().collection('transactions').add(paymentRecord);
-            
-            // Build the redirect URL
-            const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
-            
-            const isSandbox = false;
-            const baseUrl = isSandbox 
-                ? 'https://sandbox.intasend.com/api/v1/checkout/' 
-                : 'https://payments.intasend.com/api/v1/checkout/';
-            
-            let checkoutUrl = `${baseUrl}?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-            
-            if (paymentMethod.type === 'mobile_money' && formattedPhone && formattedPhone.length >= 12) {
-                checkoutUrl += `&phone_number=${formattedPhone}`;
-            }
-            
-            if (paymentMethod.id === 'mpesa') {
-                checkoutUrl += `&method=mpesa`;
-            } else if (paymentMethod.id === 'airtel_kenya') {
-                checkoutUrl += `&method=airtel_money`;
-            } else if (paymentMethod.id === 'mtn_uganda') {
-                checkoutUrl += `&method=mtn_mobile_money`;
-            } else if (paymentMethod.id === 'tigo_pesa') {
-                checkoutUrl += `&method=tigo_pesa`;
-            }
-            
-            console.log('Redirecting to IntaSend:', checkoutUrl);
-            window.showToast('Redirecting to payment page...', 'info');
-            
-            // Close the modal
-            const modal = document.getElementById('ad-packages-full-modal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            
-            setTimeout(() => {
-                window.location.href = checkoutUrl;
-            }, 500);
-            
-            return transactionId;
-            
-        } catch (error) {
-            console.error('Payment error:', error);
-            window.showToast(error.message || 'Payment service error. Please try again.', 'error');
-            return null;
         }
+        
+        let finalCurrency = 'KES';
+        
+        if (this.userCurrency !== 'KES') {
+            finalAmount = await this.convertCurrency(finalAmount, 'KES', this.userCurrency);
+            finalCurrency = this.userCurrency;
+        }
+        
+        let formattedPhone = paymentDetails.phone || '';
+        if (formattedPhone && formattedPhone.startsWith('0')) {
+            formattedPhone = '254' + formattedPhone.substring(1);
+        } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
+            formattedPhone = '254' + formattedPhone;
+        }
+        
+        // Save transaction to Firestore
+        const paymentRecord = {
+            transactionId: transactionId,
+            adId: ad.id,
+            adTitle: ad.title,
+            packageName: pkg.name,
+            amount: finalAmount,
+            originalAmountKES: pkg.price,
+            currency: finalCurrency,
+            duration: pkg.duration,
+            paymentMethod: paymentMethod.name,
+            status: 'pending',
+            userId: this.userId,
+            userEmail: this.userEmail || 'customer@vikeserve.com',
+            userPhone: formattedPhone || this.userPhone,
+            action: { type: action, details: actionDetails },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+            userCountry: this.userCountry,
+            pointsUsed: pointsUsed,
+            pointsDiscount: discount,
+            usedPoints: usePoints
+        };
+        
+        await firebase.firestore().collection('transactions').add(paymentRecord);
+        
+        // Build the redirect URL
+        const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
+        
+        // Use the correct IntaSend checkout URL format
+        // This is a GET redirect that works without backend
+        let checkoutUrl = `https://payments.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
+        
+        if (formattedPhone && formattedPhone.length >= 12) {
+            checkoutUrl += `&phone_number=${formattedPhone}`;
+        }
+        
+        if (paymentMethod.id === 'mpesa') {
+            checkoutUrl += `&method=mpesa`;
+        } else if (paymentMethod.id === 'airtel_kenya') {
+            checkoutUrl += `&method=airtel_money`;
+        }
+        
+        console.log('Redirecting to IntaSend:', checkoutUrl);
+        window.showToast('Redirecting to payment page...', 'info');
+        
+        const modal = document.getElementById('ad-packages-full-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // Direct redirect
+        setTimeout(() => {
+            window.location.href = checkoutUrl;
+        }, 500);
+        
+        return transactionId;
+        
+    } catch (error) {
+        console.error('Payment error:', error);
+        window.showToast(error.message || 'Payment service error. Please try again.', 'error');
+        return null;
     }
+}
 
     async startPaymentStatusCheck(transactionId) {
         const statusChecker = document.getElementById('payment-status-checker');
