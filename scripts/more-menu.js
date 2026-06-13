@@ -367,11 +367,33 @@ class MoreMenuManager {
             </div>
         </div>
         
-        <!-- REMOVED: The visible Founder Details Section is now GONE -->
-        <!-- Founder bio now only appears when clicking the "Founder" button -->
+                <!-- MY POINTS SECTION -->
+        <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-coins" style="font-size: 2rem;"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0;">My Points</h3>
+                    <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
+                <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
+                <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
+            </div>
+            
+            <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
+                <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
+            </div>
+            
+            <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
+                <i class="fas fa-history"></i> View Points History
+            </button>
+        </div>
         
-        <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-    <h4><i class="fas fa-question-circle"></i> FAQ & Help Center</h4>
     
     <!-- FAQ 1: How to post a service -->
     <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
@@ -545,6 +567,16 @@ class MoreMenuManager {
             
             if (e.target.closest('.rate-founder-btn') && !this.hasRated) {
                 this.showRatingModal();
+                return;
+            }
+
+            if (e.target.closest('#view-points-history-btn')) {
+                this.showPointsHistory();
+                return;
+            }
+
+            if (e.target.closest('.view-points-history-btn') || e.target.closest('#view-points-history-btn')) {
+                this.showPointsHistory();
                 return;
             }
             
@@ -2140,12 +2172,16 @@ async startChatWithUser(userId, initialMessage) {
         this.loadAttachments();
         this.loadTraining();
     }
-    if (tabId === 'settings') {
+        if (tabId === 'settings') {
         // Refresh settings to ensure dark mode toggle works
         this.getSettingsHTML().then(html => {
             const settingsContent = document.getElementById('settings-content');
             if (settingsContent) settingsContent.innerHTML = html;
             this.setupEventListeners();
+            // Load user points after settings are rendered
+            setTimeout(() => {
+                this.loadUserPoints();
+            }, 100);
         });
     }
 }
@@ -2611,6 +2647,101 @@ showPrivacyPolicy() {
         div.textContent = text;
         return div.innerHTML;
     }
+
+        // ========== LOAD AND DISPLAY USER POINTS ==========
+    async loadUserPoints() {
+        if (!this.currentUser) return 0;
+        
+        try {
+            let points = 0;
+            if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPoints) {
+                points = await window.reviewsManager.getUserPoints(this.currentUser.uid);
+            } else {
+                const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+                points = userDoc.exists ? (userDoc.data().points || 0) : 0;
+            }
+            
+            const pointsDisplay = document.getElementById('user-points-display');
+            if (pointsDisplay) {
+                pointsDisplay.textContent = points.toLocaleString();
+            }
+            
+            return points;
+        } catch (error) {
+            console.error('Error loading user points:', error);
+            return 0;
+        }
+    }
+    
+    // ========== SHOW POINTS HISTORY MODAL ==========
+    async showPointsHistory() {
+        if (!this.currentUser) {
+            this.showToast('Please sign in to view points history', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        try {
+            let transactions = [];
+            if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPointsHistory) {
+                transactions = await window.reviewsManager.getUserPointsHistory(this.currentUser.uid, 50);
+            } else {
+                const snapshot = await this.db.collection('points_transactions')
+                    .where('userId', '==', this.currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(50)
+                    .get();
+                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            
+            const historyHtml = transactions.map(t => {
+                const date = t.createdAt?.toDate ? this.formatDate(t.createdAt.toDate()) : this.formatDate(t.createdAt);
+                const isEarn = t.amount > 0;
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
+                        <div>
+                            <div style="font-weight: 600;">${isEarn ? '🎁 Earned' : '💎 Redeemed'}</div>
+                            <div style="font-size: 0.7rem; color: var(--grey-dark);">${t.reason || (isEarn ? 'Review received' : 'Ad promotion')}</div>
+                            ${t.packageName ? `<div style="font-size: 0.7rem; color: var(--grey-dark);">Package: ${this.escapeHtml(t.packageName)}</div>` : ''}
+                            <div style="font-size: 0.65rem; color: var(--grey-dark);">${date}</div>
+                        </div>
+                        <div style="font-weight: 700; color: ${isEarn ? '#27ae60' : '#e74c3c'};">
+                            ${isEarn ? `+${t.amount}` : `${t.amount}`} pts
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            const modalContent = `
+                <div class="modal-content" style="max-width: 400px; max-height: 70vh; overflow-y: auto;">
+                    <div class="modal-header">
+                        <div class="modal-title"><i class="fas fa-history"></i> Points History</div>
+                        <button class="close-modal-btn" onclick="closePointsHistoryModal()">&times;</button>
+                    </div>
+                    <div style="padding: 15px;">
+                        ${transactions.length === 0 ? '<div style="text-align: center; padding: 40px;">No points transactions yet.</div>' : historyHtml}
+                    </div>
+                </div>
+            `;
+            
+            const modal = document.createElement('div');
+            modal.id = 'points-history-modal';
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.style.zIndex = '20002';
+            modal.innerHTML = modalContent;
+            document.body.appendChild(modal);
+            
+            window.closePointsHistoryModal = () => {
+                const m = document.getElementById('points-history-modal');
+                if (m) m.remove();
+            };
+            
+        } catch (error) {
+            console.error('Error loading points history:', error);
+            this.showToast('Error loading points history', 'error');
+        }
+    }
     
     formatDate(timestamp) {
         if (!timestamp) return 'Recently';
@@ -2642,7 +2773,6 @@ showPrivacyPolicy() {
 
 document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
-    console.log('✅ More Menu Manager fully loaded with Firestore and working chat');
 });
 
 // ========== ADMIN FUNCTION TO ADD ANNOUNCEMENTS ==========

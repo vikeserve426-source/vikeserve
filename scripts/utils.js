@@ -302,4 +302,59 @@ window.copyToClipboard = copyToClipboard;
 window.generateUniqueId = generateUniqueId;
 window.debounce = debounce;
 
+// ========== POINTS SYSTEM CONFIGURATION ==========
+const POINTS_CONFIG = {
+    // Points earned per star rating
+    ratingPoints: {
+        5: 10,   // 5 stars = 10 points
+        4: 6,    // 4 stars = 6 points
+        3: 3,    // 3 stars = 3 points
+        2: 1,    // 2 stars = 1 point
+        1: 0     // 1 star = 0 points
+    },
+    
+    // Points can cover up to 30% of ad package cost
+    maxPointsPercentage: 30,
+    
+    // 1 point = 1 KES value
+    pointValue: 1,
+    
+    // Ad packages with their max points allowed (30% of price)
+    adPackages: [
+        { id: 'basic', name: 'Basic Boost', price: 100, days: 3, maxPoints: 30 },
+        { id: 'premium', name: 'Premium Reach', price: 250, days: 7, maxPoints: 75 },
+        { id: 'pro', name: 'Pro Featured', price: 500, days: 14, maxPoints: 150 },
+        { id: 'vip', name: 'VIP Spotlight', price: 1000, days: 30, maxPoints: 300 }
+    ]
+};
+
+// Helper function to get points for a rating
+function getPointsForRating(rating) {
+    const stars = Math.floor(rating);
+    return POINTS_CONFIG.ratingPoints[stars] || 0;
+}
+
+// Calculate points discount for a package
+function calculatePointsDiscount(packagePrice, userPoints) {
+    const maxPointsAllowed = Math.floor(packagePrice * POINTS_CONFIG.maxPointsPercentage / 100);
+    const pointsToUse = Math.min(userPoints, maxPointsAllowed);
+    const discount = pointsToUse * POINTS_CONFIG.pointValue;
+    const finalAmount = Math.max(0, packagePrice - discount);
+    
+    return {
+        pointsToUse: pointsToUse,
+        discount: discount,
+        finalAmount: finalAmount,
+        remainingPoints: userPoints - pointsToUse,
+        cashToPay: finalAmount,
+        pointsUsedPercentage: Math.round((pointsToUse / packagePrice) * 100)
+    };
+}
+
+// Export points functions
+window.POINTS_CONFIG = POINTS_CONFIG;
+window.getPointsForRating = getPointsForRating;
+window.calculatePointsDiscount = calculatePointsDiscount;
+
+console.log('✅ Points system configured');
 console.log('✅ utils.js loaded');

@@ -1,5 +1,6 @@
 // ========== REVIEWS MANAGER - COMPLETE FIXED VERSION ==========
 // Uses Firestore collections pattern (collections.reviews(), collections.users())
+// ADDED: Points system - award points when users receive reviews
 
 class ReviewsManager {
     constructor() {
@@ -47,6 +48,20 @@ class ReviewsManager {
             
             // Update user's average rating
             await this.updateUserRating(reviewData.reviewedUserId);
+            
+            // ========== AWARD POINTS TO THE REVIEWED USER ==========
+            // Get points based on rating (uses POINTS_CONFIG from utils.js)
+            const pointsEarned = typeof window.getPointsForRating === 'function' 
+                ? window.getPointsForRating(reviewData.rating) 
+                : 0;
+            
+            if (pointsEarned > 0 && reviewData.reviewedUserId) {
+                await this.awardPoints(reviewData.reviewedUserId, pointsEarned, {
+                    rating: reviewData.rating,
+                    reviewId: docRef.id,
+                    fromUserId: user.uid
+                });
+            }
             
             return { success: true, id: docRef.id };
         } catch (error) {
@@ -620,6 +635,115 @@ class ReviewsManager {
         }
     }
 
+    // ========== POINTS SYSTEM METHODS ==========
+    
+    // Award points to a user when they receive a review
+    async awardPoints(userId, points, reviewData = {}) {
+        if (!userId || points <= 0) return false;
+        
+        try {
+            const userRef = this.usersCollection.doc(userId);
+            
+            await this.db.runTransaction(async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const currentPoints = userDoc.exists ? (userDoc.data().points || 0) : 0;
+                const currentTotalEarned = userDoc.exists ? (userDoc.data().totalPointsEarned || 0) : 0;
+                
+                transaction.update(userRef, {
+                    points: currentPoints + points,
+                    totalPointsEarned: currentTotalEarned + points,
+                    lastPointsUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            // Log the transaction
+            await this.db.collection('points_transactions').add({
+                userId: userId,
+                amount: points,
+                type: 'earn',
+                reason: 'review_received',
+                rating: reviewData.rating,
+                reviewId: reviewData.reviewId,
+                fromUserId: reviewData.fromUserId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            console.log(`✅ Awarded ${points} points to user ${userId}`);
+            return true;
+        } catch (error) {
+            console.error('Error awarding points:', error);
+            return false;
+        }
+    }
+    
+    // Redeem points for ad promotion discount
+    async redeemPointsForDiscount(userId, requiredPoints, packageName) {
+        if (!userId || requiredPoints <= 0) return { success: false, error: 'Invalid points' };
+        
+        try {
+            const userRef = this.usersCollection.doc(userId);
+            let success = false;
+            
+            await this.db.runTransaction(async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const currentPoints = userDoc.exists ? (userDoc.data().points || 0) : 0;
+                
+                if (currentPoints < requiredPoints) {
+                    throw new Error(`Insufficient points. Need ${requiredPoints}, have ${currentPoints}`);
+                }
+                
+                transaction.update(userRef, {
+                    points: currentPoints - requiredPoints,
+                    lastPointsRedeemed: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                success = true;
+            });
+            
+            if (success) {
+                await this.db.collection('points_transactions').add({
+                    userId: userId,
+                    amount: -requiredPoints,
+                    type: 'redeem',
+                    reason: 'ad_promotion',
+                    packageName: packageName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ Redeemed ${requiredPoints} points from user ${userId} for ${packageName}`);
+                return { success: true, pointsUsed: requiredPoints };
+            }
+        } catch (error) {
+            console.error('Error redeeming points:', error);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    // Get user's current points balance
+    async getUserPoints(userId) {
+        try {
+            const userDoc = await this.usersCollection.doc(userId).get();
+            return userDoc.exists ? (userDoc.data().points || 0) : 0;
+        } catch (error) {
+            console.error('Error getting user points:', error);
+            return 0;
+        }
+    }
+    
+    // Get user's points transaction history
+    async getUserPointsHistory(userId, limit = 20) {
+        try {
+            const snapshot = await this.db.collection('points_transactions')
+                .where('userId', '==', userId)
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
+            
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('Error getting points history:', error);
+            return [];
+        }
+    }
+
     // Helper: Escape HTML
     escapeHtml(text) {
         if (!text) return '';
@@ -677,4 +801,4 @@ auth.onAuthStateChanged(user => {
     }
 });
 
-console.log('✅ Reviews.js fully loaded with all fixes');
+console.log('✅ Reviews.js fully loaded with all fixes and points system');
