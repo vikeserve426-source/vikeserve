@@ -1087,84 +1087,60 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
     }
 }
 
-// ========== SHOW INTASEND PAYMENT MODAL (USING SDK) ==========
+// ========== SHOW INTASEND PAYMENT MODAL (DIRECT REDIRECT METHOD) ==========
 showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
-    // Create modal container
-    const paymentModal = document.createElement('div');
-    paymentModal.id = 'intasend-payment-modal';
-    paymentModal.className = 'modal';
-    paymentModal.style.display = 'flex';
-    paymentModal.style.zIndex = '20003';
-    paymentModal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
+    // Build the checkout URL using the correct format
+    const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
+    
+    // Use the correct hosted checkout URL
+    let checkoutUrl = `https://intasend.com/pay/checkout?public_key=${this.config.intasend.publicKey}&amount=${amount}&currency=KES&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
+    
+    if (phoneNumber && phoneNumber.length >= 10) {
+        checkoutUrl += `&phone_number=${phoneNumber}`;
+    }
+    
+    console.log('Redirecting to IntaSend:', checkoutUrl);
+    
+    // Create confirmation modal before redirect
+    const confirmModal = document.createElement('div');
+    confirmModal.id = 'payment-confirm-modal';
+    confirmModal.className = 'modal';
+    confirmModal.style.display = 'flex';
+    confirmModal.style.zIndex = '20004';
+    confirmModal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px; text-align: center;">
             <div class="modal-header">
-                <div class="modal-title"><i class="fas fa-credit-card"></i> Complete Payment</div>
-                <button class="close-modal-btn" onclick="closeIntaSendPaymentModal()">&times;</button>
+                <div class="modal-title">Confirm Payment</div>
+                <button class="close-modal-btn" onclick="closeConfirmModal()">&times;</button>
             </div>
             <div style="padding: 20px;">
-                <div style="font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px;">
+                <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary); margin-bottom: 10px;">
                     KES ${amount}
                 </div>
-                <p>Click the button below to complete your payment securely via IntaSend.</p>
-                <button id="intaSendPayNowBtn" class="intaSendPayButton" 
-                    data-amount="${amount}" 
-                    data-currency="KES" 
-                    data-email="${this.userEmail || 'customer@vikeserve.com'}" 
-                    data-phone_number="${phoneNumber || ''}" 
-                    data-api_ref="${transactionId}" 
-                    data-redirect_url="${window.location.origin}/?payment_status=success&api_ref=${transactionId}"
-                    style="background: linear-gradient(135deg, #2E86DE, #1A56B0); border-radius: 8px; border: none; color: white; font-weight: 600; padding: 14px 24px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 15px;">
-                    <i class="fas fa-lock"></i> Pay KES ${amount}
-                </button>
-                <p style="font-size: 0.7rem; color: var(--grey-dark); margin-top: 15px;">
-                    <i class="fas fa-shield-alt"></i> Secured by IntaSend
-                </p>
+                <p>You will be redirected to IntaSend to complete your payment.</p>
+                <p style="font-size: 0.8rem; color: var(--grey-dark);">After payment, you'll be redirected back to activate your ad.</p>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline" onclick="closeConfirmModal()">Cancel</button>
+                    <button class="btn btn-primary" id="confirm-payment-btn">Proceed to Pay</button>
+                </div>
             </div>
         </div>
     `;
     
-    document.body.appendChild(paymentModal);
+    document.body.appendChild(confirmModal);
     
-    // Initialize IntaSend SDK
-    if (typeof window.IntaSend !== 'undefined') {
-        new window.IntaSend({
-            publicAPIKey: this.config.intasend.publicKey,
-            live: true  // Set to false for sandbox testing
-        })
-        .on("COMPLETE", async (results) => {
-            console.log("Payment successful", results);
-            window.showToast("Payment successful! Activating your ad...", "success");
-            
-            // Close the payment modal
-            closeIntaSendPaymentModal();
-            
-            // Activate the promotion
-            if (results.api_ref) {
-                await this.activatePromotion(results.api_ref);
-                
-                // Refresh marketplace
-                if (typeof window.loadMarketplaceItems === 'function') {
-                    setTimeout(() => window.loadMarketplaceItems('all'), 500);
-                }
-            }
-        })
-        .on("FAILED", (results) => {
-            console.log("Payment failed", results);
-            window.showToast("Payment failed. Please try again.", "error");
-        })
-        .on("IN-PROGRESS", (results) => {
-            console.log("Payment in progress", results);
-        });
-    } else {
-        console.error("IntaSend SDK not loaded. Please add the SDK script to your HTML.");
-        window.showToast("Payment system loading. Please refresh and try again.", "error");
-    }
-    
-    // Close modal function
-    window.closeIntaSendPaymentModal = () => {
-        const modal = document.getElementById('intasend-payment-modal');
+    window.closeConfirmModal = () => {
+        const modal = document.getElementById('payment-confirm-modal');
         if (modal) modal.remove();
     };
+    
+    document.getElementById('confirm-payment-btn')?.addEventListener('click', () => {
+        closeConfirmModal();
+        window.showToast('Redirecting to payment page...', 'info');
+        setTimeout(() => {
+            window.location.href = checkoutUrl;
+        }, 500);
+    });
 }
 
     async startPaymentStatusCheck(transactionId) {
