@@ -1079,9 +1079,9 @@ class VikeServeGlobalPayments {
         // Build the redirect URL
         const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
         
-        // Use the correct IntaSend checkout URL format
-        // This is a GET redirect that works without backend
-        let checkoutUrl = `https://payments.intasend.com/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
+        // CORRECTED: Use the official IntaSend checkout URL
+        // Live API endpoint: https://intasend.com/api/v1/checkout/
+        let checkoutUrl = `https://intasend.com/api/v1/checkout/?public_key=${this.config.intasend.publicKey}&amount=${finalAmount}&currency=${finalCurrency}&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
         
         if (formattedPhone && formattedPhone.length >= 12) {
             checkoutUrl += `&phone_number=${formattedPhone}`;
@@ -1091,6 +1091,10 @@ class VikeServeGlobalPayments {
             checkoutUrl += `&method=mpesa`;
         } else if (paymentMethod.id === 'airtel_kenya') {
             checkoutUrl += `&method=airtel_money`;
+        } else if (paymentMethod.id === 'card') {
+            checkoutUrl += `&method=card`;
+        } else if (paymentMethod.id === 'paypal') {
+            checkoutUrl += `&method=paypal`;
         }
         
         console.log('Redirecting to IntaSend:', checkoutUrl);
