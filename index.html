@@ -1143,6 +1143,9 @@
         </div>
     </div>
 
+        <!-- ========== ALL MODALS (OUTSIDE CONTAINER) ========== -->
+
+        <!-- Service Post Modal -->
         <div id="service-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1197,6 +1200,7 @@
             </div>
         </div>
 
+        <!-- Job Post Modal -->
         <div id="job-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1267,6 +1271,7 @@
             </div>
         </div>
 
+        <!-- Marketplace Post Modal -->
         <div id="marketplace-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1359,61 +1364,63 @@
             </div>
         </div>
 
-<div id="gas-refill-post-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <div class="modal-title">Offer Gas Refill Service</div>
-            <button class="close-modal-btn">&times;</button>
+        <!-- Gas Refill Post Modal -->
+        <div id="gas-refill-post-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Offer Gas Refill Service</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Service Title *</label>
+                        <input type="text" id="gas-title" class="form-input" placeholder="e.g., Fast LPG Gas Refill">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Gas Type *</label>
+                            <select id="gas-type" class="form-input">
+                                <option value="">Select Gas Type</option>
+                                <option value="lpg">LPG Cooking Gas</option>
+                                <option value="industrial">Industrial Gas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cylinder Size *</label>
+                            <input type="text" id="gas-cylinder-size" class="form-input" placeholder="e.g., 3kg, 6kg, 13kg, 50kg">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Price (KES) *</label>
+                            <input type="number" id="gas-price" class="form-input" placeholder="e.g., 500">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Brand</label>
+                            <input type="text" id="gas-brand" class="form-input" placeholder="e.g., K-Gas, Pro Gas, Total, Oryx">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location *</label>
+                        <input type="text" id="gas-location" class="form-input" placeholder="Your location">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea id="gas-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" id="gas-phone" class="form-input" placeholder="e.g., 0712345678">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-outline close-modal-btn">Cancel</button>
+                        <button class="btn btn-primary" id="submit-gas-btn">List Service</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label class="form-label">Service Title *</label>
-                <input type="text" id="gas-title" class="form-input" placeholder="e.g., Fast LPG Gas Refill">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Gas Type *</label>
-                    <select id="gas-type" class="form-input">
-                        <option value="">Select Gas Type</option>
-                        <option value="lpg">LPG Cooking Gas</option>
-                        <option value="industrial">Industrial Gas</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Cylinder Size *</label>
-                    <input type="text" id="gas-cylinder-size" class="form-input" placeholder="e.g., 3kg, 6kg, 13kg, 50kg">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Price (KES) *</label>
-                    <input type="number" id="gas-price" class="form-input" placeholder="e.g., 500">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Brand</label>
-                    <input type="text" id="gas-brand" class="form-input" placeholder="e.g., K-Gas, Pro Gas, Total, Oryx">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Location *</label>
-                <input type="text" id="gas-location" class="form-input" placeholder="Your location">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Description *</label>
-                <textarea id="gas-description" class="form-input" rows="3" placeholder="Describe your service..."></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Contact Phone *</label>
-                <input type="tel" id="gas-phone" class="form-input" placeholder="e.g., 0712345678">
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-outline close-modal-btn">Cancel</button>
-                <button class="btn btn-primary" id="submit-gas-btn">List Service</button>
-            </div>
-        </div>
-    </div>
-</div>
 
+        <!-- Water Delivery Post Modal -->
         <div id="water-delivery-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1426,20 +1433,20 @@
                         <input type="text" id="water-title" class="form-input" placeholder="e.g., Pure Drinking Water">
                     </div>
                     <div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Water Type *</label>
-        <select id="water-type" class="form-input">
-            <option value="">Select Water Type</option>
-            <option value="drinking">Drinking Water</option>
-            <option value="borehole">Borehole Water</option>
-            <option value="filtered">Filtered Water</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label class="form-label">Container Size *</label>
-        <input type="text" id="water-container-size" class="form-input" placeholder="e.g., 5L, 10L, 20L, 50L, 100L">
-    </div>
-</div>
+                        <div class="form-group">
+                            <label class="form-label">Water Type *</label>
+                            <select id="water-type" class="form-input">
+                                <option value="">Select Water Type</option>
+                                <option value="drinking">Drinking Water</option>
+                                <option value="borehole">Borehole Water</option>
+                                <option value="filtered">Filtered Water</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Container Size *</label>
+                            <input type="text" id="water-container-size" class="form-input" placeholder="e.g., 5L, 10L, 20L, 50L, 100L">
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Price (KES) *</label>
@@ -1470,6 +1477,7 @@
             </div>
         </div>
 
+        <!-- Hotel Post Modal -->
         <div id="hotel-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1531,6 +1539,7 @@
             </div>
         </div>
 
+        <!-- Property Post Modal -->
         <div id="property-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1590,6 +1599,7 @@
             </div>
         </div>
 
+        <!-- Land Post Modal -->
         <div id="land-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1675,6 +1685,7 @@
             </div>
         </div>
 
+        <!-- Ad Packages Modal -->
         <div id="ad-packages-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1698,6 +1709,7 @@
             </div>
         </div>
 
+        <!-- Teacher Post Modal -->
         <div id="teacher-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1754,6 +1766,7 @@
             </div>
         </div>
 
+        <!-- Internship Post Modal -->
         <div id="internship-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1819,6 +1832,7 @@
             </div>
         </div>
 
+        <!-- Attachment Post Modal -->
         <div id="attachment-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1878,6 +1892,7 @@
             </div>
         </div>
 
+        <!-- Training Post Modal -->
         <div id="training-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1939,6 +1954,7 @@
             </div>
         </div>
 
+        <!-- Alert Post Modal -->
         <div id="alert-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
