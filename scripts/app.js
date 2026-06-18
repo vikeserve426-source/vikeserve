@@ -733,92 +733,102 @@ class VikeServeApp {
     }
 
     applyFeatureToggles() {
+        // Check if Remote Config is available
         const isFeatureEnabled = typeof window.isFeatureEnabled === 'function' 
             ? window.isFeatureEnabled 
-            : () => false;
+            : () => {
+                console.warn('⚠️ isFeatureEnabled not available, using defaults');
+                return false;
+            };
         
-        const isAdPromotionEnabled = isFeatureEnabled('feature_adPromotion');
-        const isWifiConnectEnabled = isFeatureEnabled('feature_wifiConnect');
-        const showComingSoon = isFeatureEnabled('feature_showComingSoon');
-        
-        console.log('🔧 Feature Toggles - Ad Promotion:', isAdPromotionEnabled, 'WiFi Connect:', isWifiConnectEnabled);
-        
-        const promoteButtons = document.querySelectorAll(
-            '.ad-cta, .btn-promote, .promote-service-btn, .promote-ad-btn, #view-packages-btn, #post-ad-btn'
-        );
-        
-        promoteButtons.forEach(el => {
-            if (!isAdPromotionEnabled) {
-                el.disabled = true;
-                el.style.opacity = '0.5';
-                el.style.cursor = 'not-allowed';
-                el.style.pointerEvents = 'none';
-                el.style.position = 'relative';
-                
-                if (showComingSoon && !el.querySelector('.coming-soon-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'coming-soon-badge';
-                    badge.textContent = '🔒 Coming Soon';
-                    badge.style.cssText = `
-                        position: absolute;
-                        top: -10px;
-                        right: -8px;
-                        background: var(--warning);
-                        color: white;
-                        font-size: 0.55rem;
-                        padding: 2px 8px;
-                        border-radius: 10px;
-                        font-weight: bold;
-                        white-space: nowrap;
-                        z-index: 10;
-                    `;
-                    el.appendChild(badge);
+        try {
+            const isAdPromotionEnabled = isFeatureEnabled('feature_adPromotion');
+            const isWifiConnectEnabled = isFeatureEnabled('feature_wifiConnect');
+            const showComingSoon = isFeatureEnabled('feature_showComingSoon');
+            
+            console.log('🔧 Feature Toggles - Ad Promotion:', isAdPromotionEnabled, 'WiFi Connect:', isWifiConnectEnabled);
+            
+            // ========== HANDLE AD PROMOTION BUTTONS ==========
+            const promoteButtons = document.querySelectorAll(
+                '.ad-cta, .btn-promote, .promote-service-btn, .promote-ad-btn, #view-packages-btn, #post-ad-btn'
+            );
+            
+            promoteButtons.forEach(el => {
+                if (!isAdPromotionEnabled) {
+                    el.disabled = true;
+                    el.style.opacity = '0.5';
+                    el.style.cursor = 'not-allowed';
+                    el.style.pointerEvents = 'none';
+                    el.style.position = 'relative';
+                    
+                    if (showComingSoon && !el.querySelector('.coming-soon-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'coming-soon-badge';
+                        badge.textContent = '🔒 Coming Soon';
+                        badge.style.cssText = `
+                            position: absolute;
+                            top: -10px;
+                            right: -8px;
+                            background: var(--warning);
+                            color: white;
+                            font-size: 0.55rem;
+                            padding: 2px 8px;
+                            border-radius: 10px;
+                            font-weight: bold;
+                            white-space: nowrap;
+                            z-index: 10;
+                        `;
+                        el.appendChild(badge);
+                    }
+                } else {
+                    el.disabled = false;
+                    el.style.opacity = '1';
+                    el.style.cursor = 'pointer';
+                    el.style.pointerEvents = 'auto';
+                    
+                    const badge = el.querySelector('.coming-soon-badge');
+                    if (badge) badge.remove();
                 }
-            } else {
-                el.disabled = false;
-                el.style.opacity = '1';
-                el.style.cursor = 'pointer';
-                el.style.pointerEvents = 'auto';
-                
-                const badge = el.querySelector('.coming-soon-badge');
-                if (badge) badge.remove();
-            }
-        });
-        
-        const wifiAction = document.querySelector('.quick-action[data-action="wifi"]');
-        if (wifiAction) {
-            if (!isWifiConnectEnabled) {
-                wifiAction.style.opacity = '0.6';
-                wifiAction.style.cursor = 'not-allowed';
-                wifiAction.style.pointerEvents = 'none';
-                wifiAction.style.position = 'relative';
-                
-                if (showComingSoon && !wifiAction.querySelector('.coming-soon-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'coming-soon-badge';
-                    badge.textContent = '🔒 Coming Soon';
-                    badge.style.cssText = `
-                        position: absolute;
-                        top: -5px;
-                        right: 5px;
-                        background: var(--warning);
-                        color: white;
-                        font-size: 0.5rem;
-                        padding: 2px 6px;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        z-index: 10;
-                    `;
-                    wifiAction.appendChild(badge);
+            });
+            
+            // ========== HANDLE WIFI CONNECT QUICK ACTION ==========
+            const wifiAction = document.querySelector('.quick-action[data-action="wifi"]');
+            if (wifiAction) {
+                if (!isWifiConnectEnabled) {
+                    wifiAction.style.opacity = '0.6';
+                    wifiAction.style.cursor = 'not-allowed';
+                    wifiAction.style.pointerEvents = 'none';
+                    wifiAction.style.position = 'relative';
+                    
+                    if (showComingSoon && !wifiAction.querySelector('.coming-soon-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'coming-soon-badge';
+                        badge.textContent = '🔒 Coming Soon';
+                        badge.style.cssText = `
+                            position: absolute;
+                            top: -5px;
+                            right: 5px;
+                            background: var(--warning);
+                            color: white;
+                            font-size: 0.5rem;
+                            padding: 2px 6px;
+                            border-radius: 8px;
+                            font-weight: bold;
+                            z-index: 10;
+                        `;
+                        wifiAction.appendChild(badge);
+                    }
+                } else {
+                    wifiAction.style.opacity = '1';
+                    wifiAction.style.cursor = 'pointer';
+                    wifiAction.style.pointerEvents = 'auto';
+                    
+                    const badge = wifiAction.querySelector('.coming-soon-badge');
+                    if (badge) badge.remove();
                 }
-            } else {
-                wifiAction.style.opacity = '1';
-                wifiAction.style.cursor = 'pointer';
-                wifiAction.style.pointerEvents = 'auto';
-                
-                const badge = wifiAction.querySelector('.coming-soon-badge');
-                if (badge) badge.remove();
             }
+        } catch (error) {
+            console.warn('⚠️ Error applying feature toggles:', error);
         }
     }
 
