@@ -1,6 +1,3 @@
-// ========== HOUSING MANAGER - COMPLETE FIXED VERSION ==========
-// Uses propertyListings collection (exists in firebase.js)
-
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
 }
@@ -29,20 +26,17 @@ class HousingManager {
         this.storage = storage;
         this.currentListeners = {};
         
-        // FIXED: Use propertyListings collection (exists in firebase.js)
         this.housingCollection = collections.propertyListings();
         this.usersCollection = collections.users();
         this.chatsCollection = collections.chats ? collections.chats() : collections.bookingChats();
     }
 
-    // Get housing listings by type with filters (with pagination)
     async getHousingListings(type, filters = {}, limit = 20, startAfter = null) {
         try {
             let query = this.housingCollection
                 .where('type', '==', type)
                 .where('status', '==', 'active');
 
-            // Apply filters
             if (filters.minPrice) {
                 query = query.where('price', '>=', parseInt(filters.minPrice));
             }
@@ -83,7 +77,6 @@ class HousingManager {
         }
     }
 
-    // FIXED: Search with pagination (not loading all)
     async searchHousingListings(searchTerm, type = null, filters = {}, limit = 20, startAfter = null) {
         try {
             let query = this.housingCollection
@@ -93,7 +86,6 @@ class HousingManager {
                 query = query.where('type', '==', type);
             }
 
-            // Apply filters
             if (filters.minPrice) query = query.where('price', '>=', parseInt(filters.minPrice));
             if (filters.maxPrice) query = query.where('price', '<=', parseInt(filters.maxPrice));
             if (filters.location) query = query.where('location', '==', filters.location);
@@ -106,12 +98,11 @@ class HousingManager {
 
             const snapshot = await query
                 .orderBy('createdAt', 'desc')
-                .limit(limit * 2) // Fetch extra for client-side search
+                .limit(limit * 2)
                 .get();
 
             const listings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // Client-side search on limited results
             const searchLower = searchTerm.toLowerCase();
             const filteredListings = listings.filter(listing => 
                 listing.title.toLowerCase().includes(searchLower) ||
@@ -126,13 +117,11 @@ class HousingManager {
         }
     }
 
-    // Create a new housing listing
     async createHousingListing(listingData, imageFiles = []) {
         try {
             const user = this.auth.currentUser;
             if (!user) throw new Error('User must be logged in to create a housing listing');
 
-            // Upload images first
             const imageUrls = [];
             if (imageFiles.length > 0) {
                 const uploadResult = await this.uploadHousingImages(imageFiles, 'temp');
@@ -146,7 +135,7 @@ class HousingManager {
                 userId: user.uid,
                 userName: user.displayName || user.email,
                 images: imageUrls,
-                status: 'pending', // Admin approval required
+                status: 'pending',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 viewCount: 0
@@ -160,13 +149,11 @@ class HousingManager {
         }
     }
 
-    // Upload housing images to Firebase Storage (not base64)
     async uploadHousingImages(files, listingId) {
         try {
             const imageUrls = [];
             
             for (const file of files) {
-                // Generate unique filename
                 const fileExtension = file.name.split('.').pop();
                 const filename = `image-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
                 
@@ -183,7 +170,6 @@ class HousingManager {
         }
     }
 
-    // Contact housing lister
     async contactLister(listingId, message) {
         try {
             const user = this.auth.currentUser;
@@ -195,7 +181,6 @@ class HousingManager {
             const listing = listingDoc.data();
             const listerId = listing.userId;
             
-            // Prevent self-contact
             if (user.uid === listerId) {
                 return { success: false, error: 'You cannot contact yourself' };
             }
@@ -239,7 +224,6 @@ class HousingManager {
         }
     }
 
-    // Get housing listing by ID
     async getHousingListing(listingId) {
         try {
             const doc = await this.housingCollection.doc(listingId).get();
@@ -255,7 +239,6 @@ class HousingManager {
         }
     }
 
-    // Increment view count
     async incrementViewCount(listingId) {
         try {
             await this.housingCollection.doc(listingId).update({
@@ -266,7 +249,6 @@ class HousingManager {
         }
     }
 
-    // Get user's housing listings
     async getUserListings(userId) {
         try {
             const snapshot = await this.housingCollection
@@ -281,7 +263,6 @@ class HousingManager {
         }
     }
 
-    // FIXED: Get user's favorite housing listings (batched query)
     async getUserFavorites(userId) {
         try {
             const userDoc = await this.usersCollection.doc(userId).get();
@@ -290,7 +271,6 @@ class HousingManager {
             const favorites = userDoc.data().housingFavorites || [];
             if (favorites.length === 0) return [];
 
-            // Batch query using 'in' (max 10 items per batch)
             const batchSize = 10;
             const batches = [];
             for (let i = 0; i < favorites.length; i += batchSize) {
@@ -314,7 +294,6 @@ class HousingManager {
         }
     }
 
-    // Add to favorites
     async addToFavorites(listingId) {
         try {
             const user = this.auth.currentUser;
@@ -331,7 +310,6 @@ class HousingManager {
         }
     }
 
-    // Remove from favorites
     async removeFromFavorites(listingId) {
         try {
             const user = this.auth.currentUser;
@@ -348,7 +326,6 @@ class HousingManager {
         }
     }
 
-    // Delete a housing listing
     async deleteListing(listingId) {
         try {
             const user = this.auth.currentUser;
@@ -367,7 +344,6 @@ class HousingManager {
         }
     }
 
-    // Mark as rented/sold
     async markAsRented(listingId) {
         try {
             const user = this.auth.currentUser;
@@ -392,7 +368,6 @@ class HousingManager {
         }
     }
 
-    // Get housing types
     getHousingTypes() {
         return [
             { id: 'rooms', name: 'Rooms', icon: 'fas fa-door-open' },
@@ -404,7 +379,6 @@ class HousingManager {
         ];
     }
 
-    // Get common locations
     getCommonLocations() {
         return [
             'Nairobi CBD', 'Westlands', 'Kilimani', 'Karen', 'Langata',
@@ -414,7 +388,6 @@ class HousingManager {
     }
 }
 
-// Initialize housing manager
 function initializeHousingManager() {
     window.housingManager = new HousingManager();
     console.log("✅ Housing Manager initialized with propertyListings collection");
@@ -426,9 +399,6 @@ if (typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth) {
     document.addEventListener('firebase-ready', initializeHousingManager);
 }
 
-// ========== UI FUNCTIONS ==========
-
-// Load housing listings by type
 async function loadHousingListings(type, filters = {}) {
     const housingContainer = document.getElementById('housing-container');
     if (!housingContainer) return;
@@ -451,7 +421,6 @@ async function loadHousingListings(type, filters = {}) {
     window.lastVisibleHousingListing = result.lastVisible;
 }
 
-// Create HTML element for a housing listing
 function createHousingListingElement(listing) {
     const div = document.createElement('div');
     div.className = 'property-listing';
@@ -490,7 +459,6 @@ function createHousingListingElement(listing) {
         </div>
     `;
     
-    // Attach event listeners
     const imageDiv = div.querySelector('.property-image');
     if (imageDiv) {
         imageDiv.addEventListener('click', () => viewHousingDetails(listing.id));
@@ -523,7 +491,6 @@ function createHousingListingElement(listing) {
     return div;
 }
 
-// Contact housing lister
 async function contactHousingLister(listingId) {
     if (!auth.currentUser) {
         showToast('Please sign in to contact the owner', 'warning');
@@ -531,7 +498,6 @@ async function contactHousingLister(listingId) {
         return;
     }
     
-    // Use custom modal instead of prompt
     showContactMessageModal(listingId);
 }
 
@@ -583,7 +549,6 @@ function showContactMessageModal(listingId) {
     }, 100);
 }
 
-// View housing details
 async function viewHousingDetails(listingId) {
     try {
         const result = await housingManager.getHousingListing(listingId);
@@ -598,7 +563,6 @@ async function viewHousingDetails(listingId) {
     }
 }
 
-// Show housing modal
 function showHousingModal(listing) {
     const modalContent = `
         <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
@@ -653,7 +617,6 @@ function showHousingModal(listing) {
     }, 100);
 }
 
-// Toggle housing favorite
 async function toggleHousingFavorite(listingId, button = null) {
     try {
         const user = auth.currentUser;
@@ -681,7 +644,6 @@ async function toggleHousingFavorite(listingId, button = null) {
     }
 }
 
-// Show housing filter modal
 function showHousingFilters(type) {
     const housingTypes = housingManager.getHousingTypes();
     const currentType = housingTypes.find(t => t.id === type);
@@ -776,13 +738,11 @@ function showHousingFilters(type) {
     }, 100);
 }
 
-// Load housing listings for specific type
 function loadHousingListingsByType(type) {
     window.currentHousingType = type;
     loadHousingListings(type);
 }
 
-// Search housing
 function searchHousing() {
     const searchInput = document.querySelector('#services-tab .search-input');
     const searchTerm = searchInput?.value.trim();
@@ -813,7 +773,6 @@ function searchHousing() {
     });
 }
 
-// Escape HTML helper
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -821,7 +780,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ========== EXPOSE GLOBALLY ==========
 window.housingManager = housingManager;
 window.loadHousingListings = loadHousingListings;
 window.contactHousingLister = contactHousingLister;
@@ -830,5 +788,3 @@ window.showHousingFilters = showHousingFilters;
 window.toggleHousingFavorite = toggleHousingFavorite;
 window.loadHousingListingsByType = loadHousingListingsByType;
 window.searchHousing = searchHousing;
-
-console.log('✅ Housing.js fully loaded with all fixes');

@@ -1,5 +1,3 @@
-// ========== BOOKINGS MANAGER - COMPLETE FIXED VERSION ==========
-
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
 }
@@ -11,8 +9,7 @@ if (typeof window.showModalWithContent !== 'function') {
         modal.innerHTML = content;
         document.body.appendChild(modal);
         modal.style.display = 'block';
-        
-        // Auto-remove modal when closed
+
         const closeBtn = modal.querySelector('.close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -27,8 +24,7 @@ class BookingsManager {
         this.db = db;
         this.storage = storage;
         this.currentListeners = {};
-        
-        // Use the new collection system
+
         this.bookingsCollection = collections.bookings();
         this.usersCollection = collections.users();
         this.servicesCollection = collections.services();
@@ -39,13 +35,11 @@ class BookingsManager {
         this.bookingChatsCollection = collections.bookingChats();
     }
 
-    // Create a new booking
     async createBooking(bookingData) {
         try {
             const user = auth.currentUser;
             if (!user) throw new Error('User must be logged in to create a booking');
 
-            // Check provider availability
             if (bookingData.providerId && bookingData.date && bookingData.time) {
                 const isAvailable = await this.checkProviderAvailability(
                     bookingData.providerId, 
@@ -72,13 +66,11 @@ class BookingsManager {
             };
 
             const docRef = await this.bookingsCollection.add(bookingWithMetadata);
-            
-            // Notify the service provider about the new booking
+
             if (bookingData.providerId) {
                 await this.notifyProvider(bookingData.providerId, docRef.id);
             }
-            
-            // Create chat for this booking
+
             await this.createBookingChat(docRef.id, [user.uid, bookingData.providerId]);
             
             return { success: true, id: docRef.id };
@@ -88,7 +80,6 @@ class BookingsManager {
         }
     }
 
-    // Check provider availability
     async checkProviderAvailability(providerId, date, time) {
         try {
             const snapshot = await this.bookingsCollection
@@ -109,10 +100,8 @@ class BookingsManager {
         }
     }
 
-    // OPTIMIZED: Get user bookings with better query
     async getUserBookings(userId, filters = {}, limit = 20, startAfter = null) {
         try {
-            // Build query based on role
             let query;
             
             if (filters.role === 'customer') {
@@ -162,7 +151,6 @@ class BookingsManager {
                 return { bookings, lastVisible };
                 
             } else {
-                // Default: get both but with pagination
                 const [customerBookings, providerBookings] = await Promise.all([
                     this.bookingsCollection
                         .where('customerId', '==', userId)
@@ -181,20 +169,17 @@ class BookingsManager {
                     ...providerBookings.docs.map(doc => ({ id: doc.id, ...doc.data(), role: 'provider' }))
                 ];
                 
-                // Sort by date
                 allBookings.sort((a, b) => {
                     const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
                     const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
                     return dateB - dateA;
                 });
                 
-                // Apply status filter if needed
                 let filteredBookings = allBookings;
                 if (filters.status) {
                     filteredBookings = allBookings.filter(b => b.status === filters.status);
                 }
-                
-                // Apply limit
+
                 if (limit && filteredBookings.length > limit) {
                     filteredBookings = filteredBookings.slice(0, limit);
                 }
@@ -207,7 +192,6 @@ class BookingsManager {
         }
     }
 
-    // Get booking details with enriched information
     async getBookingDetails(bookingId) {
         try {
             const bookingDoc = await this.bookingsCollection.doc(bookingId).get();
@@ -238,7 +222,6 @@ class BookingsManager {
         }
     }
 
-    // Update booking status
     async updateBookingStatus(bookingId, status, notes = null) {
         try {
             const user = auth.currentUser;
@@ -251,7 +234,6 @@ class BookingsManager {
 
             const booking = bookingDoc.data();
             
-            // Verify user has permission to update status
             if (booking.customerId !== user.uid && booking.providerId !== user.uid) {
                 throw new Error('You do not have permission to update this booking');
             }
@@ -266,8 +248,7 @@ class BookingsManager {
                 updates.lastNoteBy = user.uid;
                 updates.lastNoteAt = firebase.firestore.FieldValue.serverTimestamp();
             }
-            
-            // Add timestamps for status changes
+
             if (status === 'confirmed') {
                 updates.confirmedAt = firebase.firestore.FieldValue.serverTimestamp();
                 updates.confirmedBy = user.uid;
@@ -285,7 +266,6 @@ class BookingsManager {
             
             await this.bookingsCollection.doc(bookingId).update(updates);
             
-            // Notify the other party about status change
             if (status === 'confirmed') {
                 await this.notifyCustomer(booking.customerId, bookingId, 'confirmed');
             } else if (status === 'cancelled') {
@@ -304,13 +284,10 @@ class BookingsManager {
         }
     }
 
-    // OPTIMIZED: Update provider rating using atomic increments
     async updateProviderRating(providerId, newRating) {
         try {
-            // Get current stats from user document
             const providerDoc = await this.usersCollection.doc(providerId).get();
             if (!providerDoc.exists) {
-                // Create stats if they don't exist
                 await this.usersCollection.doc(providerId).set({
                     ratingSum: newRating,
                     ratingCount: 1,
@@ -327,7 +304,6 @@ class BookingsManager {
             const newCount = currentCount + 1;
             const newAverage = newSum / newCount;
             
-            // Atomic update using increment (more efficient)
             await this.usersCollection.doc(providerId).update({
                 ratingSum: firebase.firestore.FieldValue.increment(newRating),
                 ratingCount: firebase.firestore.FieldValue.increment(1),
@@ -342,7 +318,6 @@ class BookingsManager {
         }
     }
 
-    // Submit review with duplicate prevention
     async submitReview(bookingId, rating, comment, photos = []) {
         try {
             const user = auth.currentUser;
@@ -353,7 +328,6 @@ class BookingsManager {
                 throw new Error('Only the customer can submit reviews');
             }
             
-            // CHECK FOR EXISTING REVIEW
             const existingReview = await this.reviewsCollection
                 .where('bookingId', '==', bookingId)
                 .where('customerId', '==', user.uid)
@@ -363,7 +337,6 @@ class BookingsManager {
                 throw new Error('You have already reviewed this booking');
             }
 
-            // Upload review photos
             let photoUrls = [];
             for (const photo of photos) {
                 const result = await this.uploadReviewPhoto(photo, bookingId);
@@ -385,10 +358,8 @@ class BookingsManager {
 
             await this.reviewsCollection.add(reviewData);
             
-            // Update provider rating using optimized method
             await this.updateProviderRating(booking.providerId, rating);
             
-            // Update review request status
             await this.markReviewAsCompleted(bookingId);
             
             return { success: true };
@@ -398,7 +369,6 @@ class BookingsManager {
         }
     }
 
-    // Upload review photo
     async uploadReviewPhoto(file, bookingId) {
         try {
             const fileExtension = file.name.split('.').pop();
@@ -415,7 +385,6 @@ class BookingsManager {
         }
     }
 
-    // Mark review as completed
     async markReviewAsCompleted(bookingId) {
         try {
             const reviewRequestSnapshot = await this.reviewRequestsCollection
@@ -435,7 +404,6 @@ class BookingsManager {
         }
     }
 
-    // Request review from customer
     async requestReview(bookingId) {
         try {
             const booking = await this.getBookingDetails(bookingId);
@@ -450,8 +418,7 @@ class BookingsManager {
             };
             
             await this.reviewRequestsCollection.add(reviewRequest);
-            
-            // Notify customer to leave a review
+
             await this.notifyCustomer(booking.customerId, bookingId, 'review_request');
             
             return true;
@@ -461,7 +428,6 @@ class BookingsManager {
         }
     }
 
-    // Notify provider about new booking
     async notifyProvider(providerId, bookingId) {
         try {
             const notificationData = {
@@ -476,7 +442,6 @@ class BookingsManager {
             
             await this.notificationsCollection.add(notificationData);
             
-            // Send push notification
             await this.sendPushNotification(providerId, 'New Booking', 'You have a new booking request');
             
             return true;
@@ -486,7 +451,6 @@ class BookingsManager {
         }
     }
 
-    // Notify customer about booking confirmation
     async notifyCustomer(customerId, bookingId, status) {
         try {
             let title, message;
@@ -533,7 +497,6 @@ class BookingsManager {
         }
     }
 
-    // Notify user about new message
     async notifyUser(userId, bookingId, type) {
         try {
             const notificationData = {
@@ -556,21 +519,15 @@ class BookingsManager {
         }
     }
 
-    // Send push notification (FCM integration)
     async sendPushNotification(userId, title, message) {
-        // Store notification for web push
         try {
-            // Get user's FCM token from Firestore
             const userDoc = await this.usersCollection.doc(userId).get();
             const fcmToken = userDoc.exists ? userDoc.data().fcmToken : null;
             
             if (fcmToken && typeof firebase.messaging !== 'undefined') {
-                // Send via Firebase Cloud Messaging
-                // This requires FCM setup in firebase.js
                 console.log(`📱 Push notification to ${userId}: ${title} - ${message}`);
             }
-            
-            // Also dispatch a custom event for in-app notifications
+
             window.dispatchEvent(new CustomEvent('newNotification', {
                 detail: { userId, title, message, timestamp: new Date() }
             }));
@@ -581,7 +538,6 @@ class BookingsManager {
         return { success: true };
     }
 
-    // Create booking chat
     async createBookingChat(bookingId, participants) {
         try {
             const chatData = {
@@ -599,7 +555,6 @@ class BookingsManager {
         }
     }
 
-    // Get status options
     getStatusOptions() {
         return [
             { id: 'pending', name: 'Pending', color: 'warning', icon: 'fas fa-clock' },
@@ -611,7 +566,6 @@ class BookingsManager {
         ];
     }
 
-    // Get booking filters
     getBookingFilters() {
         return [
             { id: 'all', name: 'All Bookings', icon: 'fas fa-list' },
@@ -624,12 +578,8 @@ class BookingsManager {
     }
 }
 
-// Initialize bookings manager
 const bookingsManager = new BookingsManager();
 
-// ========== HELPER FUNCTIONS ==========
-
-// Load user bookings with filters
 async function loadUserBookings(filters = {}) {
     if (!auth.currentUser) return;
     
@@ -660,7 +610,6 @@ async function loadUserBookings(filters = {}) {
     window.lastBooking = result.lastVisible;
 }
 
-// Create HTML element for a booking
 function createBookingElement(booking) {
     const statusOptions = bookingsManager.getStatusOptions();
     const status = statusOptions.find(s => s.id === booking.status) || statusOptions[0];
@@ -727,7 +676,6 @@ function createBookingElement(booking) {
         </div>
     `;
     
-    // Attach event listeners
     const detailBtn = div.querySelector('.view-booking-detail-btn');
     if (detailBtn) {
         detailBtn.addEventListener('click', () => viewBookingDetails(booking.id));
@@ -761,7 +709,6 @@ function createBookingElement(booking) {
     return div;
 }
 
-// Format date for display
 function formatDate(dateString) {
     if (!dateString) return 'Date not set';
     
@@ -786,7 +733,6 @@ function formatDate(dateString) {
     }
 }
 
-// Format time for display
 function formatTime(date) {
     if (!date) return '';
     try {
@@ -806,7 +752,6 @@ function formatTime(date) {
     }
 }
 
-// Escape HTML
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -814,7 +759,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ========== CUSTOM MODAL FOR REASON INPUT ==========
 function showReasonModal(title, callback) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px;">
@@ -863,7 +807,6 @@ function showReasonModal(title, callback) {
     }, 100);
 }
 
-// ========== BOOKING ACTION FUNCTIONS ==========
 async function confirmBooking(bookingId) {
     const result = await bookingsManager.updateBookingStatus(bookingId, 'confirmed');
     if (result.success) {
@@ -894,7 +837,6 @@ async function completeBooking(bookingId) {
     }
 }
 
-// FIXED: Use custom modal instead of prompt
 async function cancelBooking(bookingId) {
     showReasonModal('Cancel Booking', async (reason) => {
         if (!reason) {
@@ -911,7 +853,6 @@ async function cancelBooking(bookingId) {
     });
 }
 
-// FIXED: Use custom modal instead of prompt
 async function rejectBooking(bookingId) {
     showReasonModal('Reject Booking', async (reason) => {
         if (!reason) {
@@ -928,7 +869,6 @@ async function rejectBooking(bookingId) {
     });
 }
 
-// View booking details (simplified)
 async function viewBookingDetails(bookingId) {
     try {
         const booking = await bookingsManager.getBookingDetails(bookingId);
@@ -960,7 +900,6 @@ async function viewBookingDetails(bookingId) {
     }
 }
 
-// Show review form
 function showReviewForm(bookingId) {
     const formContent = `
         <div class="modal-content" style="max-width: 500px;">
@@ -1038,7 +977,6 @@ function showReviewForm(bookingId) {
     }
 }
 
-// ========== EXPOSE GLOBALLY ==========
 window.bookingsManager = bookingsManager;
 window.loadUserBookings = loadUserBookings;
 window.viewBookingDetails = viewBookingDetails;
@@ -1048,5 +986,3 @@ window.startBooking = startBooking;
 window.completeBooking = completeBooking;
 window.cancelBooking = cancelBooking;
 window.rejectBooking = rejectBooking;
-
-console.log('✅ Bookings.js fully loaded with all fixes');

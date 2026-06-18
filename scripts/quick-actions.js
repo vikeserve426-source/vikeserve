@@ -1,6 +1,3 @@
-// ========== QUICK ACTIONS MANAGER - COMPLETE FIXED VERSION ==========
-// Handles home screen quick action buttons (Boda, Mjengo, Gas, Water, Education, Alerts, etc.)
-
 class QuickActionsManager {
     constructor() {
         this.db = window.db;
@@ -35,9 +32,7 @@ class QuickActionsManager {
         }
     }
 
-    // Helper function to switch tabs (works in APK WebView)
     switchToTab(tabId) {
-        // Special handling for 'more-tab' (opens menu, not a tab)
         if (tabId === 'more-tab') {
             this.openMoreMenuAndSwitchTo('education');
             return true;
@@ -50,7 +45,6 @@ class QuickActionsManager {
             window.app.switchTab(tabId);
             return true;
         } else {
-            // Fallback for APK - directly manipulate DOM
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -66,7 +60,6 @@ class QuickActionsManager {
         }
     }
 
-    // Show loading indicator on clicked button
     showButtonLoading(button, originalText) {
         if (!button) return;
         button.disabled = true;
@@ -81,7 +74,6 @@ class QuickActionsManager {
         }
     }
 
-    // Reset button after loading
     resetButton(button, originalIcon, originalText) {
         if (!button) return;
         button.disabled = false;
@@ -97,24 +89,16 @@ class QuickActionsManager {
     }
 
     handleQuickAction(actionType, buttonElement) {
-        // Save original button state
         const originalIcon = buttonElement.querySelector('i')?.className;
         const originalText = buttonElement.querySelector('.action-name')?.textContent;
         
-        // Show loading state
         this.showButtonLoading(buttonElement, originalText);
         
-        // Services actions - go to Services tab
         const servicesActions = ['boda', 'construction', 'daily', 'farm', 'electricity', 'house', 'phone'];
-        
-        // Marketplace actions - go to Marketplace tab
         const marketplaceActions = ['Marketplace', 'marketplace', 'gas', 'water'];
-        
-        // Education action - opens More menu > Education tab
         const educationActions = ['education', 'teachers', 'internships', 'attachments', 'training'];
-        
-        // Alerts action - opens More menu > Alerts tab
         const alertsActions = ['alerts', 'report', 'community-alerts'];
+        const wifiActions = ['wifi', 'wificonnect', 'vikeserve-connect'];
         
         if (servicesActions.includes(actionType)) {
             this.switchToTab('services-tab');
@@ -141,11 +125,18 @@ class QuickActionsManager {
                 window.showToast(categoryMessage, 'info');
             }
             
-            // Apply filter after tab is switched
             setTimeout(() => {
                 this.applyMarketplaceFilter(categoryFilter);
             }, 300);
             
+            setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
+            
+        } else if (wifiActions.includes(actionType)) {
+            // VikeServe Connect - Coming Soon
+            if (typeof window.showToast === 'function') {
+                window.showToast('🌐 VikeServe Connect - Coming Soon!', 'info');
+            }
+            this.showWifiComingSoonModal();
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
             
         } else if (educationActions.includes(actionType)) {
@@ -169,29 +160,24 @@ class QuickActionsManager {
     }
     
     applyMarketplaceFilter(category) {
-        // Method 1: Use the loadMarketplaceItems function if available
         if (typeof window.loadMarketplaceItems === 'function') {
             window.loadMarketplaceItems(category);
             return;
         }
         
-        // Method 2: Click the filter button if available
         const filterBtns = document.querySelectorAll('.filter-btn');
         let filterApplied = false;
         
         filterBtns.forEach(btn => {
             const btnCategory = btn.getAttribute('data-category');
             if (btnCategory === category) {
-                // Remove active class from all, add to this one
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                // Trigger click event
                 btn.click();
                 filterApplied = true;
             }
         });
         
-        // Method 3: Fallback for APK - manually filter items
         if (!filterApplied && category !== 'all') {
             const itemsContainer = document.getElementById('marketplace-items-container');
             if (itemsContainer) {
@@ -209,13 +195,11 @@ class QuickActionsManager {
     }
 
     openMoreMenuAndSwitchTo(tabId) {
-        // First open the More menu
         if (typeof window.openMoreMenu === 'function') {
             window.openMoreMenu();
         } else if (window.app && typeof window.app.openMoreMenu === 'function') {
             window.app.openMoreMenu();
         } else {
-            // Fallback for APK
             const moreSection = document.getElementById('more-section');
             const mainNav = document.querySelector('.bottom-nav');
             const moreBottomNav = document.querySelector('.more-bottom-nav');
@@ -228,7 +212,6 @@ class QuickActionsManager {
             if (moreBottomNav) moreBottomNav.style.display = 'flex';
         }
         
-        // Then switch to the specific tab after a delay (increased for slow devices)
         setTimeout(() => {
             if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab(tabId);
@@ -238,7 +221,7 @@ class QuickActionsManager {
                     tabBtn.click();
                 }
             }
-        }, 300); // Increased from 150ms to 300ms for slow devices
+        }, 300);
     }
 
     getServiceTitle(actionType) {
@@ -254,14 +237,82 @@ class QuickActionsManager {
             'water': 'Water Delivery',
             'education': 'Education Hub',
             'alerts': 'Community Alerts',
-            'Marketplace': 'Marketplace'
+            'Marketplace': 'Marketplace',
+            'wifi': 'VikeServe Connect'
         };
         return titles[actionType] || 'Services';
     }
+
+    // ========== WIFI CONNECT COMING SOON MODAL ==========
+    showWifiComingSoonModal() {
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-wifi"></i> VikeServe Connect</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="font-size: 4rem; margin-bottom: 15px;">
+                        <i class="fas fa-wifi" style="color: var(--primary);"></i>
+                    </div>
+                    <h3>Coming Soon! 🚀</h3>
+                    <p style="color: var(--grey-dark); margin: 15px 0;">
+                        VikeServe Connect will allow you to buy affordable WiFi packages directly from your phone.
+                    </p>
+                    <div style="background: var(--light); padding: 15px; border-radius: 10px; margin: 15px 0; text-align: left;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📦 Available Packages (Coming Soon)</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid var(--grey);">
+                            <span>1 Hour Pass</span> <span>KES 10</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid var(--grey);">
+                            <span>1 Day Pass</span> <span>KES 50</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0;">
+                            <span>7 Days Pass</span> <span>KES 250</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--grey-dark);">
+                        ⚡ Stay tuned! We're working hard to bring this to you.
+                    </p>
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button class="btn btn-primary close-modal-btn">Got It!</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (typeof window.showModalWithContent === 'function') {
+            window.showModalWithContent('wifi-coming-soon-modal', modalContent);
+        } else {
+            let modal = document.getElementById('wifi-coming-soon-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'wifi-coming-soon-modal';
+                modal.className = 'modal';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = modalContent;
+            modal.style.display = 'flex';
+            modal.style.zIndex = '10001';
+        }
+        
+        setTimeout(() => {
+            const closeBtns = document.querySelectorAll('#wifi-coming-soon-modal .close-modal-btn');
+            closeBtns.forEach(btn => {
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', () => {
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('wifi-coming-soon-modal');
+                    } else {
+                        const modal = document.getElementById('wifi-coming-soon-modal');
+                        if (modal) modal.style.display = 'none';
+                    }
+                });
+            });
+        }, 100);
+    }
 }
 
-// Initialize quick actions manager
 const quickActionsManager = new QuickActionsManager();
 window.quickActionsManager = quickActionsManager;
-
-console.log('✅ Quick-actions.js fully loaded with all fixes');

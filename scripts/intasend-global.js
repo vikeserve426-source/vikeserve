@@ -1,7 +1,3 @@
-// ========== INTASEND PAYMENT SYSTEM - WITH POINTS DISCOUNT ==========
-// Supports: M-Pesa, Airtel Money, MTN Uganda, Tigo Pesa, Visa/Mastercard, PayPal
-// ADDED: Points discount system - users can use points to get up to 30% off
-
 class VikeServeGlobalPayments {
     constructor() {
         this.config = {
@@ -18,9 +14,7 @@ class VikeServeGlobalPayments {
         this.userPhone = null;
         this.userPoints = 0;
         this.pendingVerifications = new Map();
-        this.selectedPointsDiscount = null; // Store points discount info
-        
-        // Exchange rates (1 KES to other currencies)
+        this.selectedPointsDiscount = null;
         this.exchangeRates = {
             'KES': 1,
             'UGX': 28.5,
@@ -503,8 +497,7 @@ class VikeServeGlobalPayments {
         let pointsDiscountResult = null;
         
         window.selectedPackage = null;
-        
-        // Step 1: Select Ad
+    
         const step1Next = document.getElementById('promo-step1-next');
         const adSelect = document.getElementById('promo-ad-select');
         const adPreview = document.getElementById('promo-ad-preview');
@@ -548,7 +541,6 @@ class VikeServeGlobalPayments {
             });
         }
         
-        // Step 2: Select Package with Points
         const packageCards = document.querySelectorAll('.package-card');
         const step2Next = document.getElementById('promo-step2-next');
         const step2Back = document.getElementById('promo-step2-back');
@@ -637,7 +629,6 @@ class VikeServeGlobalPayments {
             step2Back.addEventListener('click', () => this.goToPromoStep(1));
         }
         
-        // Step 3: Select Action
         const actionOptions = document.querySelectorAll('.action-option');
         const actionDetailsContainer = document.getElementById('action-details-container');
         const step3Next = document.getElementById('promo-step3-next');
@@ -744,7 +735,6 @@ class VikeServeGlobalPayments {
             step3Back.addEventListener('click', () => this.goToPromoStep(2));
         }
         
-        // Step 4: Payment Method (same as before, but with points discount)
         const submitPaymentBtn = document.getElementById('promo-submit-payment');
         const step4Back = document.getElementById('promo-step4-back');
         const countrySelect = document.getElementById('payment-country');
@@ -911,7 +901,6 @@ class VikeServeGlobalPayments {
             step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
         
-        // Step 5: Verification
         const verificationTabs = document.querySelectorAll('.verification-tab');
         const step5Back = document.getElementById('promo-step5-back');
         const manualVerifyBtn = document.getElementById('submit-manual-verification');
@@ -1020,7 +1009,6 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
     expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
     
     try {
-        // Calculate final amount with points discount
         let finalAmount = pkg.price;
         let pointsUsed = 0;
         let discount = 0;
@@ -1043,7 +1031,6 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
             formattedPhone = '254' + formattedPhone;
         }
         
-        // Save transaction to Firestore
         const paymentRecord = {
             transactionId: transactionId,
             adId: ad.id,
@@ -1069,13 +1056,11 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
         
         await firebase.firestore().collection('transactions').add(paymentRecord);
         
-        // Close the promotion modal
         const modal = document.getElementById('ad-packages-full-modal');
         if (modal) {
             modal.style.display = 'none';
         }
         
-        // Show the IntaSend payment modal
         this.showIntaSendPaymentModal(finalAmount, transactionId, formattedPhone);
         
         return transactionId;
@@ -1087,12 +1072,9 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
     }
 }
 
-// ========== SHOW INTASEND PAYMENT MODAL (DIRECT REDIRECT METHOD) ==========
 showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
-    // Build the checkout URL using the correct format
     const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
     
-    // Use the correct hosted checkout URL
     let checkoutUrl = `https://intasend.com/pay/checkout?public_key=${this.config.intasend.publicKey}&amount=${amount}&currency=KES&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
     
     if (phoneNumber && phoneNumber.length >= 10) {
@@ -1101,7 +1083,6 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
     
     console.log('Redirecting to IntaSend:', checkoutUrl);
     
-    // Create confirmation modal before redirect
     const confirmModal = document.createElement('div');
     confirmModal.id = 'payment-confirm-modal';
     confirmModal.className = 'modal';
@@ -1308,7 +1289,6 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
     }
 }
 
-// ========== GLOBAL FUNCTIONS ==========
 let globalPaymentSystem = null;
 
 function getPaymentSystem() {
@@ -1346,7 +1326,3 @@ window.setIntaSendTestMode = function(isTestMode) {
         console.log('💰 IntaSend in LIVE MODE - real charges will be processed');
     }
 };
-
-console.log('💰 IntaSend configured with public key:', 'ISPubKey_live_7b219b83-74bc-4661-90ce-126679748f2e');
-console.log('✅ IntaSend ready for LIVE payments with POINTS DISCOUNT');
-console.log('✅ Payment system loaded with CORS fix, currency conversion, points discount, and verification tab');

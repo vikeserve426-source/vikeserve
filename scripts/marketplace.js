@@ -1,6 +1,3 @@
-// ========== MARKETPLACE MANAGER - COMPLETE FIXED VERSION ==========
-// Saves images to Firebase Storage, uses Firestore for all data
-
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
 }
@@ -22,7 +19,6 @@ if (typeof window.showModalWithContent !== 'function') {
     };
 }
 
-// ========== HELPER FUNCTIONS ==========
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -55,7 +51,6 @@ function formatPrice(item) {
     }
 }
 
-// ========== GENERATE STAR RATING ==========
 function generateStarRating(rating) {
     if (!rating || rating === 0) return '';
     const fullStars = Math.floor(rating);
@@ -73,11 +68,9 @@ function generateStarRating(rating) {
     return stars;
 }
 
-// ========== UPLOAD IMAGES TO FIREBASE STORAGE ==========
 async function uploadMarketplaceImages(files, itemId) {
     const imageUrls = [];
     
-    // Check if storage is available globally
     if (typeof firebase === 'undefined' || !firebase.storage) {
         console.warn('Firebase Storage not available');
         if (typeof window.showToast === 'function') {
@@ -105,7 +98,6 @@ async function uploadMarketplaceImages(files, itemId) {
     return imageUrls;
 }
 
-// ========== CHECK IF AD IS PROMOTED (FROM FIRESTORE) ==========
 async function isAdPromoted(adId) {
     try {
         const doc = await firebase.firestore().collection('marketplace_items').doc(adId).get();
@@ -123,7 +115,6 @@ async function isAdPromoted(adId) {
     }
 }
 
-// ========== CREATE MARKETPLACE ITEM ELEMENT (WITH SELLER PROFILE & RATINGS) ==========
 function createMarketplaceItemElement(item) {
     const div = document.createElement('div');
     div.className = 'market-item';
@@ -151,7 +142,6 @@ function createMarketplaceItemElement(item) {
     const priceText = formatPrice(item);
     const daysLeftHtml = isPromoted && daysLeft > 0 ? `<div class="promoted-badge" style="margin-top: 4px;"><i class="fas fa-crown"></i> PROMOTED (${daysLeft}d left)</div>` : '';
     
-    // Generate seller rating stars
     const sellerRating = item.sellerRating || item.rating || 0;
     const sellerRatingCount = item.sellerRatingCount || item.ratingCount || 0;
     const ratingStars = generateStarRating(sellerRating);
@@ -200,7 +190,6 @@ function createMarketplaceItemElement(item) {
 if (contactBtn) {
     contactBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Use chat instead of phone call
         if (item.userId) {
             startChatWithSeller(item.userId, item.userName);
         } else {
@@ -228,7 +217,6 @@ if (contactBtn) {
     return div;
 }
 
-// ========== LOAD MARKETPLACE ITEMS FROM FIRESTORE (WITH SELLER RATINGS) ==========
 let lastVisibleItem = null;
 let isLoadingMore = false;
 let currentCategory = 'all';
@@ -262,7 +250,6 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
         const snapshot = await query.get();
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // Fetch seller ratings for each item
         const itemsWithRatings = await Promise.all(items.map(async (item) => {
             if (item.userId) {
                 try {
@@ -312,7 +299,6 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
             container.appendChild(createMarketplaceItemElement(item));
         });
         
-        // Add "Load More" button if there are more items
         if (snapshot.docs.length === 20) {
             let loadMoreBtn = document.getElementById('load-more-marketplace-btn');
             if (!loadMoreBtn) {
@@ -341,7 +327,6 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
     }
 }
 
-// ========== VIEW LISTING DETAILS (WITH SELLER PROFILE) ==========
 async function viewListingDetails(itemId) {
     try {
         const doc = await firebase.firestore().collection('marketplace_items').doc(itemId).get();
@@ -352,7 +337,6 @@ async function viewListingDetails(itemId) {
         
         const item = { id: doc.id, ...doc.data() };
         
-        // Fetch seller details
         let sellerRating = 0;
         let sellerRatingCount = 0;
         let sellerName = item.userName || 'Unknown Seller';
@@ -398,7 +382,6 @@ async function viewListingDetails(itemId) {
                         </div>
                     ` : ''}
                     
-                    <!-- SELLER PROFILE SECTION IN MODAL -->
                     <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px;">
                         <div class="seller-avatar" style="width: 45px; height: 45px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;">
                             ${sellerName.charAt(0).toUpperCase()}
@@ -484,7 +467,6 @@ function whatsappSeller(phone) {
     window.open(`https://wa.me/${formattedPhone}`, '_blank');
 }
 
-// ========== VIEW SELLER PROFILE ==========
 async function viewSellerProfile(sellerId) {
     if (!sellerId) {
         window.showToast('Invalid seller ID', 'error');
@@ -508,7 +490,6 @@ async function viewSellerProfile(sellerId) {
         const sellerRatingCount = seller.totalReviews || seller.ratingCount || 0;
         const ratingStars = generateStarRating(sellerRating);
         
-        // Get seller's items count
         let itemsCount = 0;
         try {
             const itemsSnapshot = await firebase.firestore().collection('marketplace_items')
@@ -520,7 +501,6 @@ async function viewSellerProfile(sellerId) {
             console.error('Error getting items count:', err);
         }
         
-        // Get seller's services count
         let servicesCount = 0;
         try {
             const servicesSnapshot = await firebase.firestore().collection('services')
@@ -577,7 +557,6 @@ async function viewSellerProfile(sellerId) {
             </div>
         `;
         
-        // Create and show modal
         const modal = document.createElement('div');
         modal.id = 'seller-profile-modal';
         modal.className = 'modal';
@@ -586,13 +565,11 @@ async function viewSellerProfile(sellerId) {
         modal.innerHTML = modalContent;
         document.body.appendChild(modal);
         
-        // Close button handler
         window.closeSellerProfileModal = function() {
             const modalEl = document.getElementById('seller-profile-modal');
             if (modalEl) modalEl.remove();
         };
         
-        // Contact seller button
         const contactBtn = document.getElementById('contact-seller-from-profile');
         if (contactBtn) {
             contactBtn.addEventListener('click', async () => {
@@ -604,13 +581,11 @@ async function viewSellerProfile(sellerId) {
                     return;
                 }
                 
-                // Use the moreMenuManager to start chat if available
                 if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
                     await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your listings on VikeServe.`);
                     window.showToast('Chat started! Check your messages.', 'success');
                     modal.remove();
                     
-                    // Switch to messages tab in more menu
                     if (typeof window.switchTab === 'function') {
                         window.switchTab('more-tab');
                     }
@@ -626,15 +601,12 @@ async function viewSellerProfile(sellerId) {
             });
         }
         
-        // View seller listings button
         const listingsBtn = document.getElementById('view-seller-listings');
         if (listingsBtn) {
             listingsBtn.addEventListener('click', () => {
                 modal.remove();
-                // Filter marketplace to show only this seller's items
                 if (typeof window.loadMarketplaceItems === 'function') {
                     window.showToast(`Loading ${escapeHtml(sellerName)}'s listings...`, 'info');
-                    // For now, just show all items - user can search by seller name
                     if (typeof window.switchTab === 'function') {
                         window.switchTab('marketplace-tab');
                     }
@@ -648,7 +620,6 @@ async function viewSellerProfile(sellerId) {
     }
 }
 
-// ========== EDIT AND DELETE FUNCTIONS ==========
 async function editMarketplaceItem(itemId) {
     try {
         const doc = await firebase.firestore().collection('marketplace_items').doc(itemId).get();
@@ -659,18 +630,15 @@ async function editMarketplaceItem(itemId) {
         
         const item = doc.data();
         
-        // Check if current user is the owner
         const currentUser = firebase.auth().currentUser;
         if (!currentUser || item.userId !== currentUser.uid) {
             window.showToast('You can only edit your own items', 'error');
             return;
         }
         
-        // Close any open modals first
         const existingModal = document.getElementById('edit-item-modal');
         if (existingModal) existingModal.remove();
         
-        // Create edit modal content
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -789,7 +757,6 @@ async function editMarketplaceItem(itemId) {
             </div>
         `;
         
-        // Create and show modal
         const modal = document.createElement('div');
         modal.id = 'edit-item-modal';
         modal.className = 'modal';
@@ -798,7 +765,6 @@ async function editMarketplaceItem(itemId) {
         modal.innerHTML = modalContent;
         document.body.appendChild(modal);
         
-        // Setup image preview for new images
         const editImageInput = document.getElementById('edit-images');
         if (editImageInput) {
             editImageInput.addEventListener('change', (e) => {
@@ -822,7 +788,6 @@ async function editMarketplaceItem(itemId) {
             });
         }
         
-        // Handle remove existing images
         document.querySelectorAll('.remove-existing-image').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -835,7 +800,6 @@ async function editMarketplaceItem(itemId) {
             });
         });
         
-        // Save button handler
         const saveBtn = document.getElementById('save-edit-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', async () => {
@@ -849,10 +813,8 @@ async function editMarketplaceItem(itemId) {
     }
 }
 
-// ========== SAVE EDITED ITEM ==========
 async function saveEditedItem(itemId) {
     try {
-        // Get form values
         const category = document.getElementById('edit-category')?.value;
         const title = document.getElementById('edit-title')?.value.trim();
         const description = document.getElementById('edit-description')?.value.trim();
@@ -865,7 +827,6 @@ async function saveEditedItem(itemId) {
         const delivery = document.getElementById('edit-delivery')?.checked;
         const status = document.getElementById('edit-status')?.value;
         
-        // Validation
         if (!title || !description || !price || !location || !phone) {
             window.showToast('Please fill in all required fields', 'error');
             return;
@@ -873,14 +834,12 @@ async function saveEditedItem(itemId) {
         
         window.showToast('Saving changes...', 'info');
         
-        // Get existing images
         let existingImages = [];
         const existingImagesInput = document.getElementById('edit-existing-images');
         if (existingImagesInput && existingImagesInput.value) {
             existingImages = JSON.parse(existingImagesInput.value);
         }
         
-        // Upload new images
         const imageInput = document.getElementById('edit-images');
         let newImages = [];
         if (imageInput && imageInput.files && imageInput.files.length > 0) {
@@ -889,10 +848,8 @@ async function saveEditedItem(itemId) {
             newImages = await uploadMarketplaceImages(imageFiles, itemId);
         }
         
-        // Combine images
         const allImages = [...existingImages, ...newImages];
         
-        // Update Firestore
         await firebase.firestore().collection('marketplace_items').doc(itemId).update({
             category: category,
             title: title,
@@ -911,10 +868,8 @@ async function saveEditedItem(itemId) {
         
         window.showToast('✅ Item updated successfully!', 'success');
         
-        // Close modal
         closeEditModal();
         
-        // Reload items
         setTimeout(() => {
             loadMarketplaceItems(currentCategory || 'all');
         }, 500);
@@ -925,7 +880,6 @@ async function saveEditedItem(itemId) {
     }
 }
 
-// ========== CLOSE EDIT MODAL ==========
 function closeEditModal() {
     const modal = document.getElementById('edit-item-modal');
     if (modal) {
@@ -933,7 +887,6 @@ function closeEditModal() {
     }
 }
 
-// Make functions available globally
 window.closeEditModal = closeEditModal;
 window.saveEditedItem = saveEditedItem;
 
@@ -953,7 +906,6 @@ async function deleteMarketplaceItem(itemId) {
 }
 }
 
-// ========== SUBMIT MARKETPLACE ITEM (WITH IMAGE UPLOAD) ==========
 async function submitMarketplaceItem() {
     console.log('submitMarketplaceItem called - saving to Firebase Storage');
     
@@ -979,7 +931,6 @@ async function submitMarketplaceItem() {
         return;
     }
     
-    // Validation
     if (!category) {
         window.showToast('Please select a category', 'error');
         return;
@@ -1009,7 +960,6 @@ async function submitMarketplaceItem() {
         return;
     }
     
-    // Show loading toast
     window.showToast('Saving item...', 'info');
     
     const itemId = firebase.firestore().collection('marketplace_items').doc().id;
@@ -1035,7 +985,6 @@ async function submitMarketplaceItem() {
     };
     
     try {
-        // Upload images if any
         const imageInput = document.getElementById('market-images');
         if (imageInput && imageInput.files && imageInput.files.length > 0) {
             window.showToast('Uploading images...', 'info');
@@ -1044,25 +993,20 @@ async function submitMarketplaceItem() {
             itemData.images = uploadedUrls;
         }
         
-        // Save to Firestore
         await firebase.firestore().collection('marketplace_items').doc(itemId).set(itemData);
         console.log('Item saved to Firebase with ID:', itemId);
         
         window.showToast('✅ Item listed successfully!', 'success');
         
-        // Close modal
         const modal = document.getElementById('marketplace-post-modal');
         if (modal) {
             modal.style.display = 'none';
         }
         
-        // Reset form
         resetMarketplaceForm();
         
-        // Reload items
         setTimeout(() => {
             loadMarketplaceItems(currentCategory || 'all');
-            // Switch to marketplace tab if not already there
             if (typeof window.switchTab === 'function') {
                 window.switchTab('marketplace-tab');
             }
@@ -1098,7 +1042,6 @@ function showMarketplacePostModal() {
 }
 }
 
-// ========== FILTER BUTTON HANDLERS ==========
 function setupFilterButtons() {
     const filterBtns = document.querySelectorAll('.filter-btn');
     filterBtns.forEach(btn => {
@@ -1113,7 +1056,6 @@ function setupFilterButtons() {
     });
 }
 
-// ========== SEARCH HANDLER ==========
 function setupMarketplaceSearch() {
     const searchInput = document.querySelector('#marketplace-tab .search-input');
     if (searchInput) {
@@ -1153,7 +1095,6 @@ function setupMarketplaceSearch() {
     }
 }
 
-// ========== GAS REFILL FUNCTIONS ==========
 function showGasRefillPostModal() {
     resetGasRefillForm();
     const modal = document.getElementById('gas-refill-post-modal');
@@ -1178,7 +1119,6 @@ function resetGasRefillForm() {
 async function submitGasRefillListing() {
     console.log('submitGasRefillListing called');
     
-    // Get all form values with detailed logging
     const title = document.getElementById('gas-title')?.value.trim();
     const gasType = document.getElementById('gas-type')?.value;
     const cylinderSize = document.getElementById('gas-cylinder-size')?.value;
@@ -1188,7 +1128,6 @@ async function submitGasRefillListing() {
     const description = document.getElementById('gas-description')?.value.trim();
     const phone = document.getElementById('gas-phone')?.value.trim();
     
-    // Debug logging
     console.log('Form values:', { title, gasType, cylinderSize, price, brand, location, description, phone });
     
     const user = firebase.auth().currentUser;
@@ -1198,7 +1137,6 @@ async function submitGasRefillListing() {
         return;
     }
     
-    // Check each required field individually for better error messages
     if (!title) {
         window.showToast('Please enter a title', 'error');
         return;
@@ -1228,10 +1166,8 @@ async function submitGasRefillListing() {
         return;
     }
     
-    // Show loading toast
     window.showToast('Saving gas refill service...', 'info');
     
-    // Clean the data - remove undefined values
     const gasData = {
         category: 'gas-refill',
         title: title,
@@ -1250,7 +1186,6 @@ async function submitGasRefillListing() {
         userEmail: user.email
     };
     
-    // Only add brand if it exists
     if (brand && brand.trim() !== '') {
         gasData.brand = brand.trim();
     }
@@ -1263,16 +1198,13 @@ async function submitGasRefillListing() {
         
         window.showToast('✅ Gas refill service listed successfully!', 'success');
         
-        // Close modal
         const modal = document.getElementById('gas-refill-post-modal');
         if (modal) {
             modal.style.display = 'none';
         }
         
-        // Reset form
         resetGasRefillForm();
         
-        // Reload items
         setTimeout(() => {
             loadMarketplaceItems('gas-refill');
         }, 500);
@@ -1283,7 +1215,6 @@ async function submitGasRefillListing() {
     }
 }
 
-// ========== WATER DELIVERY FUNCTIONS ==========
 function showWaterDeliveryPostModal() {
     resetWaterDeliveryForm();
     const modal = document.getElementById('water-delivery-post-modal');
@@ -1350,7 +1281,6 @@ async function submitWaterDeliveryListing() {
     }
 }
 
-// ========== HOTEL FUNCTIONS ==========
 function showHotelPostModal() {
     resetHotelForm();
     const modal = document.getElementById('hotel-post-modal');
@@ -1417,7 +1347,6 @@ async function submitHotelListing() {
     }
 }
 
-// ========== PROPERTY FUNCTIONS (UNIFIED) ==========
 function showPropertyPostModal() {
     resetPropertyForm();
     const modal = document.getElementById('property-post-modal');
@@ -1485,7 +1414,6 @@ async function submitProperty() {
     }
 }
 
-// ========== LAND FUNCTIONS ==========
 function showLandPostModal() {
     resetLandForm();
     const modal = document.getElementById('land-post-modal');
@@ -1550,7 +1478,6 @@ async function submitLandListing() {
     }
 }
 
-// ========== BUTTON SETUP ==========
 function setupMarketplaceButtons() {
     const buttons = [
         { id: 'marketplace-post-btn', handler: showMarketplacePostModal },
@@ -1574,7 +1501,6 @@ function setupMarketplaceButtons() {
         }
     });
     
-    // ========== ADD THIS CODE FOR SUBMIT BUTTON ==========
     const submitMarketplaceBtn = document.getElementById('submit-marketplace-btn');
     if (submitMarketplaceBtn) {
         const newBtn = submitMarketplaceBtn.cloneNode(true);
@@ -1586,7 +1512,6 @@ function setupMarketplaceButtons() {
         });
     }
     
-    // ========== ADD SUBMIT BUTTONS FOR OTHER MODALS ==========
     const submitGasBtn = document.getElementById('submit-gas-btn');
     if (submitGasBtn) {
         const newBtn = submitGasBtn.cloneNode(true);
@@ -1643,7 +1568,6 @@ function setupMarketplaceButtons() {
     }
 }
 
-// ========== INITIALIZE ==========
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         setupFilterButtons();
@@ -1654,7 +1578,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 300);
 });
 
-// ========== GLOBAL EXPORTS ==========
 window.loadMarketplaceItems = loadMarketplaceItems;
 window.viewListingDetails = viewListingDetails;
 window.contactSeller = contactSeller;
@@ -1674,7 +1597,6 @@ window.submitLandListing = submitLandListing;
 window.setupFilterButtons = setupFilterButtons;
 window.viewSellerProfile = viewSellerProfile;
 
-// ========== START CHAT WITH SELLER ==========
 async function startChatWithSeller(sellerId, sellerName) {
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) {
@@ -1688,19 +1610,16 @@ async function startChatWithSeller(sellerId, sellerName) {
         return;
     }
     
-    // Don't allow chatting with yourself
     if (sellerId === currentUser.uid) {
         window.showToast('You cannot chat with yourself', 'info');
         return;
     }
     
     try {
-        // Check if moreMenuManager is available
         if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
             await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your items on VikeServe.`);
             window.showToast('Chat started! Check your messages.', 'success');
             
-            // Switch to messages tab
             if (typeof window.switchTab === 'function') {
                 window.switchTab('more-tab');
             }
@@ -1710,7 +1629,6 @@ async function startChatWithSeller(sellerId, sellerName) {
                 }, 500);
             }
         } else {
-            // Fallback: create a basic chat
             window.showToast('Opening chat...', 'info');
         }
     } catch (error) {
@@ -1719,7 +1637,4 @@ async function startChatWithSeller(sellerId, sellerName) {
     }
 }
 
-// Make function available globally
 window.startChatWithSeller = startChatWithSeller;
-
-console.log('✅ Marketplace.js fully loaded with Firebase Storage integration');

@@ -1,7 +1,4 @@
-// ========== IMMEDIATE GLOBAL EXPOSURE FOR APK WEBVIEW ==========
-// This ensures quick-actions.js can call these functions even if app.js hasn't fully loaded
 (function() {
-    // Create placeholder functions
     window.switchTab = function(tabId) {
         if (window.app && typeof window.app.switchTab === 'function') {
             window.app.switchTab(tabId);
@@ -77,25 +74,25 @@ class VikeServeApp {
             city: '',
             fullAddress: ''
         };
-        this.timeouts = []; // Track timeouts for cleanup
+        this.timeouts = [];
         this.init();
     }
 
     async init() {
-        this.applyGlobalFixes();
-        this.setupEventListeners();
-        this.setupNavigation();
-        this.setupQuickActions();
-        this.setupSettings();
-        this.initLocationSystem();
-        this.checkAuthState();
-        this.loadInitialData();
-        this.ensureMoreMenuConnection();
-        this.setupAdPromotionButtons();
-        this.handleInitialTabFromURL(); // NEW: Handle URL hash
-    }
+    this.applyGlobalFixes();
+    this.setupEventListeners();
+    this.setupNavigation();
+    this.setupQuickActions();
+    this.setupSettings();
+    this.initLocationSystem();
+    this.checkAuthState();
+    this.loadInitialData();
+    this.ensureMoreMenuConnection();
+    this.setupAdPromotionButtons();
+    this.setupFeatureToggles();
+    this.handleInitialTabFromURL();
+}
 
-    // NEW: Handle URL hash for tab navigation (sharable links)
     handleInitialTabFromURL() {
         const hash = window.location.hash.substring(1);
         if (hash && ['home-tab', 'services-tab', 'marketplace-tab', 'account-tab'].includes(hash)) {
@@ -105,7 +102,6 @@ class VikeServeApp {
         }
     }
 
-    // NEW: Update URL hash when tab changes
     updateURLHash(tabId) {
         if (tabId && tabId !== 'more-tab') {
             window.location.hash = tabId;
@@ -134,7 +130,7 @@ class VikeServeApp {
                 
                 this.closeMoreMenu();
                 this.switchTab(tabId);
-                this.updateURLHash(tabId); // NEW: Update URL
+                this.updateURLHash(tabId);
             });
         });
     }
@@ -177,7 +173,6 @@ class VikeServeApp {
         const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
         if (moreNav) moreNav.classList.add('active');
         
-        // Notify moreMenuManager that menu opened
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
             window.moreMenuManager.onMenuOpen();
         }
@@ -208,7 +203,6 @@ class VikeServeApp {
         if (mainNav) mainNav.style.display = 'flex';
         if (moreBottomNav) moreBottomNav.style.display = 'none';
         
-        // Notify moreMenuManager that menu closed
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
             window.moreMenuManager.onMenuClose();
         }
@@ -226,14 +220,12 @@ class VikeServeApp {
     }
 
     applyGlobalFixes() {
-        // Store original modal positions to restore later
         const modalsToMove = [];
         
         const fixModals = () => {
             const modals = document.querySelectorAll('.modal');
             modals.forEach(modal => {
                 if (modal.parentElement && modal.parentElement.id === 'more-section') {
-                    // Store reference to restore later
                     modalsToMove.push({
                         modal: modal,
                         originalParent: modal.parentElement
@@ -269,13 +261,11 @@ class VikeServeApp {
         
         window.addEventListener('resize', fixBottomNav);
         
-        // Store cleanup function
         this.cleanupModals = restoreModals;
     }
 
     initLocationSystem() {
         this.loadSavedLocation();
-        // Only setup location selector once (removed duplicate from setupEventListeners)
         this.setupLocationSelector();
     }
 
@@ -367,11 +357,9 @@ class VikeServeApp {
             </div>
         `;
         
-        // Use showModalWithContent or fallback
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('location-modal', modalContent);
         } else {
-            // Fallback modal creation
             let modal = document.getElementById('location-modal');
             if (!modal) {
                 modal = document.createElement('div');
@@ -638,7 +626,6 @@ class VikeServeApp {
             });
         }
         
-        // Close user menu when clicking outside
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('user-menu');
             const userProfile = document.getElementById('user-profile');
@@ -677,13 +664,11 @@ class VikeServeApp {
             if (!this.currentUser) {
                 if (typeof window.showAuthModal === 'function') {
                     window.showAuthModal();
-                    // Store callback to execute after login
                     window.pendingPromotionCallback = () => {
                         if (typeof window.showAdPackagesModal === 'function') {
                             window.showAdPackagesModal();
                         }
                     };
-                    // Clear callback after 5 minutes (safety)
                     setTimeout(() => {
                         if (window.pendingPromotionCallback) {
                             window.pendingPromotionCallback = null;
@@ -733,13 +718,114 @@ class VikeServeApp {
         }
     }
 
-    // NEW: Cleanup method to prevent memory leaks
+    setupFeatureToggles() {
+        window.addEventListener('remoteConfigReady', () => {
+            this.applyFeatureToggles();
+        });
+        
+        setTimeout(() => {
+            this.applyFeatureToggles();
+        }, 500);
+        
+        document.addEventListener('tabChanged', () => {
+            setTimeout(() => this.applyFeatureToggles(), 100);
+        });
+    }
+
+    applyFeatureToggles() {
+        const isFeatureEnabled = typeof window.isFeatureEnabled === 'function' 
+            ? window.isFeatureEnabled 
+            : () => false;
+        
+        const isAdPromotionEnabled = isFeatureEnabled('feature_adPromotion');
+        const isWifiConnectEnabled = isFeatureEnabled('feature_wifiConnect');
+        const showComingSoon = isFeatureEnabled('feature_showComingSoon');
+        
+        console.log('🔧 Feature Toggles - Ad Promotion:', isAdPromotionEnabled, 'WiFi Connect:', isWifiConnectEnabled);
+        
+        const promoteButtons = document.querySelectorAll(
+            '.ad-cta, .btn-promote, .promote-service-btn, .promote-ad-btn, #view-packages-btn, #post-ad-btn'
+        );
+        
+        promoteButtons.forEach(el => {
+            if (!isAdPromotionEnabled) {
+                el.disabled = true;
+                el.style.opacity = '0.5';
+                el.style.cursor = 'not-allowed';
+                el.style.pointerEvents = 'none';
+                el.style.position = 'relative';
+                
+                if (showComingSoon && !el.querySelector('.coming-soon-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'coming-soon-badge';
+                    badge.textContent = '🔒 Coming Soon';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: -10px;
+                        right: -8px;
+                        background: var(--warning);
+                        color: white;
+                        font-size: 0.55rem;
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                        z-index: 10;
+                    `;
+                    el.appendChild(badge);
+                }
+            } else {
+                el.disabled = false;
+                el.style.opacity = '1';
+                el.style.cursor = 'pointer';
+                el.style.pointerEvents = 'auto';
+                
+                const badge = el.querySelector('.coming-soon-badge');
+                if (badge) badge.remove();
+            }
+        });
+        
+        const wifiAction = document.querySelector('.quick-action[data-action="wifi"]');
+        if (wifiAction) {
+            if (!isWifiConnectEnabled) {
+                wifiAction.style.opacity = '0.6';
+                wifiAction.style.cursor = 'not-allowed';
+                wifiAction.style.pointerEvents = 'none';
+                wifiAction.style.position = 'relative';
+                
+                if (showComingSoon && !wifiAction.querySelector('.coming-soon-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'coming-soon-badge';
+                    badge.textContent = '🔒 Coming Soon';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: -5px;
+                        right: 5px;
+                        background: var(--warning);
+                        color: white;
+                        font-size: 0.5rem;
+                        padding: 2px 6px;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        z-index: 10;
+                    `;
+                    wifiAction.appendChild(badge);
+                }
+            } else {
+                wifiAction.style.opacity = '1';
+                wifiAction.style.cursor = 'pointer';
+                wifiAction.style.pointerEvents = 'auto';
+                
+                const badge = wifiAction.querySelector('.coming-soon-badge');
+                if (badge) badge.remove();
+            }
+        }
+    }
+
     destroy() {
-        // Clear all timeouts
         this.timeouts.forEach(timeoutId => clearTimeout(timeoutId));
         this.timeouts = [];
         
-        // Restore modals if needed
         if (typeof this.cleanupModals === 'function') {
             this.cleanupModals();
         }
@@ -748,22 +834,17 @@ class VikeServeApp {
     }
 }
 
-// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new VikeServeApp();
     
-    // Expose functions globally
     window.switchTab = (tabId) => window.app?.switchTab(tabId);
     window.openMoreMenu = () => window.app?.openMoreMenu();
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
     
-    // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
         if (window.app && typeof window.app.destroy === 'function') {
             window.app.destroy();
         }
     });
 });
-
-console.log('✅ App.js fully loaded with all fixes');

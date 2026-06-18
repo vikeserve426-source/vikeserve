@@ -1,6 +1,3 @@
-// ========== ADMIN MANAGEMENT SYSTEM ==========
-// Roles hierarchy: founder (level 100) > cofounder (level 90) > admin (level 80) > moderator (level 50) > user (level 10)
-
 const ROLES = {
     founder: { 
         name: 'Founder', 
@@ -39,7 +36,6 @@ const ROLES = {
     }
 };
 
-// ========== ADMIN MANAGER CLASS ==========
 class AdminManager {
     constructor() {
         this.db = db;
@@ -68,7 +64,6 @@ class AdminManager {
         }
     }
 
-    // Check if user has permission
     hasPermission(permission) {
         if (!this.currentUserRole) return false;
         const roleConfig = ROLES[this.currentUserRole];
@@ -76,25 +71,19 @@ class AdminManager {
         return roleConfig.permissions.includes('all') || roleConfig.permissions.includes(permission);
     }
 
-    // Check if user can perform action on target user
     canManageUser(targetUserId, targetRole) {
         const currentLevel = ROLES[this.currentUserRole]?.level || 0;
         const targetLevel = ROLES[targetRole]?.level || 0;
         
-        // Founder cannot be managed by anyone
         if (targetRole === 'founder') return false;
         
-        // Co-founder can manage admins and below, but not founder
         if (this.currentUserRole === 'cofounder' && targetRole !== 'founder') return true;
         
-        // Admin can manage moderators and users
         if (this.currentUserRole === 'admin' && (targetRole === 'moderator' || targetRole === 'user')) return true;
         
-        // Users cannot manage anyone
         return currentLevel > targetLevel;
     }
 
-    // Get all users with admin roles
     async getAdminUsers() {
         try {
             const snapshot = await collections.users()
@@ -111,7 +100,6 @@ class AdminManager {
         }
     }
 
-    // Get all users (with pagination)
     async getAllUsers(limit = 20, startAfter = null) {
         try {
             let query = collections.users().orderBy('createdAt', 'desc').limit(limit);
@@ -131,10 +119,8 @@ class AdminManager {
         }
     }
 
-    // Update user role (only for co-founder and above)
     async updateUserRole(userId, newRole, updatedBy) {
         try {
-            // Get target user's current role
             const targetUserDoc = await collections.users().doc(userId).get();
             if (!targetUserDoc.exists) {
                 return { success: false, error: 'User not found' };
@@ -142,17 +128,14 @@ class AdminManager {
             
             const currentRole = targetUserDoc.data().role || 'user';
             
-            // Permission check
             if (!this.canManageUser(userId, currentRole)) {
                 return { success: false, error: 'You do not have permission to manage this user' };
             }
             
-            // Cannot demote founder
             if (currentRole === 'founder') {
                 return { success: false, error: 'Cannot modify founder role' };
             }
             
-            // Update role
             await collections.users().doc(userId).update({
                 role: newRole,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -160,7 +143,6 @@ class AdminManager {
                 roleUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            // Log the action
             await this.logAdminAction({
                 action: 'update_role',
                 targetUserId: userId,
@@ -177,12 +159,10 @@ class AdminManager {
         }
     }
 
-    // Remove admin role (demote to user)
     async removeAdminRole(userId, updatedBy) {
         return this.updateUserRole(userId, 'user', updatedBy);
     }
 
-    // Get all reported posts
     async getReportedPosts(limit = 20) {
         try {
             const snapshot = await collections.marketplaceItems()
@@ -198,7 +178,6 @@ class AdminManager {
         }
     }
 
-    // Moderate a post (delete or hide)
     async moderatePost(postId, action, reason, moderatedBy) {
         try {
             const postRef = collections.marketplaceItems().doc(postId);
@@ -230,7 +209,6 @@ class AdminManager {
                 });
             }
             
-            // Log moderation action
             await this.logAdminAction({
                 action: 'moderate_post',
                 targetPostId: postId,
@@ -247,7 +225,6 @@ class AdminManager {
         }
     }
 
-    // Get admin action logs
     async getAdminLogs(limit = 50) {
         try {
             const snapshot = await collections.adminLogs()
@@ -262,7 +239,6 @@ class AdminManager {
         }
     }
 
-    // Log admin action
     async logAdminAction(logData) {
         try {
             await collections.adminLogs().add({
@@ -274,7 +250,6 @@ class AdminManager {
         }
     }
 
-    // Get platform statistics
     async getPlatformStats() {
         try {
             const [usersSnapshot, postsSnapshot, bookingsSnapshot] = await Promise.all([
@@ -301,10 +276,8 @@ class AdminManager {
     }
 
     setupAdminListeners() {
-        // Listen for auth changes to update role
         this.auth.onAuthStateChanged(async (user) => {
             await this.loadCurrentUserRole();
-            // Dispatch event for UI updates
             window.dispatchEvent(new CustomEvent('adminRoleChanged', { 
                 detail: { role: this.currentUserRole } 
             }));
@@ -312,7 +285,6 @@ class AdminManager {
     }
 }
 
-// ========== INITIALIZE ADMIN MANAGER ==========
 let adminManager = null;
 
 function initAdminManager() {
@@ -324,7 +296,6 @@ function initAdminManager() {
     return adminManager;
 }
 
-// ========== FOUNDER PANEL UI ==========
 async function loadFounderPanel() {
     const founderContainer = document.getElementById('founder-tab');
     if (!founderContainer) return;
@@ -384,7 +355,6 @@ async function loadFounderPanel() {
             </div>
         </div>
         
-        <!-- Reported Posts -->
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-flag"></i> Reported Content</div>
@@ -395,7 +365,6 @@ async function loadFounderPanel() {
             </div>
         </div>
         
-        <!-- Admin Activity Log -->
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-history"></i> Admin Activity Log</div>
@@ -411,7 +380,6 @@ async function loadFounderPanel() {
             </div>
         </div>
         
-        <!-- Platform Settings -->
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-sliders-h"></i> Platform Settings</div>
@@ -430,11 +398,9 @@ async function loadFounderPanel() {
         </div>
     `;
     
-    // Load reported posts
     loadReportedPosts();
 }
 
-// ========== ADMIN PANEL UI ==========
 async function loadAdminPanel() {
     const adminContainer = document.getElementById('admin-tab');
     if (!adminContainer) return;
@@ -478,7 +444,6 @@ async function loadAdminPanel() {
     `;
 }
 
-// ========== MODAL FUNCTIONS ==========
 async function showAddAdminModal() {
     const users = await adminManager.getAllUsers(50);
     
@@ -672,7 +637,6 @@ async function savePlatformSettings() {
     }
 }
 
-// ========== HELPER FUNCTIONS ==========
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -680,7 +644,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ========== GLOBAL EXPORTS ==========
 window.ROLES = ROLES;
 window.adminManager = adminManager;
 window.initAdminManager = initAdminManager;
@@ -696,11 +659,9 @@ window.moderatePost = moderatePost;
 window.toggleMaintenanceMode = toggleMaintenanceMode;
 window.savePlatformSettings = savePlatformSettings;
 
-// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     initAdminManager();
     
-    // Load founder panel if user is founder/co-founder/admin
     setTimeout(() => {
         if (adminManager && adminManager.currentUserRole) {
             if (adminManager.currentUserRole === 'founder' || adminManager.currentUserRole === 'cofounder') {
@@ -711,5 +672,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 1000);
 });
-
-console.log('✅ Admin system loaded with role management');

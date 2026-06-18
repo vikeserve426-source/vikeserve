@@ -1,4 +1,3 @@
-// Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyCKLTSRDBJuYjoqu0Mqmyuf2qo2xRYC0R8",
     authDomain: "vikeserve-fb1db.firebaseapp.com",
@@ -8,13 +7,11 @@ const firebaseConfig = {
     appId: "1:1004797571845:web:1a1ee61c8c018e9d7afd6c"
 };
 
-// Initialize Firebase first
 const app = firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-// Collection references - COMPLETE VERSIONn
 const collections = {
     users: () => db.collection('users'),
     services: () => db.collection('services'),
@@ -61,14 +58,102 @@ const collections = {
     chatMessages: (chatId) => db.collection('chats').doc(chatId).collection('messages')
 };
 
-// ========== GLOBAL VARIABLES WITH PERSISTENCE ==========
 let currentUser = null;
 let selectedCountry = localStorage.getItem('vikeserve_country') || "Kenya";
 let selectedLanguage = localStorage.getItem('vikeserve_language') || "en";
 
 console.log("Firebase initialized successfully!");
 
-// Helper function to save user preferences
+// ========== REMOTE CONFIG (Feature Toggles) ==========
+const remoteConfig = firebase.remoteConfig();
+
+// Set default values (used when offline or before fetch)
+remoteConfig.defaultConfig = {
+    // Feature toggles - set to false to disable features
+    'feature_adPromotion': 'false',        // Ad promotion (View Packages, Promote buttons)
+    'feature_wifiConnect': 'false',        // VikeServe Connect (WiFi reselling)
+    'feature_showComingSoon': 'true',      // Show "Coming Soon" badges
+    
+    // Main features (always enabled)
+    'feature_marketplace': 'true',
+    'feature_services': 'true',
+    'feature_bookings': 'true',
+    'feature_chat': 'true',
+    'feature_reviews': 'true',
+    'feature_alerts': 'true',
+    'feature_education': 'true',
+    'feature_safety': 'true',
+    'feature_settings': 'true'
+};
+
+// Fetch and activate remote config
+remoteConfig.fetchAndActivate()
+    .then(() => {
+        console.log('✅ Remote Config loaded successfully');
+        // Dispatch event to notify app that remote config is ready
+        window.dispatchEvent(new Event('remoteConfigReady'));
+    })
+    .catch(error => {
+        console.error('Error loading remote config:', error);
+    });
+
+// Helper function to check if a feature is enabled
+function isFeatureEnabled(featureKey) {
+    try {
+        const value = remoteConfig.getValue(featureKey);
+        return value.asBoolean();
+    } catch (error) {
+        console.warn('Remote config not available, using default:', featureKey);
+        // Fallback defaults
+        const defaults = {
+            'feature_adPromotion': false,
+            'feature_wifiConnect': false,
+            'feature_showComingSoon': true,
+            'feature_marketplace': true,
+            'feature_services': true,
+            'feature_bookings': true,
+            'feature_chat': true,
+            'feature_reviews': true,
+            'feature_alerts': true,
+            'feature_education': true,
+            'feature_safety': true,
+            'feature_settings': true
+        };
+        return defaults[featureKey] || false;
+    }
+}
+
+// Get all feature toggles at once (useful for debugging)
+function getAllFeatures() {
+    const features = {};
+    const keys = [
+        'feature_adPromotion',
+        'feature_wifiConnect',
+        'feature_showComingSoon',
+        'feature_marketplace',
+        'feature_services',
+        'feature_bookings',
+        'feature_chat',
+        'feature_reviews',
+        'feature_alerts',
+        'feature_education',
+        'feature_safety',
+        'feature_settings'
+    ];
+    keys.forEach(key => {
+        features[key] = isFeatureEnabled(key);
+    });
+    return features;
+}
+
+// Export to global
+window.remoteConfig = remoteConfig;
+window.isFeatureEnabled = isFeatureEnabled;
+window.getAllFeatures = getAllFeatures;
+
+console.log('✅ Remote Config initialized');
+
+// ========== USER PREFERENCES ==========
 function saveUserPreferences(country, language) {
     selectedCountry = country;
     selectedLanguage = language;
@@ -78,21 +163,16 @@ function saveUserPreferences(country, language) {
 }
 window.saveUserPreferences = saveUserPreferences;
 
-// ========== HELPER FUNCTIONS ==========
-
-// Get current user ID safely
 function getCurrentUserId() {
     return currentUser ? currentUser.uid : null;
 }
 window.getCurrentUserId = getCurrentUserId;
 
-// Check if user is authenticated
 function isAuthenticated() {
     return !!currentUser;
 }
 window.isAuthenticated = isAuthenticated;
 
-// Get user role (with caching)
 let cachedUserRole = null;
 
 async function getUserRole() {
@@ -110,14 +190,12 @@ async function getUserRole() {
 }
 window.getUserRole = getUserRole;
 
-// Clear user cache (call on logout)
 function clearUserCache() {
     cachedUserRole = null;
     console.log('User cache cleared');
 }
 window.clearUserCache = clearUserCache;
 
-// Get current location preferences
 function getCurrentPreferences() {
     return {
         country: selectedCountry,
@@ -126,7 +204,6 @@ function getCurrentPreferences() {
 }
 window.getCurrentPreferences = getCurrentPreferences;
 
-// Update user location in Firestore
 async function updateUserLocation(userId, locationData) {
     if (!userId) return false;
     try {
@@ -142,7 +219,6 @@ async function updateUserLocation(userId, locationData) {
 }
 window.updateUserLocation = updateUserLocation;
 
-// Logout helper with cleanup
 async function logoutAndCleanup() {
     try {
         clearUserCache();
@@ -156,35 +232,28 @@ async function logoutAndCleanup() {
 }
 window.logoutAndCleanup = logoutAndCleanup;
 
-// Export everything to global scope
 window.firebaseApp = app;
 window.firebaseAuth = auth;
 window.firebaseDb = db;
 window.firebaseStorage = storage;
 window.firebaseCollections = collections;
 
-// Aliases for backward compatibility
 window.db = db;
 window.auth = auth;
 window.storage = storage;
 window.collections = collections;
 window.currentUser = currentUser;
 
-// Initialize app
 initializeApp();
 
-// ========== APP INITIALIZATION WITH DOM READY CHECK ==========
 async function initializeApp() {
     try {
         console.log("Initializing app...");
         
-        // Set up auth state listener
         auth.onAuthStateChanged(async (user) => {
-            // Update BOTH local and global currentUser
             currentUser = user;
             window.currentUser = user;
-            
-            // Clear cached user role on logout
+
             if (!user) {
                 if (typeof window.clearUserCache === 'function') {
                     window.clearUserCache();
@@ -198,12 +267,10 @@ async function initializeApp() {
                 console.log("User signed out");
             }
             
-            // Update UI
             if (typeof updateAuthUI === 'function') {
                 updateAuthUI();
             }
             
-            // Dispatch event for other modules
             window.dispatchEvent(new CustomEvent('authStateChanged', { 
                 detail: { user: user, isLoggedIn: !!user } 
             }));
@@ -214,7 +281,6 @@ async function initializeApp() {
     }
 }
 
-// Initialize app only when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => initializeApp());
 } else {
@@ -233,22 +299,30 @@ async function ensureUserProfile(user) {
                 role: 'general-user',
                 country: selectedCountry,
                 language: selectedLanguage,
+                points: 0,
+                totalPointsEarned: 0,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             });
-            console.log("New user profile created");
+            console.log("New user profile created with points");
         } else {
-            // Update last login for existing users
+            // Ensure points field exists for existing users
+            const userData = userDoc.data();
+            if (userData.points === undefined) {
+                await collections.users().doc(user.uid).update({
+                    points: 0,
+                    totalPointsEarned: userData.totalPointsEarned || 0
+                });
+            }
             await collections.users().doc(user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-            }).catch(() => {}); // Silent fail if field doesn't exist
+            }).catch(() => {});
         }
     } catch (error) {
         console.error("Error ensuring user profile:", error);
     }
 }
 
-// Utility function
 function showErrorToUser(message) {
     console.error("User Error:", message);
     if (typeof showToast === 'function') {

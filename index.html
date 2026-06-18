@@ -55,7 +55,6 @@
         }
         [data-theme="dark"] .container { background: #24282f; box-shadow: 0 0 20px rgba(0, 0, 0, 0.2); }
         
-        /* App Header */
         .app-header {
             display: flex;
             justify-content: space-between;
@@ -101,7 +100,6 @@
         }
         .user-profile:hover { background: rgba(255, 255, 255, 0.3); }
         
-        /* User Menu */
         .user-menu {
             position: absolute;
             top: 70px;
@@ -128,7 +126,6 @@
         .user-menu-item:hover { background: var(--grey); }
         .user-menu-item i { width: 20px; color: var(--primary); }
         
-        /* Bottom Navigation - 4 Tabs Only */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -174,14 +171,11 @@
         }
         .nav-icon { font-size: 1.2rem; margin-bottom: 3px; }
         
-        /* Tab Content */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         
-        /* App Content */
         .app-content { padding: 20px; }
         
-        /* Search Bar */
         .search-bar {
             display: flex;
             align-items: center;
@@ -194,10 +188,8 @@
         .search-input { border: none; background: transparent; width: 100%; font-size: 1rem; color: var(--dark); }
         .search-input:focus { outline: none; }
         
-        /* Section Titles */
         .section-title { font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
         
-        /* Quick Actions */
         .quick-actions {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -224,7 +216,6 @@
         }
         .action-name { font-size: 0.8rem; font-weight: 500; }
         
-        /* Module Cards */
         .module-card {
             background: white;
             border-radius: 15px;
@@ -237,7 +228,6 @@
         .card-title { font-weight: 600; display: flex; align-items: center; gap: 10px; }
         .see-all { color: var(--primary); font-size: 0.8rem; font-weight: 500; cursor: pointer; }
         
-        /* Job Cards */
         .job-card {
             background: var(--light);
             border-radius: 10px;
@@ -255,7 +245,6 @@
         .job-tag { background: var(--grey); padding: 3px 8px; border-radius: 5px; font-size: 0.7rem; font-weight: 500; }
         .job-tag.urgent { background: var(--emergency); color: white; }
         
-        /* Buttons */
         .btn {
             display: block;
             width: 100%;
@@ -274,7 +263,6 @@
         .btn-sm { padding: 8px 12px; font-size: 0.75rem; }
         .btn-danger { background: var(--danger); color: white; }
         
-        /* Warning Items */
         .warning-item {
             background: rgba(243, 156, 18, 0.1);
             border-radius: 10px;
@@ -289,7 +277,6 @@
         .warning-title { font-weight: 600; font-size: 0.85rem; }
         .warning-content { font-size: 0.8rem; }
         
-        /* Ad Container */
         .ad-container {
             background: var(--light);
             border-radius: 10px;
@@ -303,10 +290,8 @@
         .ad-description { font-size: 0.8rem; margin-bottom: 10px; color: var(--grey-dark); }
         .ad-cta { background: var(--primary); color: white; border: none; border-radius: 20px; padding: 8px 15px; font-size: 0.8rem; cursor: pointer; }
         
-        /* Loading Spinner */
         .loading-spinner { text-align: center; padding: 40px; color: var(--grey-dark); }
         
-        /* Modal */
         .modal {
     display: none;
     position: fixed;
@@ -334,7 +319,6 @@
         .modal-title { font-weight: 600; font-size: 1.1rem; }
         .close-modal-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--dark); }
         
-        /* Form Elements */
         .form-group { margin-bottom: 15px; }
         .form-label { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: 500; }
         .form-input {
@@ -353,7 +337,6 @@
         .form-hint { font-size: 0.7rem; color: var(--grey-dark); margin-top: 5px; }
         .form-actions { display: flex; gap: 10px; margin-top: 20px; }
         
-        /* Toast */
         .toast {
     position: fixed;
     bottom: 70px;
@@ -425,7 +408,6 @@
     }
 }
         
-        /* Market Items */
         .market-items {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -455,7 +437,6 @@
         .market-item-price { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
         .market-item-location { font-size: 0.7rem; color: var(--grey-dark); margin-top: 5px; }
         
-        /* Service Categories */
         .service-categories {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -477,7 +458,6 @@
         .service-category-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 3px; }
         .service-category-desc { font-size: 0.7rem; color: var(--grey-dark); }
         
-        /* Market Filters */
         .market-filters {
             display: flex;
             gap: 10px;
@@ -496,7 +476,6 @@
         }
         .filter-btn.active { background: var(--primary); color: white; }
         
-        /* Promoted Badge */
         .promoted-badge {
             background: linear-gradient(135deg, #f1c40f, #e67e22);
             color: #2c3e50;
@@ -507,7 +486,6 @@
             display: inline-block;
         }
         
-        /* More Section */
         .more-section {
             display: none;
             position: fixed;
@@ -583,12 +561,10 @@
         .more-section.active ~ .more-bottom-nav { display: flex; }
         .more-section.active ~ .bottom-nav { display: none; }
         
-        /* Safety Tips */
         .safety-tips-list { display: flex; flex-direction: column; gap: 10px; }
         .safety-tip { display: flex; align-items: flex-start; gap: 12px; font-size: 0.85rem; }
         .safety-tip-icon { color: var(--success); margin-top: 2px; }
         
-        /* Settings Options */
         .settings-section { margin-bottom: 20px; }
         .settings-section-title { font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--grey); }
         .settings-option {
@@ -606,7 +582,6 @@
         .settings-option-desc { font-size: 0.7rem; color: var(--grey-dark); }
         .settings-option-arrow { color: var(--grey-dark); }
         
-        /* Switch Toggle */
         .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
@@ -614,11 +589,9 @@
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(26px); }
         
-        /* Empty States */
         .empty-marketplace { text-align: center; padding: 60px 20px; color: var(--grey-dark); }
         .no-jobs { text-align: center; padding: 40px; color: var(--grey-dark); }
         
-        /* Auth Modal */
         .auth-providers { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
         .auth-provider-btn {
             display: flex;
@@ -640,10 +613,8 @@
         .auth-footer { margin-top: 15px; text-align: center; font-size: 0.8rem; }
         .auth-link { color: var(--primary); cursor: pointer; text-decoration: none; }
         
-        /* Role Input - Required Field */
         .role-error { color: var(--danger); font-size: 0.7rem; margin-top: 5px; display: none; }
         
-        /* Password Container */
         .password-container { position: relative; }
         .password-toggle {
             position: absolute;
@@ -656,7 +627,6 @@
             color: var(--grey-dark);
         }
         
-        /* Image Preview */
         .image-preview-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .image-preview-item { position: relative; display: inline-block; }
         .remove-image-btn {
@@ -676,12 +646,10 @@
             justify-content: center;
         }
         
-        /* Category Specific Fields */
         .category-fields { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--grey); }
         .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .feature-checkbox { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; }
         
-        /* Image Upload Area */
         .image-upload-area {
             border: 2px dashed var(--grey);
             border-radius: 10px;
@@ -692,7 +660,6 @@
         }
         .image-upload-area:hover { border-color: var(--primary); background: rgba(46, 134, 222, 0.05); }
 
-/* Payment Modal - Compact Mobile Styles */
 #ad-packages-full-modal .modal-content {
     max-width: 480px !important;
     width: 95% !important;
@@ -814,7 +781,6 @@
 </head>
 <body>
     <div class="container">
-<!-- App Header -->
 <div class="app-header">
     <div class="logo">
         <div class="logo-icon"><i class="fas fa-hands-helping"></i></div>
@@ -829,7 +795,6 @@
     </div>
 </div>
 
-        <!-- User Menu -->
         <div class="user-menu" id="user-menu">
             <div class="user-menu-header">
                 <div class="user-info">
@@ -866,9 +831,7 @@
             </div>
         </div>
 
-        <!-- App Content -->
         <div class="app-content">
-            <!-- Home Tab -->
             <div id="home-tab" class="tab-content active">
                 <div class="search-bar">
                     <div class="search-icon"><i class="fas fa-search"></i></div>
@@ -877,7 +840,6 @@
                 
                 <div class="section-title"><i class="fas fa-bolt"></i> Quick Access</div>
                 <div class="quick-actions">
-    <!-- Existing services -->
     <div class="quick-action" data-action="boda">
         <div class="action-icon"><i class="fas fa-motorcycle"></i></div>
         <div class="action-name">Boda Boda</div>
@@ -919,19 +881,24 @@
         <div class="action-name">Phone Repair</div>
     </div>
     
-    <!-- NEW: Education Quick Action (replaces More) -->
     <div class="quick-action" data-action="education">
         <div class="action-icon"><i class="fas fa-graduation-cap"></i></div>
         <div class="action-name">Education</div>
     </div>
     
-    <!-- NEW: Alerts Quick Action -->
     <div class="quick-action" data-action="alerts">
         <div class="action-icon"><i class="fas fa-bell"></i></div>
         <div class="action-name">Alerts</div>
     </div>
 </div>
-                
+            
+    <div class="quick-action coming-soon-action" data-action="wifi" style="position: relative; opacity: 0.6; cursor: not-allowed; pointer-events: none;">
+        <div class="action-icon"><i class="fas fa-wifi"></i></div>
+        <div class="action-name">VikeServe Connect</div>
+        <span class="coming-soon-badge" style="position: absolute; top: -5px; right: 5px; background: var(--warning); color: white; font-size: 0.5rem; padding: 2px 6px; border-radius: 8px;">Coming Soon</span>
+    </div>
+</div>
+
                 <div class="module-card">
                     <div class="card-header">
                         <div class="card-title"><i class="fas fa-exclamation-triangle"></i> Safety Warnings</div>
@@ -962,18 +929,20 @@
                     </div>
                 </div>
                 
-                </div>  <!-- This closes the module-card that contains urgent jobs -->
-                
-                <div class="ad-container">
-                    <div class="ad-label">Ad</div>
-                    <div class="ad-title">Premium Advertising</div>
-                    <div class="ad-description">Reach thousands of customers with our affordable ad packages</div>
-                    <button class="ad-cta" id="view-packages-btn" data-action="show-ads">View Packages</button>
                 </div>
                 
-            </div>  <!-- This closes the home-tab content -->
+                <div class="ad-container">
+    <div class="ad-label">Ad</div>
+    <div class="ad-title">Premium Advertising</div>
+    <div class="ad-description">Reach thousands of customers with our affordable ad packages</div>
+    <button class="ad-cta" id="view-packages-btn" data-action="show-ads" disabled style="opacity: 0.5; cursor: not-allowed; position: relative; pointer-events: none;">
+        View Packages
+        <span style="position: absolute; top: -8px; right: -5px; background: var(--warning); color: white; font-size: 0.5rem; padding: 2px 6px; border-radius: 8px;">Coming Soon</span>
+    </button>
+</div>
+                
+            </div>
             
-            <!-- Services Tab -->
             <div id="services-tab" class="tab-content">
     <div class="search-bar">
         <div class="search-icon"><i class="fas fa-search"></i></div>
@@ -994,7 +963,6 @@
     </div>
 </div>
             
-            <!-- Marketplace Tab -->
             <div id="marketplace-tab" class="tab-content">
                 <div class="search-bar">
                     <div class="search-icon"><i class="fas fa-search"></i></div>
@@ -1049,12 +1017,13 @@
                     <div class="ad-label">Ad</div>
                     <div class="ad-title">Sell Your Products</div>
                     <div class="ad-description">List your items on our marketplace and reach thousands of buyers</div>
-                    <button class="ad-cta" id="post-ad-btn" data-action="post-ad">Post an Ad</button>
+                    <button class="ad-cta" id="post-ad-btn" data-action="post-ad" disabled style="opacity: 0.5; cursor: not-allowed; position: relative; pointer-events: none;">
+    <span style="position: absolute; top: -8px; right: -5px; background: var(--warning); color: white; font-size: 0.5rem; padding: 2px 6px; border-radius: 8px;">Coming Soon</span>
+</button>
                 </div>
                 
-            </div>  <!-- This closes the marketplace-tab content -->
+            </div>
             
-            <!-- My Account Tab (Guest Message) -->
             <div id="account-tab" class="tab-content">
                 <div id="guest-message" class="module-card" style="text-align: center; padding: 40px 20px;">
                     <div style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;">
@@ -1093,7 +1062,6 @@
             </div>
         </div>
 
-        <!-- Bottom Navigation - 4 Tabs Only -->
         <div class="bottom-nav">
             <div class="nav-item active" data-tab="home-tab">
                 <div class="nav-icon"><i class="fas fa-home"></i></div>
@@ -1113,7 +1081,6 @@
             </div>
         </div>
 
-        <!-- More Section -->
         <div id="more-section" class="more-section">
             <div class="more-header">
                 <div class="more-title"><i class="fas fa-ellipsis-h"></i><span>More Options</span></div>
@@ -1127,19 +1094,14 @@
                 <div class="more-tab-btn" data-more-tab="settings"><div class="more-tab-icon"><i class="fas fa-cog"></i></div><div>Settings</div></div>
             </div>
             
-            <!-- Education Tab Content -->
             <div id="education-content" class="more-tab-content active"></div>
             
-            <!-- Alerts Tab Content -->
             <div id="alerts-content" class="more-tab-content"></div>
             
-            <!-- Messages Tab Content -->
             <div id="messages-content" class="more-tab-content"></div>
             
-            <!-- Safety Tab Content -->
             <div id="safety-content" class="more-tab-content"></div>
             
-            <!-- Settings Tab Content -->
             <div id="settings-content" class="more-tab-content"></div>
         </div>
 
@@ -1151,10 +1113,8 @@
             <div class="nav-item" data-tab="settings-tab"><div class="nav-icon"><i class="fas fa-cog"></i></div><div>Settings</div></div>
         </div>
         
-        <!-- Toast Notification -->
         <div class="toast" id="toast"><i class="toast-icon"></i><div class="toast-message"></div></div>
 
-        <!-- Auth Modal -->
         <div id="auth-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header"><div class="modal-title">Sign In to VikeServe</div><button class="close-modal-btn">&times;</button></div>
@@ -1183,9 +1143,6 @@
         </div>
     </div>
 
-            <!-- ========== MODALS ========== -->
-
-        <!-- Service Post Modal -->
         <div id="service-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1240,7 +1197,6 @@
             </div>
         </div>
 
-        <!-- Job Post Modal -->
         <div id="job-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1311,7 +1267,6 @@
             </div>
         </div>
 
-        <!-- Marketplace Post Modal -->
         <div id="marketplace-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1404,7 +1359,6 @@
             </div>
         </div>
 
-        <!-- Gas Refill Post Modal -->
 <div id="gas-refill-post-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1460,7 +1414,6 @@
     </div>
 </div>
 
-        <!-- Water Delivery Post Modal -->
         <div id="water-delivery-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1517,7 +1470,6 @@
             </div>
         </div>
 
-        <!-- Hotel Post Modal -->
         <div id="hotel-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1579,7 +1531,6 @@
             </div>
         </div>
 
-        <!-- Property Post Modal -->
         <div id="property-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1639,7 +1590,6 @@
             </div>
         </div>
 
-        <!-- Land Post Modal -->
         <div id="land-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1725,7 +1675,6 @@
             </div>
         </div>
 
-        <!-- Ad Packages Modal -->
         <div id="ad-packages-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1749,9 +1698,6 @@
             </div>
         </div>
 
-                <!-- ========== MORE MENU POST MODALS ========== -->
-
-        <!-- Teacher Post Modal -->
         <div id="teacher-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1808,7 +1754,6 @@
             </div>
         </div>
 
-        <!-- Internship Post Modal -->
         <div id="internship-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1874,7 +1819,6 @@
             </div>
         </div>
 
-        <!-- Attachment Post Modal -->
         <div id="attachment-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1934,7 +1878,6 @@
             </div>
         </div>
 
-        <!-- Training Post Modal -->
         <div id="training-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1996,7 +1939,6 @@
             </div>
         </div>
 
-        <!-- Alert Post Modal -->
         <div id="alert-post-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2051,22 +1993,18 @@
             </div>
         </div>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 
-    <!-- IntaSend Payment SDK -->
     <script src="https://unpkg.com/intasend-checkout-sdk"></script>
 
-    <!-- Core Scripts (Load in this order) -->
     <script src="scripts/firebase.js"></script>
     <script src="scripts/utils.js"></script>
     <script src="scripts/auth.js"></script>
     <script src="scripts/app.js"></script>
     
-    <!-- Feature Scripts -->
     <script src="scripts/bookings.js"></script>
     <script src="scripts/marketplace.js"></script>
     <script src="scripts/housing.js"></script>

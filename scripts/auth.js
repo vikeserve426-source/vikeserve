@@ -1,7 +1,3 @@
-// ========== AUTHENTICATION MANAGER ==========
-// Note: User document creation is handled by firebase.js ensureUserProfile()
-// This file only handles authentication UI and actions
-
 class AuthManager {
     constructor() {
         this.auth = auth;
@@ -12,7 +8,6 @@ class AuthManager {
     }
 
     async init() {
-        // Set session persistence to LOCAL (keeps user logged in)
         if (this.auth && this.auth.setPersistence) {
             try {
                 await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -50,7 +45,6 @@ class AuthManager {
                 this.userData = userDoc.data();
                 return this.userData;
             } else {
-                // User document will be created by firebase.js ensureUserProfile
                 console.log('User profile will be created by firebase.js');
                 return null;
             }
@@ -81,7 +75,6 @@ class AuthManager {
             });
         }
 
-        // No need for role selection setup anymore since we use text input
     }
 
     setupUserMenuButtons() {
@@ -139,7 +132,6 @@ class AuthManager {
         
         const currentUser = this.currentUser;
         if (currentUser) {
-            // Load from Firebase instead of localStorage
             this.loadUserAdsFromFirebase(currentUser.uid);
         } else {
             this.showToast('Please sign in to view your ads', 'warning');
@@ -252,7 +244,6 @@ class AuthManager {
         }, 100);
     }
 
-    // FIXED: Load bookings from Firestore, not localStorage
     async showMyBookings() {
         if (typeof window.switchTab === 'function') {
             window.switchTab('services-tab');
@@ -266,7 +257,6 @@ class AuthManager {
         }
         
         try {
-            // Load bookings from Firestore
             const snapshot = await firebase.firestore()
                 .collection('bookings')
                 .where('customerId', '==', currentUser.uid)
@@ -406,7 +396,6 @@ class AuthManager {
             return;
         }
 
-        // Use default role if empty
         const finalRole = role === '' ? 'general-user' : role;
 
         const submitBtn = form.querySelector('button[type="submit"]');
@@ -442,14 +431,10 @@ class AuthManager {
         try {
             const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
             
-            // Send email verification
             await userCredential.user.sendEmailVerification();
             this.showToast('Verification email sent! Please check your inbox.', 'success');
             
             await userCredential.user.updateProfile({ displayName: displayName });
-            
-            // Note: User document will be created by firebase.js ensureUserProfile
-            // This prevents duplicate document creation
             
             return { success: true, user: userCredential.user };
         } catch (error) {
@@ -461,13 +446,11 @@ class AuthManager {
         try {
             const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
             
-            // Check if email is verified
             if (!userCredential.user.emailVerified) {
                 await this.auth.signOut();
                 return { success: false, error: 'email-not-verified' };
             }
             
-            // Update last login in Firestore
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
@@ -490,7 +473,6 @@ class AuthManager {
             const provider = new firebase.auth.GoogleAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
             
-            // Update last login for existing users (or create profile via firebase.js)
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
@@ -517,7 +499,6 @@ class AuthManager {
             const provider = new firebase.auth.FacebookAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
             
-            // Update last login for existing users
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
@@ -534,7 +515,6 @@ class AuthManager {
 
     async signOut() {
         try {
-            // Clear any cached data
             if (typeof window.clearUserCache === 'function') {
                 window.clearUserCache();
             }
@@ -556,7 +536,6 @@ class AuthManager {
         }
     }
 
-    // FIXED: Password reset with custom modal (no prompt)
     async showForgotPasswordModal() {
         const modalContent = `
             <div class="modal-content" style="max-width: 400px;">
@@ -663,8 +642,6 @@ class AuthManager {
             document.body.style.overflow = '';
         }
     }
-
-    // REMOVED: setupRoleSelection() - replaced with text input
 
     updateUIForAuthenticatedUser(user) {
         const userName = document.getElementById('user-name');
@@ -781,7 +758,6 @@ class AuthManager {
     }
 }
 
-// ========== GLOBAL FUNCTIONS ==========
 let authManager = null;
 
 function showAuthModal() {
@@ -854,7 +830,6 @@ async function logout() {
     }
 }
 
-// ========== EXPOSE GLOBALLY ==========
 window.showAuthModal = showAuthModal;
 window.closeAuthModal = closeAuthModal;
 window.signInWithGoogle = signInWithGoogle;
@@ -863,7 +838,6 @@ window.toggleAuthForm = toggleAuthForm;
 window.showForgotPassword = showForgotPassword;
 window.logout = logout;
 
-// ========== INITIALIZE ==========
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (typeof auth !== 'undefined' && auth) {
@@ -874,7 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
-// Setup auth modal buttons (updated for text input role)
 function setupAuthModalButtons() {
     const attachClick = (selector, handler, name) => {
         const element = document.querySelector(selector);
@@ -916,8 +889,7 @@ function setupAuthModalButtons() {
             }
         });
     });
-    
-    // No role option setup needed - we use text input now
+
 }
 
 window.openAuthModal = function() {
@@ -962,5 +934,3 @@ document.addEventListener('DOMContentLoaded', function() {
         setupAuthModalButtons();
     }, 500);
 });
-
-console.log('✅ Auth.js fully loaded with all fixes - Role selection changed to text input');

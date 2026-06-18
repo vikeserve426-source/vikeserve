@@ -1,7 +1,3 @@
-// more-menu.js - COMPLETE FIXED VERSION with FULL CHAT IMPLEMENTATION
-// FIXES: Alert sender avatars, Reply with tagging, Report alerts, Chat display fix
-// UPDATED: Settings UI - Removed duplicate rate button, added founder bio, changed labels
-
 class MoreMenuManager {
     constructor() {
         this.currentMoreTab = 'education';
@@ -46,11 +42,11 @@ class MoreMenuManager {
                 ratingCount: 0,
                 averageRating: 5.0,
                 portfolioUrl: 'https://vike-store.netlify.app/',
-                county: 'Kakamega',
+                county: 'Bungoma',
                 country: 'Kenya',
-                schools: 'Kakamega High School, Jomo Kenyatta University of Agriculture and Technology (JKUAT)',
-                achievements: 'Full Stack Developer, Firebase Expert, App Creator',
-                bio: 'Passionate full-stack developer creating solutions that empower local communities.',
+                schools: 'Nalondo Boys High School, Kirinyaga University (KYU)',
+                achievements: 'TIE experience',
+                bio: 'Telecommunication and information engineer.',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
@@ -68,8 +64,8 @@ class MoreMenuManager {
                 },
                 {
                     id: Date.now() + 1,
-                    title: '✨ New Feature: Ad Promotion',
-                    message: 'You can now promote your ads to reach more customers!',
+                    title: '✨ Annoucement: Ad Promotion',
+                    message: 'Ad promotion is currently unavailable, will get an update when ready  !',
                     date: firebase.firestore.FieldValue.serverTimestamp(),
                     isRead: false,
                     isGlobal: true
@@ -318,8 +314,8 @@ class MoreMenuManager {
         county: 'Bungoma',
         country: 'Kenya',
         schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
-        achievements: 'Full Stack Developer, Firebase Expert, App Creator',
-        bio: 'Passionate full-stack developer creating solutions that empower local communities.'
+        achievements: 'TIE experience',
+        bio: 'Telecommunication and information engineer.'
     };
     
     return `
@@ -336,8 +332,7 @@ class MoreMenuManager {
                 <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
             </div>
         </div>
-        
-        <!-- RATE VIKESERVE SECTION (only button, no visible bio) -->
+      
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
                 <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -367,7 +362,6 @@ class MoreMenuManager {
             </div>
         </div>
         
-                <!-- MY POINTS SECTION -->
         <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
                 <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -394,8 +388,6 @@ class MoreMenuManager {
             </button>
         </div>
         
-    
-    <!-- FAQ 1: How to post a service -->
     <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
         <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
             <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 8px;"></i> How do I post a service?</strong>
@@ -414,7 +406,6 @@ class MoreMenuManager {
         </div>
     </div>
     
-    <!-- FAQ 2: How to promote an ad -->
     <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
         <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
             <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 8px;"></i> How do I promote my ad?</strong>
@@ -440,7 +431,6 @@ class MoreMenuManager {
         </div>
     </div>
     
-    <!-- FAQ 3: Is payment secure -->
     <div class="faq-item">
         <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
             <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 8px;"></i> Is my payment secure?</strong>
@@ -993,7 +983,6 @@ class MoreMenuManager {
             }
             
             container.innerHTML = alerts.map(alert => {
-                // Get alert poster info
                 const posterName = alert.userName || 'Anonymous User';
                 const posterInitial = posterName.charAt(0).toUpperCase();
                 const isOwnAlert = this.currentUser && alert.userId === this.currentUser.uid;
@@ -1051,7 +1040,6 @@ class MoreMenuManager {
                 `;
             }).join('');
             
-            // Add event listeners for Reply buttons
             document.querySelectorAll('.reply-to-alert-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const reporterId = btn.getAttribute('data-reporter-id');
@@ -1061,7 +1049,6 @@ class MoreMenuManager {
                 });
             });
             
-            // Add event listeners for Report buttons
             document.querySelectorAll('.report-alert-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const alertId = btn.getAttribute('data-alert-id');
@@ -1070,7 +1057,6 @@ class MoreMenuManager {
                 });
             });
             
-            // Add event listeners for Delete buttons
             document.querySelectorAll('.delete-alert-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const alertId = btn.getAttribute('data-alert-id');
@@ -1082,7 +1068,6 @@ class MoreMenuManager {
                 });
             });
             
-            // Sign in button
             document.querySelectorAll('.signin-to-reply-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     if (typeof window.openAuthModal === 'function') window.openAuthModal();
@@ -1104,7 +1089,6 @@ class MoreMenuManager {
         
         const replyMessage = `Regarding your alert: "${alertTitle}"\n\n`;
         
-        // Pre-fill the chat message with the alert reference
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002;">
                 <div class="modal-header">
@@ -1207,11 +1191,9 @@ class MoreMenuManager {
                         return;
                     }
                     
-                    // Send report to admin/founder
                     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
                     const founderEmail = founderDoc.exists ? founderDoc.data().email : 'vikeserve426@gmail.com';
                     
-                    // Save report to Firestore
                     await this.db.collection('alert_reports').add({
                         alertId: alertId,
                         alertTitle: alertTitle,
@@ -1223,7 +1205,6 @@ class MoreMenuManager {
                         status: 'pending'
                     });
                     
-                    // Also send email notification (via console log for now)
                     console.log('Alert reported:', { alertTitle, reason, details, reporter: this.currentUser.email });
                     
                     this.showToast('Report submitted to admin. Thank you!', 'success');
@@ -1233,7 +1214,6 @@ class MoreMenuManager {
         }, 100);
     }
     
-// ========== COMPLETE CHAT IMPLEMENTATION ==========
 
 async loadConversations() {
     const container = document.getElementById('conversations-list-container');
@@ -1434,7 +1414,6 @@ showChatWindow(chatId, chatData, otherParticipant) {
 }
 
 closeChatWindow() {
-    // Clean up listeners first
     if (this.currentChatUnsubscribe) {
         this.currentChatUnsubscribe();
         this.currentChatUnsubscribe = null;
@@ -1445,24 +1424,18 @@ closeChatWindow() {
     }
     this.firstMessageDoc = null;
     
-    // Remove the chat window container
     const chatContainer = document.getElementById('chat-window-container');
     if (chatContainer) {
         chatContainer.remove();
     }
     
-    // Reset messages content - remove all inline styles and restore original HTML
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
-        // Remove all inline styles
         messagesContent.removeAttribute('style');
-        // Restore original HTML
         messagesContent.innerHTML = this.getMessagesHTML();
         
-        // Reload conversations
         this.loadConversations();
         
-        // Re-attach event listeners
         setTimeout(() => {
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
@@ -1482,7 +1455,6 @@ closeChatWindow() {
         }, 100);
     }
     
-    // Clean up listeners
     if (this.currentChatUnsubscribe) {
         this.currentChatUnsubscribe();
         this.currentChatUnsubscribe = null;
@@ -2096,11 +2068,8 @@ async startChatWithUser(userId, initialMessage) {
     switchMoreTab(tabId) {
     console.log('Switching to tab:', tabId);
     
-    // ========== CLOSE ANY OPEN CHAT FIRST ==========
-    // Close the chat window if it exists
     const chatWindow = document.getElementById('chat-window-container');
     if (chatWindow) {
-        // Clean up listeners
         if (this.currentChatUnsubscribe) {
             this.currentChatUnsubscribe();
             this.currentChatUnsubscribe = null;
@@ -2111,20 +2080,15 @@ async startChatWithUser(userId, initialMessage) {
         }
         this.firstMessageDoc = null;
         
-        // Remove the chat window
         chatWindow.remove();
     }
     
-    // ========== IMPORTANT: Reset messages-content styling ==========
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
-        // Remove all inline styles that were added by showChatWindow
         messagesContent.removeAttribute('style');
-        // Reset to original HTML
         messagesContent.innerHTML = this.getMessagesHTML();
     }
     
-    // Also close any chat-related modals
     const chatModals = document.querySelectorAll('.modal:not(#auth-modal)');
     chatModals.forEach(modal => {
         if (modal.id !== 'auth-modal' && modal.id !== 'rating-modal') {
@@ -2142,15 +2106,12 @@ async startChatWithUser(userId, initialMessage) {
     const targetContent = document.getElementById(`${tabId}-content`);
     if (targetContent) targetContent.classList.add('active');
     
-    // Refresh content based on tab
     if (tabId === 'messages') {
         this.loadConversations();
         
-        // Re-attach search input listener
         setTimeout(() => {
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
-                // Remove old listener to avoid duplicates
                 const newSearchInput = searchInput.cloneNode(true);
                 searchInput.parentNode.replaceChild(newSearchInput, searchInput);
                 newSearchInput.addEventListener('input', (e) => {
@@ -2173,12 +2134,10 @@ async startChatWithUser(userId, initialMessage) {
         this.loadTraining();
     }
         if (tabId === 'settings') {
-        // Refresh settings to ensure dark mode toggle works
         this.getSettingsHTML().then(html => {
             const settingsContent = document.getElementById('settings-content');
             if (settingsContent) settingsContent.innerHTML = html;
             this.setupEventListeners();
-            // Load user points after settings are rendered
             setTimeout(() => {
                 this.loadUserPoints();
             }, 100);
@@ -2344,7 +2303,6 @@ async startChatWithUser(userId, initialMessage) {
                         </div>
                     </div>
                     
-                    <!-- Personal Details -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-user-circle"></i> Personal Details</h4>
                         <div style="margin-top: 10px;">
@@ -2359,25 +2317,21 @@ async startChatWithUser(userId, initialMessage) {
                         </div>
                     </div>
                     
-                    <!-- Education -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-graduation-cap"></i> Education</h4>
                         <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.schools || 'Nalondo Boys High School, KYU')}</p>
                     </div>
                     
-                    <!-- Achievements -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-trophy"></i> Achievements</h4>
                         <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.achievements || 'Full Stack Developer, Firebase Expert, App Creator')}</p>
                     </div>
                     
-                    <!-- Bio -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                         <h4><i class="fas fa-info-circle"></i> About</h4>
                         <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.bio || 'Passionate full-stack developer dedicated to creating solutions that empower local communities.')}</p>
                     </div>
                     
-                    <!-- App Updates & Announcements -->
                     <div style="background: var(--light); border-radius: 12px; padding: 15px;">
                         <h4><i class="fas fa-megaphone"></i> App Updates & Announcements</h4>
                         <div id="announcements-list" style="margin-top: 10px;">
@@ -2648,7 +2602,6 @@ showPrivacyPolicy() {
         return div.innerHTML;
     }
 
-        // ========== LOAD AND DISPLAY USER POINTS ==========
     async loadUserPoints() {
         if (!this.currentUser) return 0;
         
@@ -2673,7 +2626,6 @@ showPrivacyPolicy() {
         }
     }
     
-    // ========== SHOW POINTS HISTORY MODAL ==========
     async showPointsHistory() {
         if (!this.currentUser) {
             this.showToast('Please sign in to view points history', 'warning');
@@ -2775,8 +2727,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
 });
 
-// ========== ADMIN FUNCTION TO ADD ANNOUNCEMENTS ==========
-// To use: copy and paste in browser console after signing in as admin
 window.addAppAnnouncement = async function(title, message) {
     try {
         const currentUser = firebase.auth().currentUser;
@@ -2798,7 +2748,6 @@ window.addAppAnnouncement = async function(title, message) {
         await firebase.firestore().collection('announcements').add(announcement);
         console.log(`✅ Announcement added: "${title}"`);
         
-        // Refresh the founder profile if open
         const founderModal = document.getElementById('founder-profile-modal');
         if (founderModal && founderModal.style.display === 'flex') {
             window.moreMenuManager.showFounderProfile();
@@ -2811,7 +2760,6 @@ window.addAppAnnouncement = async function(title, message) {
     }
 };
 
-// Helper function to update founder details from Firebase Console
 window.updateFounderDetails = async function(details) {
     try {
         const currentUser = firebase.auth().currentUser;
@@ -2828,7 +2776,6 @@ window.updateFounderDetails = async function(details) {
         
         console.log('✅ Founder details updated:', details);
         
-        // Refresh settings
         const settingsContent = document.getElementById('settings-content');
         if (settingsContent) {
             const newHTML = await window.moreMenuManager.getSettingsHTML();

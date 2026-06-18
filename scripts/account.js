@@ -1,4 +1,3 @@
-// User account management
 class AccountManager {
     constructor() {
         this.db = db;
@@ -7,10 +6,8 @@ class AccountManager {
         this.adsCollection = collections.ads();
         this.bookingsCollection = collections.bookings();
         this.reviewsCollection = collections.reviews();
-        // FIXED: Proper favorites collection fallback
         this.favoritesCollection = collections.favorites ? collections.favorites() : null;
         
-        // Log warning if favorites collection doesn't exist
         if (!this.favoritesCollection) {
             console.warn('Favorites collection not found. Favorites feature will be disabled.');
         }
@@ -89,14 +86,10 @@ class AccountManager {
 
     isValidPhoneNumber(phone) {
     if (!phone) return false;
-    // Remove any spaces, dashes, or parentheses
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
     
-    // Kenyan phone number validation
-    // Format: 0712345678 or 254712345678 or +254712345678
     const kenyanRegex = /^(?:\+254|0|254)([17]\d{8})$/;
     
-    // International fallback (simple)
     const internationalRegex = /^\+?[0-9]{8,15}$/;
     
     return kenyanRegex.test(cleaned) || internationalRegex.test(cleaned);
@@ -485,7 +478,6 @@ async function loadUserBookings() {
             bookingsContainer.appendChild(bookingElement);
         });
     } catch (error) {
-        // Silent fail
     }
 }
 
@@ -539,7 +531,6 @@ async function loadUserReviews() {
             reviewsContainer.appendChild(reviewElement);
         });
     } catch (error) {
-        // Silent fail
     }
 }
 
@@ -592,7 +583,6 @@ async function loadUserFavorites() {
             favoritesContainer.appendChild(favoriteElement);
         });
     } catch (error) {
-        // Silent fail
     }
 }
 
@@ -731,7 +721,6 @@ function showEditProfileForm() {
             showToast('Form not available', 'error');
         }
         
-        // Attach event listeners after modal is in DOM
         setTimeout(() => {
             const saveBtn = document.getElementById('save-profile-edit');
             if (saveBtn) {
@@ -767,7 +756,6 @@ function showEditProfileForm() {
 async function updateProfile() {
     if (!auth.currentUser) return;
     
-    // Check if required functions exist
     if (typeof showToast !== 'function') {
         console.error('showToast function not available');
         alert('Please refresh the page and try again');
@@ -862,7 +850,6 @@ function viewBooking(bookingId) {
     showToast('View booking functionality coming soon', 'info');
 }
 
-// ========== HELPER: Escape HTML ==========
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -882,9 +869,6 @@ window.viewAd = viewAd;
 window.viewBooking = viewBooking;
 window.generateStarRating = generateStarRating;
 
-// Single auth state listener - REMOVED DUPLICATE
-// This is now handled by firebase.js and app.js
-// Only initialize if not already initialized
 if (typeof window.accountManager === 'undefined' || !window.accountManager) {
     auth.onAuthStateChanged(user => {
         if (user) {
