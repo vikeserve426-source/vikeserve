@@ -3884,3 +3884,144 @@ button,
         font-size: 1.5rem;
     }
 }
+
+/* ============================================================
+   FINAL OVERRIDE: FORCE MOBILE VIEW (MUST BE LAST)
+   ============================================================ */
+
+/* Fix for post modals and listings showing desktop view */
+#services-tab,
+#marketplace-tab,
+#services-list-container,
+#marketplace-items-container,
+#urgent-jobs-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* Fix for service cards */
+.service-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 0 15px 0 !important;
+    padding: 15px !important;
+}
+
+/* Fix for marketplace items */
+.market-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.market-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Fix for buttons in services tab */
+#services-tab .btn,
+#marketplace-tab .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+}
+
+/* Fix for button containers */
+#services-tab div[style*="text-align: center"],
+#marketplace-tab div[style*="text-align: center"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+}
+
+#services-tab div[style*="text-align: center"] .btn,
+#marketplace-tab div[style*="text-align: center"] .btn {
+    width: 100% !important;
+    margin: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Fix for modals - ensure they stay within mobile width */
+.modal-content {
+    width: 95% !important;
+    max-width: 400px !important;
+    margin: 10px auto !important;
+    box-sizing: border-box !important;
+}
+
+.modal-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.modal-body .form-group {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.modal-body .form-input,
+.modal-body select,
+.modal-body textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.modal-body .form-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.modal-body .form-row .form-group {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.modal-body .form-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.modal-body .form-actions .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Fix for mobile responsive */
+@media (max-width: 480px) {
+    .market-items {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    #services-tab div[style*="text-align: center"],
+    #marketplace-tab div[style*="text-align: center"] {
+        flex-direction: column !important;
+    }
+    
+    #marketplace-tab div[style*="text-align: center"] {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}
