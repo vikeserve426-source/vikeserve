@@ -121,6 +121,11 @@ function createMarketplaceItemElement(item) {
     div.setAttribute('data-ad-id', item.id);
     div.setAttribute('data-category', item.category);
     div.setAttribute('data-seller-id', item.userId);
+    // Add inline styles to force mobile width
+    div.style.width = '100%';
+    div.style.maxWidth = '100%';
+    div.style.boxSizing = 'border-box';
+    div.style.overflow = 'hidden';
     
     let isPromoted = item.promoted === true;
     let daysLeft = 0;
