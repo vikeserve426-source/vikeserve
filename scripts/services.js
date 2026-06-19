@@ -314,18 +314,15 @@ function createServiceElement(service) {
     div.className = 'service-card';
     div.setAttribute('data-provider-id', service.userId);
     
-    // Get current user
     const currentUser = firebase.auth().currentUser;
     const isOwner = currentUser && service.userId === currentUser.uid;
     
-    // Get rating info
     const rating = service.rating || service.averageRating || 0;
     const ratingCount = service.ratingCount || service.totalReviews || 0;
     const ratingStars = generateStarRating(rating);
     
-    // Only show promote button if user is the owner
     const promoteButtonHtml = isOwner ? `
-        <button class="btn-promote promote-service-btn" data-service-id="${service.id}" style="margin-top: 8px; width: 100%;">
+        <button class="btn-promote promote-service-btn" data-service-id="${service.id}">
             <i class="fas fa-rocket"></i> Promote
         </button>
     ` : '';
@@ -335,7 +332,7 @@ function createServiceElement(service) {
             <div class="service-title">${escapeHtml(service.title)}</div>
             <div class="service-price">KES ${service.price}</div>
         </div>
-        <div class="service-provider" style="cursor: pointer;" data-provider-id="${service.userId}">
+        <div class="service-provider" data-provider-id="${service.userId}">
             <div class="provider-avatar">${(service.providerName || service.userName || 'P').charAt(0)}</div>
             <div class="provider-info">
                 <div class="provider-name">${escapeHtml(service.providerName || service.userName || 'Service Provider')}</div>
@@ -350,28 +347,26 @@ function createServiceElement(service) {
             <span class="service-category">${escapeHtml(service.category)}</span>
             <span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span>
         </div>
-        <div class="service-actions" style="display: flex; gap: 8px; margin-top: 12px;">
-            <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-info-circle"></i> Details</button>
-            <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}" style="flex: 1;"><i class="fas fa-user"></i> Profile</button>
+        <div class="service-actions">
+            <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}"><i class="fas fa-info-circle"></i> Details</button>
+            <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}"><i class="fas fa-user"></i> Profile</button>
         </div>
         ${promoteButtonHtml}
     `;
     
-    // Add click handler for provider info
     const providerDiv = div.querySelector('.service-provider');
     if (providerDiv) {
         providerDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             const providerId = providerDiv.getAttribute('data-provider-id');
-            if (typeof window.viewSellerProfile === 'function') {
-                window.viewSellerProfile(providerId);
+            if (typeof window.viewProviderProfile === 'function') {
+                window.viewProviderProfile(providerId);
             } else {
                 window.showToast('View profile feature coming soon', 'info');
             }
         });
     }
     
-    // Add view details button
     const detailBtn = div.querySelector('.view-service-detail-btn');
     if (detailBtn) {
         detailBtn.addEventListener('click', (e) => {
@@ -380,21 +375,19 @@ function createServiceElement(service) {
         });
     }
     
-    // Add view profile button
     const profileBtn = div.querySelector('.view-provider-profile-btn');
     if (profileBtn) {
         profileBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const providerId = profileBtn.getAttribute('data-provider-id');
-            if (typeof window.viewSellerProfile === 'function') {
-                window.viewSellerProfile(providerId);
+            if (typeof window.viewProviderProfile === 'function') {
+                window.viewProviderProfile(providerId);
             } else {
                 window.showToast('View profile feature coming soon', 'info');
             }
         });
     }
     
-    // Only add promote button listener if it exists (owner only)
     const promoteBtn = div.querySelector('.promote-service-btn');
     if (promoteBtn) {
         promoteBtn.addEventListener('click', (e) => {
