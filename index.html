@@ -962,8 +962,8 @@
         <input type="text" class="search-input" placeholder="Search services or jobs...">
     </div>
 
-    <div style="text-align: center; margin: 20px 0;">
-        <button class="btn btn-outline" id="service-post-btn" style="margin-right: 10px;">
+    <div class="services-btn-container">
+        <button class="btn btn-outline" id="service-post-btn">
             <i class="fas fa-tools"></i> List Your Service
         </button>
         <button class="btn btn-primary" id="job-post-btn">
@@ -977,65 +977,65 @@
 </div>
             
             <div id="marketplace-tab" class="tab-content">
-                <div class="search-bar">
-                    <div class="search-icon"><i class="fas fa-search"></i></div>
-                    <input type="text" class="search-input" placeholder="Search marketplace...">
-                </div>
-                
-                <div style="text-align: center; margin: 20px 0;">
-                    <button class="btn btn-primary" id="marketplace-post-btn">
-                        <i class="fas fa-plus-circle"></i> Sell an Item
-                    </button>
-                    <button class="btn btn-outline" id="gas-refill-post-btn">
-                        <i class="fas fa-fire"></i> Offer Gas Refill
-                    </button>
-                    <button class="btn btn-outline" id="water-delivery-post-btn">
-                        <i class="fas fa-tint"></i> Offer Water Delivery
-                    </button>
-                    <button class="btn btn-outline" id="hotel-post-btn">
-                        <i class="fas fa-hotel"></i> List Hotel
-                    </button>
-                    <button class="btn btn-outline" id="property-post-btn">
-                        <i class="fas fa-home"></i> List Property
-                    </button>
-                    <button class="btn btn-outline" id="land-post-btn">
-                        <i class="fas fa-vector-square"></i> List Land
-                    </button>
-                </div>
-                
-                <div class="market-filters">
-                    <button class="filter-btn active" data-category="all">All</button>
-                    <button class="filter-btn" data-category="mitumba">Mitumba</button>
-                    <button class="filter-btn" data-category="electronics">Electronics</button>
-                    <button class="filter-btn" data-category="furniture">Furniture</button>
-                    <button class="filter-btn" data-category="phones">Phones</button>
-                    <button class="filter-btn" data-category="home-appliances">Appliances</button>
-                    <button class="filter-btn" data-category="hotel">Hotels</button>
-                    <button class="filter-btn" data-category="gas-refill">Gas</button>
-                    <button class="filter-btn" data-category="water-delivery">Water</button>
-                    <button class="filter-btn" data-category="rooms">Rooms</button>
-                    <button class="filter-btn" data-category="bedsitters">Bedsitters</button>
-                    <button class="filter-btn" data-category="apartments">Apartments</button>
-                    <button class="filter-btn" data-category="houses">Houses</button>
-                    <button class="filter-btn" data-category="short-stays">Short Stays</button>
-                    <button class="filter-btn" data-category="land">Land/Plots</button>
-                    <button class="filter-btn" data-category="services">Services</button>
-                </div>
+    <div class="search-bar">
+        <div class="search-icon"><i class="fas fa-search"></i></div>
+        <input type="text" class="search-input" placeholder="Search marketplace...">
+    </div>
+    
+    <div class="marketplace-btn-container">
+        <button class="btn btn-primary" id="marketplace-post-btn">
+            <i class="fas fa-plus-circle"></i> Sell Item
+        </button>
+        <button class="btn btn-outline" id="gas-refill-post-btn">
+            <i class="fas fa-fire"></i> Gas Refill
+        </button>
+        <button class="btn btn-outline" id="water-delivery-post-btn">
+            <i class="fas fa-tint"></i> Water
+        </button>
+        <button class="btn btn-outline" id="hotel-post-btn">
+            <i class="fas fa-hotel"></i> Hotel
+        </button>
+        <button class="btn btn-outline" id="property-post-btn">
+            <i class="fas fa-home"></i> Property
+        </button>
+        <button class="btn btn-outline" id="land-post-btn">
+            <i class="fas fa-vector-square"></i> Land
+        </button>
+    </div>
+    
+    <div class="market-filters">
+        <button class="filter-btn active" data-category="all">All</button>
+        <button class="filter-btn" data-category="mitumba">Mitumba</button>
+        <button class="filter-btn" data-category="electronics">Electronics</button>
+        <button class="filter-btn" data-category="furniture">Furniture</button>
+        <button class="filter-btn" data-category="phones">Phones</button>
+        <button class="filter-btn" data-category="home-appliances">Appliances</button>
+        <button class="filter-btn" data-category="hotel">Hotels</button>
+        <button class="filter-btn" data-category="gas-refill">Gas</button>
+        <button class="filter-btn" data-category="water-delivery">Water</button>
+        <button class="filter-btn" data-category="rooms">Rooms</button>
+        <button class="filter-btn" data-category="bedsitters">Bedsitters</button>
+        <button class="filter-btn" data-category="apartments">Apartments</button>
+        <button class="filter-btn" data-category="houses">Houses</button>
+        <button class="filter-btn" data-category="short-stays">Short Stays</button>
+        <button class="filter-btn" data-category="land">Land/Plots</button>
+        <button class="filter-btn" data-category="services">Services</button>
+    </div>
 
-<div id="marketplace-items-container">
-                    <div class="loading-spinner">Loading marketplace items...</div>
-                </div>
-                
-                <div class="ad-container">
-                    <div class="ad-label">Ad</div>
-                    <div class="ad-title">Sell Your Products</div>
-                    <div class="ad-description">List your items on our marketplace and reach thousands of buyers</div>
-                    <button class="ad-cta" id="post-ad-btn" data-action="post-ad" disabled style="opacity: 0.5; cursor: not-allowed; position: relative; pointer-events: none;">
-    <span style="position: absolute; top: -8px; right: -5px; background: var(--warning); color: white; font-size: 0.5rem; padding: 2px 6px; border-radius: 8px;">Coming Soon</span>
-</button>
-                </div>
-                
-            </div>
+    <div id="marketplace-items-container">
+        <div class="loading-spinner">Loading marketplace items...</div>
+    </div>
+    
+    <div class="ad-container">
+        <div class="ad-label">Ad</div>
+        <div class="ad-title">Sell Your Products</div>
+        <div class="ad-description">List your items on our marketplace and reach thousands of buyers</div>
+        <button class="ad-cta" id="post-ad-btn" data-action="post-ad" disabled>
+            Post an Ad <span class="coming-soon-tag">Coming Soon</span>
+        </button>
+    </div>
+    
+</div>
             
             <div id="account-tab" class="tab-content">
                 <div id="guest-message" class="module-card" style="text-align: center; padding: 40px 20px;">

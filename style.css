@@ -78,244 +78,6 @@ body {
     position: relative;
 }
 
-/* ========== FORCE MOBILE VIEW FOR ALL CONTENT ========== */
-.container,
-.container * {
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
-/* Ensure all content sections respect mobile width */
-.tab-content,
-.module-card,
-.service-card,
-.market-item,
-.job-card,
-.ad-container,
-#services-list-container,
-#marketplace-items-container,
-#urgent-jobs-container {
-    max-width: 100% !important;
-    width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-/* Force buttons and inputs to stay within mobile width */
-.btn,
-.form-input,
-.form-row,
-.quick-actions,
-.market-filters {
-    max-width: 100% !important;
-    width: 100% !important;
-}
-
-/* ========== SERVICES TAB MOBILE FIX ========== */
-#services-tab {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-#services-tab .search-bar {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-#services-list-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-.service-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    padding: 15px !important;
-    margin-bottom: 15px !important;
-}
-
-/* ========== MARKETPLACE TAB MOBILE FIX ========== */
-#marketplace-tab {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-#marketplace-tab .search-bar {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-#marketplace-items-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-.market-item {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.market-items {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* ========== BUTTON FIXES FOR MOBILE ========== */
-#services-tab .btn,
-#marketplace-tab .btn {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    white-space: normal !important;
-    word-wrap: break-word !important;
-}
-
-#services-tab .btn-outline,
-#marketplace-tab .btn-outline {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-/* Fix the button container in services tab */
-#services-tab div[style*="text-align: center"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-}
-
-#services-tab div[style*="text-align: center"] .btn {
-    width: 100% !important;
-    margin-right: 0 !important;
-}
-
-/* Fix the button container in marketplace tab */
-#marketplace-tab div[style*="text-align: center"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 10px !important;
-}
-
-#marketplace-tab div[style*="text-align: center"] .btn {
-    margin: 0 !important;
-}
-
-/* ========== MODAL FIXES FOR MOBILE ========== */
-.modal-content {
-    background: white;
-    margin: 5% auto;
-    padding: 20px;
-    border-radius: 15px;
-    width: 95% !important;
-    max-width: 400px !important;
-    max-height: 85vh;
-    overflow-y: auto;
-    position: relative;
-    box-sizing: border-box !important;
-}
-
-.modal-body {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    padding: 0 0 20px 0;
-}
-
-.modal-body .form-group {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.modal-body .form-input,
-.modal-body select,
-.modal-body textarea {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.modal-body .form-row {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.modal-body .form-row .form-group {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.modal-body .form-actions {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.modal-body .form-actions .btn {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* ========== EXTRA MOBILE FIXES ========== */
-@media (max-width: 480px) {
-    /* Force everything to mobile width */
-    .container,
-    .app-content,
-    .tab-content,
-    #services-tab,
-    #marketplace-tab,
-    #services-list-container,
-    #marketplace-items-container {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-    }
-    
-    /* Fix grid layouts for mobile */
-    .market-items {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-    }
-    
-    /* Fix button containers */
-    #services-tab div[style*="text-align: center"] {
-        flex-direction: column !important;
-    }
-    
-    #marketplace-tab div[style*="text-align: center"] {
-        grid-template-columns: 1fr 1fr !important;
-    }
-    
-    /* Fix modal content */
-    .modal-content {
-        width: 95% !important;
-        margin: 10px auto !important;
-        padding: 15px !important;
-    }
-    
-    /* Fix form rows in modals */
-    .modal-body .form-row {
-        flex-direction: column !important;
-    }
-}
-
 /* ========== 3. HEADER & NAVIGATION ========== */
 .app-header {
     display: flex;
@@ -3886,31 +3648,68 @@ button,
 }
 
 /* ============================================================
-   FINAL OVERRIDE: FORCE MOBILE VIEW (MUST BE LAST)
+   FIX: SERVICES TAB - CONSISTENT MOBILE VIEW
    ============================================================ */
 
-/* Fix for post modals and listings showing desktop view */
-#services-tab,
-#marketplace-tab,
+.services-btn-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 20px 0 !important;
+    box-sizing: border-box !important;
+}
+
+.services-btn-container .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+/* ============================================================
+   FIX: MARKETPLACE TAB - CONSISTENT MOBILE VIEW
+   ============================================================ */
+
+.marketplace-btn-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 20px 0 !important;
+    box-sizing: border-box !important;
+}
+
+.marketplace-btn-container .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    font-size: 0.75rem !important;
+    padding: 10px 8px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* ============================================================
+   FIX: LISTINGS CONTAINERS
+   ============================================================ */
+
 #services-list-container,
-#marketplace-items-container,
-#urgent-jobs-container {
+#marketplace-items-container {
     width: 100% !important;
     max-width: 100% !important;
+    box-sizing: border-box !important;
     overflow-x: hidden !important;
-    box-sizing: border-box !important;
 }
 
-/* Fix for service cards */
-.service-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    margin: 0 0 15px 0 !important;
-    padding: 15px !important;
-}
+/* ============================================================
+   FIX: MARKET ITEMS GRID
+   ============================================================ */
 
-/* Fix for marketplace items */
 .market-items {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
@@ -3927,101 +3726,72 @@ button,
     overflow: hidden !important;
 }
 
-/* Fix for buttons in services tab */
-#services-tab .btn,
-#marketplace-tab .btn {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    white-space: normal !important;
-    word-wrap: break-word !important;
-}
+/* ============================================================
+   FIX: MARKET FILTERS
+   ============================================================ */
 
-/* Fix for button containers */
-#services-tab div[style*="text-align: center"],
-#marketplace-tab div[style*="text-align: center"] {
-    width: 100% !important;
-    max-width: 100% !important;
+.market-filters {
     display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-    box-sizing: border-box !important;
-}
-
-#services-tab div[style*="text-align: center"] .btn,
-#marketplace-tab div[style*="text-align: center"] .btn {
-    width: 100% !important;
-    margin: 0 !important;
-    margin-right: 0 !important;
-}
-
-/* Fix for modals - ensure they stay within mobile width */
-.modal-content {
-    width: 95% !important;
-    max-width: 400px !important;
-    margin: 10px auto !important;
-    box-sizing: border-box !important;
-}
-
-.modal-body {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+    margin-bottom: 20px !important;
 }
 
-.modal-body .form-group {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+.filter-btn {
+    flex: 0 0 auto !important;
+    padding: 8px 14px !important;
+    font-size: 0.7rem !important;
+    min-height: 36px !important;
 }
 
-.modal-body .form-input,
-.modal-body select,
-.modal-body textarea {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+/* ============================================================
+   FIX: "COMING SOON" TAG
+   ============================================================ */
+
+.coming-soon-tag {
+    background: var(--warning);
+    color: white;
+    font-size: 0.5rem;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 5px;
 }
 
-.modal-body .form-row {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 100% !important;
+.ad-cta:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
 }
 
-.modal-body .form-row .form-group {
-    width: 100% !important;
-    max-width: 100% !important;
-}
+/* ============================================================
+   RESPONSIVE: SMALL SCREENS
+   ============================================================ */
 
-.modal-body .form-actions {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.modal-body .form-actions .btn {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* Fix for mobile responsive */
 @media (max-width: 480px) {
+    .marketplace-btn-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .marketplace-btn-container .btn {
+        font-size: 0.65rem !important;
+        padding: 8px 4px !important;
+    }
+    
     .market-items {
         grid-template-columns: 1fr !important;
-        gap: 12px !important;
     }
-    
-    #services-tab div[style*="text-align: center"],
-    #marketplace-tab div[style*="text-align: center"] {
-        flex-direction: column !important;
-    }
-    
-    #marketplace-tab div[style*="text-align: center"] {
+}
+
+@media (max-width: 360px) {
+    .marketplace-btn-container {
         grid-template-columns: 1fr 1fr !important;
+    }
+    
+    .marketplace-btn-container .btn {
+        font-size: 0.6rem !important;
+        padding: 6px 4px !important;
     }
 }
