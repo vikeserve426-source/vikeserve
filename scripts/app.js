@@ -79,19 +79,63 @@ class VikeServeApp {
     }
 
     async init() {
-    this.applyGlobalFixes();
-    this.setupEventListeners();
-    this.setupNavigation();
-    this.setupQuickActions();
-    this.setupSettings();
-    this.initLocationSystem();
-    this.checkAuthState();
-    this.loadInitialData();
-    this.ensureMoreMenuConnection();
-    this.setupAdPromotionButtons();
-    this.setupFeatureToggles();
-    this.handleInitialTabFromURL();
-}
+        this.applyGlobalFixes();
+        this.setupEventListeners();
+        this.setupNavigation();
+        this.setupQuickActions();
+        this.setupSettings();
+        this.initLocationSystem();
+        this.checkAuthState();
+        this.loadInitialData();
+        await this.loadStatsCounts();
+        this.ensureMoreMenuConnection();
+        this.setupAdPromotionButtons();
+        this.setupFeatureToggles();
+        this.handleInitialTabFromURL();
+    }
+
+    // ========== LOAD STATS COUNTS ==========
+    async loadStatsCounts() {
+        try {
+            // Count active services (status = 'active')
+            const servicesSnapshot = await firebase.firestore()
+                .collection('services')
+                .where('status', '==', 'active')
+                .get();
+            const activeServices = servicesSnapshot.size;
+            
+            // Count verified workers (users with role 'service_provider' or 'verified')
+            const workersSnapshot = await firebase.firestore()
+                .collection('users')
+                .where('role', 'in', ['service_provider', 'verified', 'provider'])
+                .get();
+            
+            let verifiedWorkers = workersSnapshot.size;
+            
+            // If no verified role exists, fallback to count all users
+            if (verifiedWorkers === 0) {
+                const allUsersSnapshot = await firebase.firestore().collection('users').get();
+                verifiedWorkers = allUsersSnapshot.size;
+            }
+            
+            // Update UI
+            const jobsEl = document.getElementById('active-jobs-count');
+            const workersEl = document.getElementById('verified-workers-count');
+            if (jobsEl) jobsEl.textContent = activeServices;
+            if (workersEl) workersEl.textContent = verifiedWorkers;
+            
+            console.log(`📊 Stats: ${activeServices} active services/jobs, ${verifiedWorkers} verified workers`);
+            return { activeServices, verifiedWorkers };
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            // Show fallback values
+            const jobsEl = document.getElementById('active-jobs-count');
+            const workersEl = document.getElementById('verified-workers-count');
+            if (jobsEl) jobsEl.textContent = '0';
+            if (workersEl) workersEl.textContent = '0';
+            return { activeServices: 0, verifiedWorkers: 0 };
+        }
+    }
 
     handleInitialTabFromURL() {
         const hash = window.location.hash.substring(1);
