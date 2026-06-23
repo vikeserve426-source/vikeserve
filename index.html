@@ -8,6 +8,139 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
+        /* ========== MINIMAL INLINE STYLES - ONLY FOR CRITICAL OVERRIDES ========== */
+        /* All main styles are in style.css - this is only for page-specific overrides */
+        
+        /* Ensure modals created by showModalWithContent are on top */
+        .modal[style*="display: flex"],
+        .modal[style*="display: block"] {
+            z-index: 20001 !important;
+        }
+        
+        /* More menu modals need to be above the more menu */
+        #more-section .modal {
+            z-index: 20002 !important;
+        }
+        
+        /* Fix for more tab navigation - keep it sticky */
+        .more-tab-nav {
+            position: sticky !important;
+            top: 0 !important;
+            background: var(--background-color, white);
+            z-index: 100 !important;
+            overflow-x: auto !important;
+            white-space: nowrap !important;
+            display: flex !important;
+            flex-wrap: nowrap !important;
+        }
+        
+        [data-theme="dark"] .more-tab-nav {
+            background: #24282f !important;
+        }
+        
+        /* Ensure content scrolls properly */
+        .more-section {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            overflow-y: auto;
+        }
+        
+        .more-section.active {
+            display: block;
+        }
+        
+        /* Fix tab buttons container */
+        .more-tab-btn {
+            flex: 0 0 auto !important;
+            min-width: 70px !important;
+        }
+        
+        /* Fix tab content scrolling */
+        .more-tab-content {
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+        
+        /* Stats cards - inline override for homepage */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--grey-dark);
+        }
+        
+        @media (max-width: 480px) {
+            .stat-value {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Coming soon badge */
+        .coming-soon-action {
+            position: relative;
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .coming-soon-badge {
+            background: var(--warning);
+            color: white;
+            font-size: 0.5rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .coming-soon-tag {
+            background: var(--warning);
+            color: white;
+            font-size: 0.5rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-left: 5px;
+        }
+        
+        .ad-cta:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
+    </style>
         :root {
             --primary: #2E86DE;
             --primary-dark: #1A56B0;
