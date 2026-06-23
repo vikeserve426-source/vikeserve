@@ -1,0 +1,52 @@
+[33mc10bcaa[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m fix: Remove duplicate CSS and inline styles causing desktop view in Services and Marketplace tabs
+[33m1c69809[m fix: Remove duplicate inline CSS from HTML, keep minimal overrides, use style.css for all main styles
+[33m58ac1d5[m fix: Remove duplicate service-card, service-header, service-provider, job-card CSS with !important causing desktop view
+[33m2f977c1[m fix: Remove duplicate service-card, service-header, service-provider, job-card CSS with !important causing desktop view
+[33md187e51[m fix: Services tab - remove conflicting CSS, add mobile styles, remove inline styles from JS
+[33m0a893e5[m fix: Remove conflicting CSS and update HTML structure for consistent mobile view in Services and Marketplace tabs
+[33m0e49209[m fix: Force mobile view for marketplace items with inline styles and CSS overrides
+[33m3940ac7[m fix: Fix Safety Warnings duplication and force mobile view for post modals and listings
+[33m91bb80b[m fix: Remove duplicate Safety Warnings section causing collision with stats cards
+[33mf122020[m feat: Add stats cards showing active jobs and verified workers
+[33m62401aa[m fix: Add try/catch and better error handling for feature toggles
+[33m072618d[m fix: Add Firebase Remote Config SDK to fix firebase.remoteConfig is not a function error
+[33mb0e533d[m fix: Move all modals outside container to fix mobile view issue
+[33m9ab7d9d[m fix: Force mobile view for services and marketplace content, fix modal sizing
+[33mf19160f[m feat: Complete VikeServe Connect Coming Soon with feature toggles, disable ad promotion
+[33m449c9ec[m fix: Replace IntaSend SDK with direct redirect method
+[33m9e08464[m feat: Integrate IntaSend Payment Button SDK for reliable payments
+[33m256ed26[m fix: Correct IntaSend checkout URL from payments.intasend.com to intasend.com/api/v1/checkout/
+[33mcb5e688[m fix: Use direct IntaSend checkout URL for free plan (no Cloud Functions)
+[33m2ed3377[m feat: Complete points system integration - earn from reviews, redeem for ad discounts, points history
+[33mc4b2e49[m fix: Correct IntaSend checkout URL from payment.intasend.com to payments.intasend.com/api/v1/checkout/
+[33mdf94f6a[m feat:Update schools and count
+[33m574afdc[m feat:Update schools and count
+[33m2982938[m feat: Improve FAQ section with detailed step-by-step answers and better formatting
+[33m77c5f4a[m fix: Only show promote button on services for the owner - hide from other users
+[33m9a8265d[m fix: Move founder bio from settings to popup modal - only show when clicking Founder button
+[33m17041cf[m fix: Make chat and profile work - remove 'coming soon' messages, add working chat with sellers/providers
+[33mc9e0d38[m feat: Complete ratings system - seller ratings on marketplace/services, app rating separate, founder bio
+[33m2bfa547[m fix: Reset messages content styling and remove empty space when switching tabs from chat
+[33med88d9d[m fix: Close chat window when switching between more menu tabs (Education, Alerts, Safety, Settings)
+[33mfaf38a1[m fix: Promote service convert button functionality - copy service to marketplace
+[33mbf5cef5[m fix: Gas refill modal - add price field and improve form validation
+[33m43222ee[m fix: Clean undefined values in service and job data before Firestore save
+[33m1736068[m fix: Complete app updates - toast fixes, marketplace edit, services edit, jobs edit
+[33m5f788f6[m fix: update share URL to pages.dev, add terms popup and privacy policy
+[33mfd38f0b[m fix: complete chat implementation with proper scrolling and message display
+[33m1a0e622[m fix: chat window replaces conversations instead of stacking, improve message display
+[33mbdb5951[m feat: add alert avatars, reply with tagging, report to admin, fix chat display
+[33m6bee2c3[m style: fix payment modal size for mobile display
+[33m96e7b67[m fix: use direct IntaSend redirect method - most reliable
+[33m47a2c90[m feat: use IntaSend InlineJS payment modal - fixes all CORS and DNS errors
+[33m1b9e22b[m fix: complete payment system - M-Pesa selection, phone formatting, modal close before redirect
+[33mc761ed9[m fix: properly format phone number and encode redirect URL for IntaSend
+[33m6dc347d[m fix: payment method selection - M-Pesa/Airtel now properly registers as selected
+[33m3714720[m fix: resolve CORS, add currency conversion, fix PayPal validation
+[33m5e6ab33[m feat: add payment verification tab, card details form, and manual payment verification
+[33m88fa2fa[m fix: auto-dismiss toasts and improve more-menu with poster info and working chat
+[33m8551153[m fix: add headers file for static site
+[33m02a21b5[m fix: add correct JSON configuration for Cloudflare Pages
+[33m987df5d[m fix: add Cloudflare Pages configuration for static site
+[33m0fa7b77[m fix: correct IntaSend API integration using checkout endpoint
+[33m01be0be[m fix: correct IntaSend API integration using checkout endpoint
