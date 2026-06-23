@@ -118,58 +118,22 @@ class VikeServeApp {
                 verifiedWorkers = allUsersSnapshot.size;
             }
             
-            // Count total users
-            const totalUsersSnapshot = await firebase.firestore().collection('users').get();
-            const totalUsers = totalUsersSnapshot.size;
-            
-            // Count marketplace items
-            const marketplaceSnapshot = await firebase.firestore()
-                .collection('marketplace_items')
-                .where('status', '==', 'active')
-                .get();
-            const marketplaceItems = marketplaceSnapshot.size;
-            
-            // Count total bookings
-            const bookingsSnapshot = await firebase.firestore().collection('bookings').get();
-            const totalBookings = bookingsSnapshot.size;
-            
-            // Count reviews
-            const reviewsSnapshot = await firebase.firestore().collection('reviews').get();
-            const totalReviews = reviewsSnapshot.size;
-            
             // Update UI
             const jobsEl = document.getElementById('active-jobs-count');
             const workersEl = document.getElementById('verified-workers-count');
-            const usersEl = document.getElementById('total-users-count');
-            const itemsEl = document.getElementById('marketplace-items-count');
-            const bookingsEl = document.getElementById('total-bookings-count');
-            const reviewsEl = document.getElementById('reviews-count');
-            
             if (jobsEl) jobsEl.textContent = activeServices;
             if (workersEl) workersEl.textContent = verifiedWorkers;
-            if (usersEl) usersEl.textContent = totalUsers;
-            if (itemsEl) itemsEl.textContent = marketplaceItems;
-            if (bookingsEl) bookingsEl.textContent = totalBookings;
-            if (reviewsEl) reviewsEl.textContent = totalReviews;
             
-            console.log(`📊 Stats: ${activeServices} jobs, ${verifiedWorkers} workers, ${totalUsers} users, ${marketplaceItems} items, ${totalBookings} bookings, ${totalReviews} reviews`);
-            return { activeServices, verifiedWorkers, totalUsers, marketplaceItems, totalBookings, totalReviews };
+            console.log(`📊 Stats: ${activeServices} active services/jobs, ${verifiedWorkers} verified workers`);
+            return { activeServices, verifiedWorkers };
         } catch (error) {
             console.error('Error loading stats:', error);
             // Show fallback values
             const jobsEl = document.getElementById('active-jobs-count');
             const workersEl = document.getElementById('verified-workers-count');
-            const usersEl = document.getElementById('total-users-count');
-            const itemsEl = document.getElementById('marketplace-items-count');
-            const bookingsEl = document.getElementById('total-bookings-count');
-            const reviewsEl = document.getElementById('reviews-count');
             if (jobsEl) jobsEl.textContent = '0';
             if (workersEl) workersEl.textContent = '0';
-            if (usersEl) usersEl.textContent = '0';
-            if (itemsEl) itemsEl.textContent = '0';
-            if (bookingsEl) bookingsEl.textContent = '0';
-            if (reviewsEl) reviewsEl.textContent = '0';
-            return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
+            return { activeServices: 0, verifiedWorkers: 0 };
         }
     }
 
