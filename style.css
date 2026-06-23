@@ -675,9 +675,10 @@ body {
 /* ========== 10. MARKETPLACE ========== */
 .market-items {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 12px;
     padding: 0 4px;
+    max-width: 100%;
 }
 
 .market-item {
@@ -1409,13 +1410,33 @@ select.form-input {
     margin: 10px auto;
     padding: 16px;
     border-radius: var(--radius-lg);
-    width: 95%;
-    max-width: 480px;
+    width: 95% !important;
+    max-width: 480px !important;
     position: relative;
     max-height: 90vh;
     overflow-y: auto;
     animation: modalSlideUp 0.4s ease;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Force ALL modals to mobile width */
+.modal .modal-content,
+#service-post-modal .modal-content,
+#job-post-modal .modal-content,
+#marketplace-post-modal .modal-content,
+#gas-refill-post-modal .modal-content,
+#water-delivery-post-modal .modal-content,
+#hotel-post-modal .modal-content,
+#property-post-modal .modal-content,
+#land-post-modal .modal-content,
+#teacher-post-modal .modal-content,
+#internship-post-modal .modal-content,
+#attachment-post-modal .modal-content,
+#training-post-modal .modal-content,
+#alert-post-modal .modal-content {
+    width: 95% !important;
+    max-width: 480px !important;
+    margin: 10px auto !important;
 }
 
 [data-theme="dark"] .modal-content {
@@ -3228,9 +3249,23 @@ select.form-input {
 /* ========== 35. STATS CARDS ========== */
 .stats-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
     margin: 20px 0;
+}
+
+@media (max-width: 480px) {
+    .stats-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
 }
 
 .stat-card {
@@ -3884,4 +3919,64 @@ input:checked + .slider:before {
 
 .visible {
     display: block !important;
+}
+
+/* ========== 48. FORCE MOBILE VIEW FOR ALL ELEMENTS ========== */
+/* Force all modals to never exceed mobile width */
+.modal,
+#service-post-modal,
+#job-post-modal,
+#marketplace-post-modal,
+#gas-refill-post-modal,
+#water-delivery-post-modal,
+#hotel-post-modal,
+#property-post-modal,
+#land-post-modal,
+#teacher-post-modal,
+#internship-post-modal,
+#attachment-post-modal,
+#training-post-modal,
+#alert-post-modal {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 10px !important;
+}
+
+.modal[style*="display: none"],
+#service-post-modal[style*="display: none"],
+#job-post-modal[style*="display: none"],
+#marketplace-post-modal[style*="display: none"] {
+    display: none !important;
+}
+
+/* Force marketplace items to never exceed container */
+.market-item {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+.market-item-img {
+    max-width: 100% !important;
+}
+
+.market-item-img img {
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+/* Force service cards to mobile */
+.service-card {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Force job cards to mobile */
+.job-card {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
