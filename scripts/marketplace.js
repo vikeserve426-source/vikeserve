@@ -1575,11 +1575,21 @@ function setupMarketplaceButtons() {
 
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
+        // Force marketplace container to single column
+        const container = document.getElementById('marketplace-items-container');
+        if (container) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '15px';
+            container.style.width = '100%';
+            container.style.maxWidth = '100%';
+        }
+        
         setupFilterButtons();
         setupMarketplaceSearch();
         setupMarketplaceButtons();
         loadMarketplaceItems('all');
-        console.log('✅ Marketplace fully loaded');
+        console.log('✅ Marketplace fully loaded with mobile view');
     }, 300);
 });
 
