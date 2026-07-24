@@ -2603,97 +2603,110 @@ showPrivacyPolicy() {
     }
 
     async loadUserPoints() {
-        if (!this.currentUser) return 0;
-        
-        try {
-            let points = 0;
-            if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPoints) {
-                points = await window.reviewsManager.getUserPoints(this.currentUser.uid);
-            } else {
-                const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
-                points = userDoc.exists ? (userDoc.data().points || 0) : 0;
-            }
-            
-            const pointsDisplay = document.getElementById('user-points-display');
-            if (pointsDisplay) {
-                pointsDisplay.textContent = points.toLocaleString();
-            }
-            
-            return points;
-        } catch (error) {
-            console.error('Error loading user points:', error);
-            return 0;
+    if (!this.currentUser) return 0;
+    
+    try {
+        let points = 0;
+        // Use reviewsManager if available
+        if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPoints) {
+            points = await window.reviewsManager.getUserPoints(this.currentUser.uid);
+        } else {
+            const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+            points = userDoc.exists ? (userDoc.data().points || 0) : 0;
         }
+        
+        // Update all points displays
+        const pointsDisplay = document.getElementById('user-points-display');
+        if (pointsDisplay) {
+            pointsDisplay.textContent = points.toLocaleString();
+        }
+        
+        // Also update any other points displays
+        document.querySelectorAll('.user-points-display').forEach(el => {
+            el.textContent = points.toLocaleString();
+        });
+        
+        return points;
+    } catch (error) {
+        console.error('Error loading user points:', error);
+        return 0;
     }
+}
     
     async showPointsHistory() {
-        if (!this.currentUser) {
-            this.showToast('Please sign in to view points history', 'warning');
-            if (typeof window.openAuthModal === 'function') window.openAuthModal();
-            return;
+    if (!this.currentUser) {
+        this.showToast('Please sign in to view points history', 'warning');
+        if (typeof window.openAuthModal === 'function') window.openAuthModal();
+        return;
+    }
+    
+    try {
+        let transactions = [];
+        // Use reviewsManager if available
+        if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPointsHistory) {
+            transactions = await window.reviewsManager.getUserPointsHistory(this.currentUser.uid, 50);
+        } else {
+            const snapshot = await this.db.collection('points_transactions')
+                .where('userId', '==', this.currentUser.uid)
+                .orderBy('createdAt', 'desc')
+                .limit(50)
+                .get();
+            transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
         
-        try {
-            let transactions = [];
-            if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPointsHistory) {
-                transactions = await window.reviewsManager.getUserPointsHistory(this.currentUser.uid, 50);
-            } else {
-                const snapshot = await this.db.collection('points_transactions')
-                    .where('userId', '==', this.currentUser.uid)
-                    .orderBy('createdAt', 'desc')
-                    .limit(50)
-                    .get();
-                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            }
+        // Render transactions in a modal with better details
+        const historyHtml = transactions.map(t => {
+            const date = t.createdAt?.toDate ? this.formatDate(t.createdAt.toDate()) : this.formatDate(t.createdAt);
+            const isEarn = t.amount > 0;
+            const reasonText = t.reason || (isEarn ? 'Review received' : 'Ad promotion');
+            const isReviewEarn = t.reason === 'review_received' || t.reason === 'earn' || isEarn;
             
-            const historyHtml = transactions.map(t => {
-                const date = t.createdAt?.toDate ? this.formatDate(t.createdAt.toDate()) : this.formatDate(t.createdAt);
-                const isEarn = t.amount > 0;
-                return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
-                        <div>
-                            <div style="font-weight: 600;">${isEarn ? '🎁 Earned' : '💎 Redeemed'}</div>
-                            <div style="font-size: 0.7rem; color: var(--grey-dark);">${t.reason || (isEarn ? 'Review received' : 'Ad promotion')}</div>
-                            ${t.packageName ? `<div style="font-size: 0.7rem; color: var(--grey-dark);">Package: ${this.escapeHtml(t.packageName)}</div>` : ''}
-                            <div style="font-size: 0.65rem; color: var(--grey-dark);">${date}</div>
-                        </div>
-                        <div style="font-weight: 700; color: ${isEarn ? '#27ae60' : '#e74c3c'};">
-                            ${isEarn ? `+${t.amount}` : `${t.amount}`} pts
-                        </div>
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
+                    <div>
+                        <div style="font-weight: 600;">${isEarn ? '🎁 Earned' : '💎 Redeemed'}</div>
+                        <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.escapeHtml(reasonText)}</div>
+                        ${t.rating ? `<div style="font-size: 0.7rem; color: var(--grey-dark);">⭐ ${t.rating} stars</div>` : ''}
+                        ${t.packageName ? `<div style="font-size: 0.7rem; color: var(--grey-dark);">Package: ${this.escapeHtml(t.packageName)}</div>` : ''}
+                        <div style="font-size: 0.65rem; color: var(--grey-dark);">${date}</div>
                     </div>
-                `;
-            }).join('');
-            
-            const modalContent = `
-                <div class="modal-content" style="max-width: 400px; max-height: 70vh; overflow-y: auto;">
-                    <div class="modal-header">
-                        <div class="modal-title"><i class="fas fa-history"></i> Points History</div>
-                        <button class="close-modal-btn" onclick="closePointsHistoryModal()">&times;</button>
-                    </div>
-                    <div style="padding: 15px;">
-                        ${transactions.length === 0 ? '<div style="text-align: center; padding: 40px;">No points transactions yet.</div>' : historyHtml}
+                    <div style="font-weight: 700; color: ${isEarn ? '#27ae60' : '#e74c3c'};">
+                        ${isEarn ? `+${t.amount}` : `${t.amount}`} pts
                     </div>
                 </div>
             `;
-            
-            const modal = document.createElement('div');
-            modal.id = 'points-history-modal';
-            modal.className = 'modal';
-            modal.style.display = 'flex';
-            modal.style.zIndex = '20002';
-            modal.innerHTML = modalContent;
-            document.body.appendChild(modal);
-            
-            window.closePointsHistoryModal = () => {
-                const m = document.getElementById('points-history-modal');
-                if (m) m.remove();
-            };
-            
-        } catch (error) {
-            console.error('Error loading points history:', error);
-            this.showToast('Error loading points history', 'error');
-        }
+        }).join('');
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; max-height: 70vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-history"></i> Points History</div>
+                    <button class="close-modal-btn" onclick="closePointsHistoryModal()">&times;</button>
+                </div>
+                <div style="padding: 15px;">
+                    ${transactions.length === 0 ? '<div style="text-align: center; padding: 40px;">No points transactions yet.<br><small style="color: var(--grey-dark);">Earn points by receiving reviews!</small></div>' : historyHtml}
+                </div>
+            </div>
+        `;
+        
+        const modal = document.createElement('div');
+        modal.id = 'points-history-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '20002';
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+        
+        window.closePointsHistoryModal = () => {
+            const m = document.getElementById('points-history-modal');
+            if (m) m.remove();
+        };
+        
+    } catch (error) {
+        console.error('Error loading points history:', error);
+        this.showToast('Error loading points history', 'error');
     }
+}
     
     formatDate(timestamp) {
         if (!timestamp) return 'Recently';
