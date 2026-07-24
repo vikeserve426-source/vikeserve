@@ -3885,3 +3885,98 @@ input:checked + .slider:before {
 .visible {
     display: block !important;
 }
+
+/* ============================================
+   FORCE MOBILE VIEW FOR SERVICES & MARKETPLACE
+   ============================================ */
+
+/* Services Tab - Force mobile single column */
+#services-list-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+#services-list-container .service-card,
+#services-list-container .job-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+}
+
+/* Marketplace Tab - Force mobile single column */
+#marketplace-items-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+#marketplace-items-container .market-item,
+#marketplace-items-container .property-listing {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+}
+
+/* Kill any grid that might appear */
+.market-items {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    width: 100% !important;
+}
+
+/* Override any inline styles that might break this */
+[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+}
+
+/* Force all market items to full width */
+#marketplace-items-container > *,
+#services-list-container > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Mobile override for all screens */
+@media (max-width: 768px) {
+    #services-list-container,
+    #marketplace-items-container {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    #services-list-container .service-card,
+    #services-list-container .job-card,
+    #marketplace-items-container .market-item,
+    #marketplace-items-container .property-listing {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .market-items {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Force any element with grid to be single column */
+.market-filters ~ .market-items {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Service cards in services tab - force single column */
+#services-tab .service-card,
+#services-tab .job-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
