@@ -674,10 +674,12 @@ body {
 
 /* ========== 10. MARKETPLACE ========== */
 .market-items {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    padding: 0 4px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 0 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 .market-item {
@@ -3573,8 +3575,9 @@ input:checked + .slider:before {
     }
 
     .market-items {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
     }
 
     .market-item-img {
@@ -3717,8 +3720,9 @@ input:checked + .slider:before {
     }
 
     .market-items {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
     }
 
     .market-item-img {
