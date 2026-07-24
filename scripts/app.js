@@ -97,7 +97,7 @@ class VikeServeApp {
     // ========== LOAD STATS COUNTS ==========
     async loadStatsCounts() {
         try {
-            // Count active services (status = 'active')
+            // Count active services/jobs
             const servicesSnapshot = await firebase.firestore()
                 .collection('services')
                 .where('status', '==', 'active')
@@ -118,22 +118,51 @@ class VikeServeApp {
                 verifiedWorkers = allUsersSnapshot.size;
             }
             
-            // Update UI
-            const jobsEl = document.getElementById('active-jobs-count');
-            const workersEl = document.getElementById('verified-workers-count');
-            if (jobsEl) jobsEl.textContent = activeServices;
-            if (workersEl) workersEl.textContent = verifiedWorkers;
+            // Count total users
+            const totalUsersSnapshot = await firebase.firestore().collection('users').get();
+            const totalUsers = totalUsersSnapshot.size;
             
-            console.log(`📊 Stats: ${activeServices} active services/jobs, ${verifiedWorkers} verified workers`);
-            return { activeServices, verifiedWorkers };
+            // Count marketplace items
+            const marketplaceSnapshot = await firebase.firestore()
+                .collection('marketplace_items')
+                .where('status', '==', 'active')
+                .get();
+            const marketplaceItems = marketplaceSnapshot.size;
+            
+            // Count total bookings
+            const bookingsSnapshot = await firebase.firestore().collection('bookings').get();
+            const totalBookings = bookingsSnapshot.size;
+            
+            // Count reviews
+            const reviewsSnapshot = await firebase.firestore().collection('reviews').get();
+            const totalReviews = reviewsSnapshot.size;
+            
+            // Update all 6 stats
+            const statsElements = {
+                'active-jobs-count': activeServices,
+                'verified-workers-count': verifiedWorkers,
+                'total-users-count': totalUsers,
+                'marketplace-items-count': marketplaceItems,
+                'total-bookings-count': totalBookings,
+                'reviews-count': totalReviews
+            };
+            
+            Object.entries(statsElements).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            });
+            
+            console.log(`📊 Stats: ${activeServices} jobs, ${verifiedWorkers} workers, ${totalUsers} users, ${marketplaceItems} items, ${totalBookings} bookings, ${totalReviews} reviews`);
+            return { activeServices, verifiedWorkers, totalUsers, marketplaceItems, totalBookings, totalReviews };
         } catch (error) {
             console.error('Error loading stats:', error);
-            // Show fallback values
-            const jobsEl = document.getElementById('active-jobs-count');
-            const workersEl = document.getElementById('verified-workers-count');
-            if (jobsEl) jobsEl.textContent = '0';
-            if (workersEl) workersEl.textContent = '0';
-            return { activeServices: 0, verifiedWorkers: 0 };
+            // Show fallback values (all 0)
+            const ids = ['active-jobs-count', 'verified-workers-count', 'total-users-count', 'marketplace-items-count', 'total-bookings-count', 'reviews-count'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '0';
+            });
+            return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
         }
     }
 
