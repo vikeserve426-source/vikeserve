@@ -424,6 +424,14 @@ async function loadHousingListings(type, filters = {}) {
 function createHousingListingElement(listing) {
     const div = document.createElement('div');
     div.className = 'property-listing';
+
+div.style.cssText = `
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    `;
+
     div.setAttribute('data-id', listing.id);
     div.innerHTML = `
         <div class="property-image" style="cursor: pointer;">

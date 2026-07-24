@@ -118,6 +118,14 @@ async function isAdPromoted(adId) {
 function createMarketplaceItemElement(item) {
     const div = document.createElement('div');
     div.className = 'market-item';
+
+div.style.cssText = `
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    `;
+
     div.setAttribute('data-ad-id', item.id);
     div.setAttribute('data-category', item.category);
     div.setAttribute('data-seller-id', item.userId);

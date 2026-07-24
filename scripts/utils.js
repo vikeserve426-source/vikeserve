@@ -127,15 +127,30 @@ function showModalWithContent(modalId, content) {
         document.body.appendChild(modal);
     }
     modal.innerHTML = content;
-    modal.style.display = 'flex';
-    modal.style.zIndex = '20000';  // Add this line
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    modal.style.overflowY = 'auto';
+    modal.style.cssText = `
+        display: flex !important;
+        z-index: 20002 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        overflow-y: auto !important;
+        padding: 20px !important;
+        box-sizing: border-box !important;
+    `;
+    
+    // Ensure modal-content inside also respects max-width
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.style.cssText = `
+            max-width: 500px !important;
+            width: 100% !important;
+            margin: 10px auto !important;
+            box-sizing: border-box !important;
+        `;
+    }
 }
 
 // ========== STAR RATING ==========

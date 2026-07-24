@@ -248,6 +248,14 @@ async function loadUrgentJobs(limit = 5) {
 function createJobElement(job) {
     const div = document.createElement('div');
     div.className = 'job-card';
+
+div.style.cssText = `
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    `;
+
     const isJob = job.isJob || job.type === 'job';
     const typeBadge = isJob ? '<span class="job-tag job-type">Job</span>' : '<span class="job-tag service-type">Service</span>';
     
@@ -312,6 +320,14 @@ async function loadServices(category = null, limit = 20) {
 function createServiceElement(service) {
     const div = document.createElement('div');
     div.className = 'service-card';
+
+div.style.cssText = `
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    `;
+
     div.setAttribute('data-provider-id', service.userId);
     
     const currentUser = firebase.auth().currentUser;
