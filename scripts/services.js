@@ -1175,29 +1175,57 @@ document.addEventListener('DOMContentLoaded', function() {
     
     setTimeout(loadUrgentJobs, 500);
     setTimeout(() => loadServices(), 1000);
+});
+
+// ========== FIX: Service Modal Buttons ==========
+function setupServiceModalButtons() {
+    console.log('🔧 Setting up service modal buttons...');
     
     const serviceBtn = document.getElementById('service-post-btn');
     if (serviceBtn) {
-        const newServiceBtn = serviceBtn.cloneNode(true);
-        serviceBtn.parentNode.replaceChild(newServiceBtn, serviceBtn);
-        newServiceBtn.addEventListener('click', (e) => {
+        const newBtn = serviceBtn.cloneNode(true);
+        serviceBtn.parentNode.replaceChild(newBtn, serviceBtn);
+        newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            showServicePostModal();
+            console.log('🖱️ Service post button clicked');
+            if (typeof window.showServicePostModal === 'function') {
+                window.showServicePostModal();
+            } else {
+                console.error('❌ showServicePostModal not found');
+                window.showToast('Service form not available', 'error');
+            }
         });
+        console.log('✅ Service post button handler attached');
     }
     
     const jobBtn = document.getElementById('job-post-btn');
     if (jobBtn) {
-        const newJobBtn = jobBtn.cloneNode(true);
-        jobBtn.parentNode.replaceChild(newJobBtn, jobBtn);
-        newJobBtn.addEventListener('click', (e) => {
+        const newBtn = jobBtn.cloneNode(true);
+        jobBtn.parentNode.replaceChild(newBtn, jobBtn);
+        newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            showJobPostModal();
+            console.log('🖱️ Job post button clicked');
+            if (typeof window.showJobPostModal === 'function') {
+                window.showJobPostModal();
+            } else {
+                console.error('❌ showJobPostModal not found');
+                window.showToast('Job form not available', 'error');
+            }
         });
+        console.log('✅ Job post button handler attached');
+    }
+}
+
+// Make sure it runs on tab switch to services
+document.addEventListener('tabChanged', function(e) {
+    if (e.detail && e.detail.tabId === 'services-tab') {
+        setTimeout(setupServiceModalButtons, 300);
     }
 });
+
+window.setupServiceModalButtons = setupServiceModalButtons;
 
 // ========== EDIT SERVICE FUNCTIONALITY ==========
 async function editServiceItem(serviceId) {

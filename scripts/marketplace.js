@@ -1601,6 +1601,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 300);
 });
 
+// ========== FIX: Marketplace Modal Buttons ==========
+function setupMarketplaceModalButtons() {
+    console.log('🔧 Setting up marketplace modal buttons...');
+    
+    const buttons = [
+        { id: 'marketplace-post-btn', handler: showMarketplacePostModal },
+        { id: 'gas-refill-post-btn', handler: showGasRefillPostModal },
+        { id: 'water-delivery-post-btn', handler: showWaterDeliveryPostModal },
+        { id: 'hotel-post-btn', handler: showHotelPostModal },
+        { id: 'property-post-btn', handler: showPropertyPostModal },
+        { id: 'land-post-btn', handler: showLandPostModal }
+    ];
+    
+    buttons.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            const newElement = element.cloneNode(true);
+            element.parentNode.replaceChild(newElement, element);
+            newElement.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🖱️ ${btn.id} clicked`);
+                btn.handler();
+            });
+            console.log(`✅ ${btn.id} handler attached`);
+        }
+    });
+    
+    // Submit buttons
+    const submitBtns = [
+        { id: 'submit-marketplace-btn', handler: submitMarketplaceItem },
+        { id: 'submit-gas-btn', handler: submitGasRefillListing },
+        { id: 'submit-water-btn', handler: submitWaterDeliveryListing },
+        { id: 'submit-hotel-btn', handler: submitHotelListing },
+        { id: 'submit-property-btn', handler: submitProperty },
+        { id: 'submit-land-btn', handler: submitLandListing }
+    ];
+    
+    submitBtns.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            const newElement = element.cloneNode(true);
+            element.parentNode.replaceChild(newElement, element);
+            newElement.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🖱️ ${btn.id} clicked`);
+                btn.handler();
+            });
+        }
+    });
+    
+    console.log('✅ Marketplace buttons setup complete');
+}
+
+// Make sure it runs on tab switch to marketplace
+document.addEventListener('tabChanged', function(e) {
+    if (e.detail && e.detail.tabId === 'marketplace-tab') {
+        setTimeout(setupMarketplaceModalButtons, 300);
+    }
+});
+
+window.setupMarketplaceModalButtons = setupMarketplaceModalButtons;
+
 window.loadMarketplaceItems = loadMarketplaceItems;
 window.viewListingDetails = viewListingDetails;
 window.contactSeller = contactSeller;

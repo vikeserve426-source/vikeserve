@@ -917,6 +917,154 @@ class VikeServeApp {
     }
 }
 
+// ========================================
+// FIX: Modal Button Handlers (Re-attach after DOM changes)
+// ========================================
+
+function setupAllModalHandlers() {
+    console.log('🔧 Setting up ALL modal button handlers...');
+    
+    // ========== SERVICES TAB ==========
+    const serviceBtn = document.getElementById('service-post-btn');
+    if (serviceBtn) {
+        const newBtn = serviceBtn.cloneNode(true);
+        serviceBtn.parentNode.replaceChild(newBtn, serviceBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Service post button clicked');
+            if (typeof window.showServicePostModal === 'function') {
+                window.showServicePostModal();
+            } else {
+                console.error('❌ showServicePostModal not found');
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Service form not available', 'error');
+                }
+            }
+        });
+        console.log('✅ Service post button handler attached');
+    }
+    
+    const jobBtn = document.getElementById('job-post-btn');
+    if (jobBtn) {
+        const newBtn = jobBtn.cloneNode(true);
+        jobBtn.parentNode.replaceChild(newBtn, jobBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Job post button clicked');
+            if (typeof window.showJobPostModal === 'function') {
+                window.showJobPostModal();
+            } else {
+                console.error('❌ showJobPostModal not found');
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Job form not available', 'error');
+                }
+            }
+        });
+        console.log('✅ Job post button handler attached');
+    }
+    
+    // ========== MARKETPLACE TAB ==========
+    const marketBtn = document.getElementById('marketplace-post-btn');
+    if (marketBtn) {
+        const newBtn = marketBtn.cloneNode(true);
+        marketBtn.parentNode.replaceChild(newBtn, marketBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Marketplace post button clicked');
+            if (typeof window.showMarketplacePostModal === 'function') {
+                window.showMarketplacePostModal();
+            } else {
+                console.error('❌ showMarketplacePostModal not found');
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Marketplace form not available', 'error');
+                }
+            }
+        });
+        console.log('✅ Marketplace post button handler attached');
+    }
+    
+    const gasBtn = document.getElementById('gas-refill-post-btn');
+    if (gasBtn) {
+        const newBtn = gasBtn.cloneNode(true);
+        gasBtn.parentNode.replaceChild(newBtn, gasBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Gas refill button clicked');
+            if (typeof window.showGasRefillPostModal === 'function') {
+                window.showGasRefillPostModal();
+            }
+        });
+        console.log('✅ Gas refill button handler attached');
+    }
+    
+    const waterBtn = document.getElementById('water-delivery-post-btn');
+    if (waterBtn) {
+        const newBtn = waterBtn.cloneNode(true);
+        waterBtn.parentNode.replaceChild(newBtn, waterBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Water delivery button clicked');
+            if (typeof window.showWaterDeliveryPostModal === 'function') {
+                window.showWaterDeliveryPostModal();
+            }
+        });
+        console.log('✅ Water delivery button handler attached');
+    }
+    
+    const hotelBtn = document.getElementById('hotel-post-btn');
+    if (hotelBtn) {
+        const newBtn = hotelBtn.cloneNode(true);
+        hotelBtn.parentNode.replaceChild(newBtn, hotelBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Hotel button clicked');
+            if (typeof window.showHotelPostModal === 'function') {
+                window.showHotelPostModal();
+            }
+        });
+        console.log('✅ Hotel button handler attached');
+    }
+    
+    const propertyBtn = document.getElementById('property-post-btn');
+    if (propertyBtn) {
+        const newBtn = propertyBtn.cloneNode(true);
+        propertyBtn.parentNode.replaceChild(newBtn, propertyBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Property button clicked');
+            if (typeof window.showPropertyPostModal === 'function') {
+                window.showPropertyPostModal();
+            }
+        });
+        console.log('✅ Property button handler attached');
+    }
+    
+    const landBtn = document.getElementById('land-post-btn');
+    if (landBtn) {
+        const newBtn = landBtn.cloneNode(true);
+        landBtn.parentNode.replaceChild(newBtn, landBtn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Land button clicked');
+            if (typeof window.showLandPostModal === 'function') {
+                window.showLandPostModal();
+            }
+        });
+        console.log('✅ Land button handler attached');
+    }
+    
+    console.log('✅ All modal button handlers setup complete');
+}
+
+// Call on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new VikeServeApp();
     
@@ -925,9 +1073,21 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
     
+    // Setup modal handlers after app initializes
+    setTimeout(setupAllModalHandlers, 500);
+    
     window.addEventListener('beforeunload', () => {
         if (window.app && typeof window.app.destroy === 'function') {
             window.app.destroy();
         }
     });
 });
+
+// Also call when tab changes
+document.addEventListener('tabChanged', function(e) {
+    console.log('🔄 Tab changed, reattaching modal handlers...');
+    setTimeout(setupAllModalHandlers, 300);
+});
+
+// Expose to window
+window.setupAllModalHandlers = setupAllModalHandlers;
