@@ -813,39 +813,56 @@ h6 {
    14: MORE MENU (Slide-up Panel)
    ======================================== */
 
+/* Overlay for when More Menu is open */
+.more-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 898;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.more-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
 .more-section {
     position: fixed;
     bottom: 0;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(100%);
     width: 100%;
     max-width: var(--container-max-width);
     background: var(--more-menu-bg);
-    border-radius: var(--more-menu-radius);
+    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
     box-shadow: var(--shadow-xl);
     max-height: var(--more-menu-max-height);
-    z-index: 900;
-    display: none;
-    /* CHANGE: Remove overflow: hidden, allow scrolling on children */
-    overflow: visible;
-    animation: slideUp 0.3s ease;
-}
-.more-section.active {
+    z-index: 899;
     display: flex;
     flex-direction: column;
-    /* ADD: Ensure height is constrained */
+    transition: transform 0.3s ease;
+    overflow: hidden;
     height: var(--more-menu-max-height);
 }
-
-@keyframes slideUp {
-    from {
-        transform: translateX(-50%) translateY(100%);
-    }
-    to {
-        transform: translateX(-50%) translateY(0);
-    }
+.more-section.active {
+    transform: translateX(-50%) translateY(0);
 }
 
+/* Hide app content when more menu is open */
+body.more-open .app-content,
+body.more-open .bottom-nav,
+body.more-open .app-header {
+    filter: blur(2px);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* More header */
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -853,107 +870,9 @@ h6 {
     padding: var(--space-lg) var(--space-lg) var(--space-md);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    /* ADD: Ensure header stays at top */
     min-height: 56px;
-}
-
-.more-tab-nav {
-    display: flex;
-    overflow-x: auto;
-    padding: var(--space-sm) var(--space-lg);
-    gap: var(--space-sm);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-    -webkit-overflow-scrolling: touch;
-    /* ADD: Prevent nav from shrinking */
-    min-height: 60px;
-}
-.more-tab-nav::-webkit-scrollbar {
-    height: 0;
-}
-
-.more-tab-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
-    font-size: var(--font-size-xs);
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: all 0.2s;
-    white-space: nowrap;
-    min-width: 56px;
-}
-.more-tab-btn .more-tab-icon {
-    font-size: var(--font-size-md);
-    margin-bottom: 2px;
-}
-.more-tab-btn.active {
-    color: var(--primary);
-}
-.more-tab-btn.active .more-tab-icon {
-    color: var(--primary);
-}
-
-/* ========================================
-   FIX: More Tab Content - Scrollable
-   ======================================== */
-
-.more-tab-content {
-    display: none;
-    padding: var(--space-lg);
-    /* CHANGE: Make content area scrollable */
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
-    /* ADD: Minimum height to allow scrolling */
-    min-height: 200px;
-    max-height: calc(var(--more-menu-max-height) - 130px);
-    -webkit-overflow-scrolling: touch;
-}
-.more-tab-content.active {
-    display: block;
-    animation: fadeIn 0.2s ease;
-}
-
-/* Ensure the parent flex container allows scrolling */
-#more-section {
-    overflow: hidden; /* Keep this to prevent panel from overflowing, but allow inner scroll */
-}
-
-/* Fix: Ensure content containers inside tabs are scrollable */
-#education-content,
-#alerts-content,
-#messages-content,
-#safety-content,
-#settings-content {
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
-    max-height: calc(var(--more-menu-max-height) - 130px) !important;
-    min-height: 200px !important;
-    padding: var(--space-lg);
-    box-sizing: border-box;
-}
-
-/* Fix: Lists inside tabs should also scroll if needed */
-#teachers-list-container,
-#internships-list-container,
-#attachments-list-container,
-#training-list-container,
-#alerts-list-container,
-#conversations-list-container {
-    overflow-y: auto;
-    max-height: 100%;
-}
-
-/* Fix: Chat messages area */
-#chat-messages-area {
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    max-height: 50vh !important;
+    background: var(--more-menu-bg);
+    z-index: 1;
 }
 
 /* ========================================
@@ -2776,4 +2695,139 @@ select.form-input {
         margin: 0 !important;
         border-radius: 0 !important;
     }
+}
+
+/* ========================================
+   FIX: More Menu Overlay and Background Blur
+   ======================================== */
+
+/* More Menu Overlay */
+.more-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 898;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.more-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+/* Body state when more menu is open */
+body.more-open {
+    overflow: hidden;
+}
+
+/* Blur background content when more menu is open */
+body.more-open .app-content,
+body.more-open .bottom-nav,
+body.more-open .app-header {
+    filter: blur(3px);
+    pointer-events: none;
+    user-select: none;
+    transition: filter 0.3s ease;
+}
+
+/* More Section - slide up */
+.more-section {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: 100%;
+    max-width: var(--container-max-width);
+    background: var(--more-menu-bg);
+    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
+    box-shadow: var(--shadow-xl);
+    max-height: var(--more-menu-max-height);
+    z-index: 899;
+    display: none;
+    flex-direction: column;
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow: hidden;
+    height: var(--more-menu-max-height);
+}
+.more-section.active {
+    display: flex !important;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* More header - sticky */
+.more-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-lg) var(--space-lg) var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    min-height: 56px;
+    background: var(--more-menu-bg);
+    z-index: 1;
+}
+
+/* More tab nav - sticky */
+.more-tab-nav {
+    display: flex;
+    overflow-x: auto;
+    padding: var(--space-sm) var(--space-lg);
+    gap: var(--space-sm);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    -webkit-overflow-scrolling: touch;
+    background: var(--more-menu-bg);
+    min-height: 60px;
+}
+.more-tab-nav::-webkit-scrollbar {
+    height: 0;
+}
+
+/* More tab content - scrollable */
+.more-tab-content {
+    display: none;
+    padding: var(--space-lg);
+    overflow-y: auto;
+    flex: 1 1 auto;
+    -webkit-overflow-scrolling: touch;
+    height: 100%;
+    min-height: 200px;
+    max-height: calc(var(--more-menu-max-height) - 130px);
+}
+.more-tab-content.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+/* Scrollable containers inside tabs */
+#education-content,
+#alerts-content,
+#messages-content,
+#safety-content,
+#settings-content {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    max-height: calc(var(--more-menu-max-height) - 130px) !important;
+    min-height: 200px !important;
+    padding: var(--space-lg);
+    box-sizing: border-box;
+}
+
+/* Chat messages area */
+#chat-messages-area {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 50vh !important;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .more-overlay {
+    background: rgba(0, 0, 0, 0.7);
 }

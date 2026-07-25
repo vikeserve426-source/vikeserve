@@ -229,57 +229,97 @@ class VikeServeApp {
     }
 
     openMoreMenu() {
-        const moreSection = document.getElementById('more-section');
-        const mainNav = document.querySelector('.bottom-nav');
-        const moreBottomNav = document.querySelector('.more-bottom-nav');
-        
-        if (moreSection) {
-            moreSection.style.display = 'block';
+    console.log('🔓 Opening More Menu...');
+    
+    const moreSection = document.getElementById('more-section');
+    const overlay = document.getElementById('more-overlay');
+    const mainNav = document.querySelector('.bottom-nav');
+    const moreBottomNav = document.querySelector('.more-bottom-nav');
+    
+    // Show overlay
+    if (overlay) {
+        overlay.style.display = 'block';
+        setTimeout(() => {
+            overlay.classList.add('active');
+        }, 10);
+    }
+    
+    // Show more section
+    if (moreSection) {
+        moreSection.style.display = 'flex';
+        setTimeout(() => {
             moreSection.classList.add('active');
+        }, 10);
+    }
+    
+    // Hide main nav, show more nav
+    if (mainNav) mainNav.style.display = 'none';
+    if (moreBottomNav) moreBottomNav.style.display = 'flex';
+    
+    // Add class to body to blur background
+    document.body.classList.add('more-open');
+    
+    // Update nav item
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
+    if (moreNav) moreNav.classList.add('active');
+    
+    // Trigger more menu manager
+    if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
+        window.moreMenuManager.onMenuOpen();
+    }
+    
+    if (window.moreMenuManager) {
+        if (typeof window.moreMenuManager.switchMoreTab === 'function') {
+            window.moreMenuManager.switchMoreTab('education');
         }
-        if (mainNav) mainNav.style.display = 'none';
-        if (moreBottomNav) moreBottomNav.style.display = 'flex';
+    } else {
+        const defaultTab = document.getElementById('education-content');
+        if (defaultTab) defaultTab.classList.add('active');
         
-        document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
-        if (moreNav) moreNav.classList.add('active');
-        
-        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
-            window.moreMenuManager.onMenuOpen();
-        }
-        
-        if (window.moreMenuManager) {
-            if (typeof window.moreMenuManager.switchMoreTab === 'function') {
-                window.moreMenuManager.switchMoreTab('education');
-            }
-        } else {
-            const defaultTab = document.getElementById('education-content');
-            if (defaultTab) defaultTab.classList.add('active');
-            
-            if (typeof MoreMenuManager !== 'undefined' && !window.moreMenuManager) {
-                window.moreMenuManager = new MoreMenuManager();
-            }
+        if (typeof MoreMenuManager !== 'undefined' && !window.moreMenuManager) {
+            window.moreMenuManager = new MoreMenuManager();
         }
     }
+}
 
-    closeMoreMenu() {
-        const moreSection = document.getElementById('more-section');
-        const mainNav = document.querySelector('.bottom-nav');
-        const moreBottomNav = document.querySelector('.more-bottom-nav');
-        
-        if (moreSection) {
-            moreSection.style.display = 'none';
-            moreSection.classList.remove('active');
-        }
-        if (mainNav) mainNav.style.display = 'flex';
-        if (moreBottomNav) moreBottomNav.style.display = 'none';
-        
-        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
-            window.moreMenuManager.onMenuClose();
-        }
+closeMoreMenu() {
+    console.log('🔒 Closing More Menu...');
+    
+    const moreSection = document.getElementById('more-section');
+    const overlay = document.getElementById('more-overlay');
+    const mainNav = document.querySelector('.bottom-nav');
+    const moreBottomNav = document.querySelector('.more-bottom-nav');
+    
+    // Hide overlay
+    if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 300);
     }
+    
+    // Hide more section with animation
+    if (moreSection) {
+        moreSection.classList.remove('active');
+        setTimeout(() => {
+            moreSection.style.display = 'none';
+        }, 300);
+    }
+    
+    // Show main nav, hide more nav
+    if (mainNav) mainNav.style.display = 'flex';
+    if (moreBottomNav) moreBottomNav.style.display = 'none';
+    
+    // Remove body class
+    document.body.classList.remove('more-open');
+    
+    if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
+        window.moreMenuManager.onMenuClose();
+    }
+}
 
     ensureMoreMenuConnection() {
         const timeoutId = setTimeout(() => {
