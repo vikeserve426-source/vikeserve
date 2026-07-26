@@ -628,6 +628,13 @@ function updateProfileUI(userProfile) {
             profileAvatar.style.backgroundColor = getColorFromInitial(initial);
         }
     }
+    
+    // Check if user is founder and update badge
+    if (userProfile.role === 'founder') {
+        document.body.classList.add('founder');
+    } else {
+        document.body.classList.remove('founder');
+    }
 }
 
 function getColorFromInitial(initial) {

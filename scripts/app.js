@@ -94,9 +94,25 @@ class VikeServeApp {
         this.handleInitialTabFromURL();
     }
 
-    // ========== LOAD STATS COUNTS ==========
+    // ========== LOAD STATS COUNTS (UPDATED - Hide Total Users from Non-Founders) ==========
     async loadStatsCounts() {
         try {
+            // Check if current user is founder
+            let isFounder = false;
+            let userRole = 'user';
+            
+            if (this.currentUser) {
+                try {
+                    const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
+                    if (userDoc.exists) {
+                        userRole = userDoc.data().role || 'user';
+                        isFounder = userRole === 'founder';
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch user role:', e);
+                }
+            }
+            
             // Count active services/jobs
             const servicesSnapshot = await firebase.firestore()
                 .collection('services')
@@ -118,9 +134,12 @@ class VikeServeApp {
                 verifiedWorkers = allUsersSnapshot.size;
             }
             
-            // Count total users
-            const totalUsersSnapshot = await firebase.firestore().collection('users').get();
-            const totalUsers = totalUsersSnapshot.size;
+            // Count total users (ONLY if founder)
+            let totalUsers = 0;
+            if (isFounder) {
+                const totalUsersSnapshot = await firebase.firestore().collection('users').get();
+                totalUsers = totalUsersSnapshot.size;
+            }
             
             // Count marketplace items
             const marketplaceSnapshot = await firebase.firestore()
@@ -137,31 +156,48 @@ class VikeServeApp {
             const reviewsSnapshot = await firebase.firestore().collection('reviews').get();
             const totalReviews = reviewsSnapshot.size;
             
-            // Update all 6 stats
+            // Update stats - hide total users if not founder
             const statsElements = {
                 'active-jobs-count': activeServices,
                 'verified-workers-count': verifiedWorkers,
-                'total-users-count': totalUsers,
                 'marketplace-items-count': marketplaceItems,
                 'total-bookings-count': totalBookings,
                 'reviews-count': totalReviews
             };
+            
+            // Only update total-users-count if founder
+            if (isFounder) {
+                statsElements['total-users-count'] = totalUsers;
+            }
             
             Object.entries(statsElements).forEach(([id, value]) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             });
             
-            console.log(`📊 Stats: ${activeServices} jobs, ${verifiedWorkers} workers, ${totalUsers} users, ${marketplaceItems} items, ${totalBookings} bookings, ${totalReviews} reviews`);
+            // Hide the "Total Users" stat card from non-founders
+            const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
+            if (totalUsersContainer) {
+                if (!isFounder) {
+                    totalUsersContainer.style.display = 'none';
+                } else {
+                    totalUsersContainer.style.display = 'block';
+                }
+            }
+            
+            console.log(`📊 Stats: ${activeServices} jobs, ${verifiedWorkers} workers, ${isFounder ? totalUsers : 'hidden'} users, ${marketplaceItems} items, ${totalBookings} bookings, ${totalReviews} reviews`);
             return { activeServices, verifiedWorkers, totalUsers, marketplaceItems, totalBookings, totalReviews };
         } catch (error) {
             console.error('Error loading stats:', error);
             // Show fallback values (all 0)
-            const ids = ['active-jobs-count', 'verified-workers-count', 'total-users-count', 'marketplace-items-count', 'total-bookings-count', 'reviews-count'];
+            const ids = ['active-jobs-count', 'verified-workers-count', 'marketplace-items-count', 'total-bookings-count', 'reviews-count'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '0';
             });
+            // Hide total users on error too
+            const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
+            if (totalUsersContainer) totalUsersContainer.style.display = 'none';
             return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
         }
     }
@@ -229,97 +265,97 @@ class VikeServeApp {
     }
 
     openMoreMenu() {
-    console.log('🔓 Opening More Menu...');
-    
-    const moreSection = document.getElementById('more-section');
-    const overlay = document.getElementById('more-overlay');
-    const mainNav = document.querySelector('.bottom-nav');
-    const moreBottomNav = document.querySelector('.more-bottom-nav');
-    
-    // Show overlay
-    if (overlay) {
-        overlay.style.display = 'block';
-        setTimeout(() => {
-            overlay.classList.add('active');
-        }, 10);
-    }
-    
-    // Show more section
-    if (moreSection) {
-        moreSection.style.display = 'flex';
-        setTimeout(() => {
-            moreSection.classList.add('active');
-        }, 10);
-    }
-    
-    // Hide main nav, show more nav
-    if (mainNav) mainNav.style.display = 'none';
-    if (moreBottomNav) moreBottomNav.style.display = 'flex';
-    
-    // Add class to body to blur background
-    document.body.classList.add('more-open');
-    
-    // Update nav item
-    document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
-    if (moreNav) moreNav.classList.add('active');
-    
-    // Trigger more menu manager
-    if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
-        window.moreMenuManager.onMenuOpen();
-    }
-    
-    if (window.moreMenuManager) {
-        if (typeof window.moreMenuManager.switchMoreTab === 'function') {
-            window.moreMenuManager.switchMoreTab('education');
-        }
-    } else {
-        const defaultTab = document.getElementById('education-content');
-        if (defaultTab) defaultTab.classList.add('active');
+        console.log('🔓 Opening More Menu...');
         
-        if (typeof MoreMenuManager !== 'undefined' && !window.moreMenuManager) {
-            window.moreMenuManager = new MoreMenuManager();
+        const moreSection = document.getElementById('more-section');
+        const overlay = document.getElementById('more-overlay');
+        const mainNav = document.querySelector('.bottom-nav');
+        const moreBottomNav = document.querySelector('.more-bottom-nav');
+        
+        // Show overlay
+        if (overlay) {
+            overlay.style.display = 'block';
+            setTimeout(() => {
+                overlay.classList.add('active');
+            }, 10);
+        }
+        
+        // Show more section
+        if (moreSection) {
+            moreSection.style.display = 'flex';
+            setTimeout(() => {
+                moreSection.classList.add('active');
+            }, 10);
+        }
+        
+        // Hide main nav, show more nav
+        if (mainNav) mainNav.style.display = 'none';
+        if (moreBottomNav) moreBottomNav.style.display = 'flex';
+        
+        // Add class to body to blur background
+        document.body.classList.add('more-open');
+        
+        // Update nav item
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
+        if (moreNav) moreNav.classList.add('active');
+        
+        // Trigger more menu manager
+        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
+            window.moreMenuManager.onMenuOpen();
+        }
+        
+        if (window.moreMenuManager) {
+            if (typeof window.moreMenuManager.switchMoreTab === 'function') {
+                window.moreMenuManager.switchMoreTab('education');
+            }
+        } else {
+            const defaultTab = document.getElementById('education-content');
+            if (defaultTab) defaultTab.classList.add('active');
+            
+            if (typeof MoreMenuManager !== 'undefined' && !window.moreMenuManager) {
+                window.moreMenuManager = new MoreMenuManager();
+            }
         }
     }
-}
 
-closeMoreMenu() {
-    console.log('🔒 Closing More Menu...');
-    
-    const moreSection = document.getElementById('more-section');
-    const overlay = document.getElementById('more-overlay');
-    const mainNav = document.querySelector('.bottom-nav');
-    const moreBottomNav = document.querySelector('.more-bottom-nav');
-    
-    // Hide overlay
-    if (overlay) {
-        overlay.classList.remove('active');
-        setTimeout(() => {
-            overlay.style.display = 'none';
-        }, 300);
+    closeMoreMenu() {
+        console.log('🔒 Closing More Menu...');
+        
+        const moreSection = document.getElementById('more-section');
+        const overlay = document.getElementById('more-overlay');
+        const mainNav = document.querySelector('.bottom-nav');
+        const moreBottomNav = document.querySelector('.more-bottom-nav');
+        
+        // Hide overlay
+        if (overlay) {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+        
+        // Hide more section with animation
+        if (moreSection) {
+            moreSection.classList.remove('active');
+            setTimeout(() => {
+                moreSection.style.display = 'none';
+            }, 300);
+        }
+        
+        // Show main nav, hide more nav
+        if (mainNav) mainNav.style.display = 'flex';
+        if (moreBottomNav) moreBottomNav.style.display = 'none';
+        
+        // Remove body class
+        document.body.classList.remove('more-open');
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
+            window.moreMenuManager.onMenuClose();
+        }
     }
-    
-    // Hide more section with animation
-    if (moreSection) {
-        moreSection.classList.remove('active');
-        setTimeout(() => {
-            moreSection.style.display = 'none';
-        }, 300);
-    }
-    
-    // Show main nav, hide more nav
-    if (mainNav) mainNav.style.display = 'flex';
-    if (moreBottomNav) moreBottomNav.style.display = 'none';
-    
-    // Remove body class
-    document.body.classList.remove('more-open');
-    
-    if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
-        window.moreMenuManager.onMenuClose();
-    }
-}
 
     ensureMoreMenuConnection() {
         const timeoutId = setTimeout(() => {
@@ -638,9 +674,14 @@ closeMoreMenu() {
 
     checkAuthState() {
         if (typeof firebase !== 'undefined' && firebase.auth) {
-            firebase.auth().onAuthStateChanged((user) => {
+            firebase.auth().onAuthStateChanged(async (user) => {
                 this.currentUser = user;
                 this.updateUIForAuthState();
+                
+                // Reload stats to update founder view
+                if (user) {
+                    setTimeout(() => this.loadStatsCounts(), 500);
+                }
                 
                 if (user && window.pendingPromotionCallback) {
                     const callback = window.pendingPromotionCallback;
@@ -669,6 +710,51 @@ closeMoreMenu() {
         
         if (guestMessage) guestMessage.style.display = isLoggedIn ? 'none' : 'block';
         if (authContent) authContent.style.display = isLoggedIn ? 'block' : 'none';
+        
+        // Update founder status on body
+        if (isLoggedIn) {
+            this.updateFounderBodyClass();
+        } else {
+            document.body.classList.remove('founder');
+        }
+    }
+    
+    // ========== UPDATE FOUNDER BODY CLASS ==========
+    async updateFounderBodyClass() {
+        if (!this.currentUser) {
+            document.body.classList.remove('founder');
+            return;
+        }
+        
+        try {
+            const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
+            if (userDoc.exists) {
+                const role = userDoc.data().role || 'user';
+                if (role === 'founder') {
+                    document.body.classList.add('founder');
+                } else {
+                    document.body.classList.remove('founder');
+                }
+            }
+        } catch (error) {
+            console.error('Error updating founder body class:', error);
+        }
+    }
+    
+    // ========== CHECK IF USER IS FOUNDER ==========
+    async isUserFounder() {
+        if (!this.currentUser) return false;
+        
+        try {
+            const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
+            if (userDoc.exists) {
+                return userDoc.data().role === 'founder';
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking founder status:', error);
+            return false;
+        }
     }
 
     loadInitialData() {
@@ -1112,6 +1198,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.openMoreMenu = () => window.app?.openMoreMenu();
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
+    
+    // Expose founder check
+    window.isUserFounder = () => window.app?.isUserFounder();
     
     // Setup modal handlers after app initializes
     setTimeout(setupAllModalHandlers, 500);

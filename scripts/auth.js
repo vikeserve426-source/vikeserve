@@ -692,6 +692,11 @@ class AuthManager {
             }
         }
         
+        // ADD THIS: Update founder body class
+        if (window.app && typeof window.app.updateFounderBodyClass === 'function') {
+            setTimeout(() => window.app.updateFounderBodyClass(), 100);
+        }
+        
         this.setupUserMenuButtons();
     }
 
@@ -732,6 +737,9 @@ class AuthManager {
             profileAvatar.innerHTML = '<i class="fas fa-user"></i>';
             profileAvatar.style.background = 'var(--primary)';
         }
+        
+        // Remove founder class on body
+        document.body.classList.remove('founder');
     }
 
     escapeHtml(text) {
