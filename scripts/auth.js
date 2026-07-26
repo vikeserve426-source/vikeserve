@@ -79,13 +79,29 @@ class AuthManager {
 
     setupUserMenuButtons() {
         const userMenu = document.getElementById('user-menu');
+        console.log('🔧 Setting up user menu buttons...');
         
         const buttons = [
-            { id: 'profile-button', handler: () => this.showProfile() },
-            { id: 'my-ads-button', handler: () => this.showMyAds() },
-            { id: 'my-bookings-button', handler: () => this.showMyBookings() },
-            { id: 'logout-button', handler: () => this.signOut() },
-            { id: 'settings-button', handler: () => this.openSettings() }
+            { id: 'profile-button', handler: () => {
+                console.log('👤 My Profile clicked');
+                this.showProfile();
+            }},
+            { id: 'my-ads-button', handler: () => {
+                console.log('📢 My Ads clicked');
+                this.showMyAds();
+            }},
+            { id: 'my-bookings-button', handler: () => {
+                console.log('📅 My Bookings clicked');
+                this.showMyBookings();
+            }},
+            { id: 'logout-button', handler: () => {
+                console.log('🚪 Logout clicked');
+                this.signOut();
+            }},
+            { id: 'settings-button', handler: () => {
+                console.log('⚙️ Settings clicked');
+                this.openSettings();
+            }}
         ];
         
         buttons.forEach(btn => {
@@ -96,33 +112,66 @@ class AuthManager {
                 newElement.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    console.log(`🖱️ ${btn.id} clicked`);
                     
+                    // Close user menu
                     if (userMenu) {
                         userMenu.classList.remove('show');
                     }
                     
+                    // Execute handler
                     btn.handler();
                 });
+            } else {
+                console.warn(`⚠️ Button not found: ${btn.id}`);
             }
         });
     }
 
     showProfile() {
+        console.log('👤 Opening profile...');
+        
+        // Close the user menu first
+        const userMenu = document.getElementById('user-menu');
+        if (userMenu) {
+            userMenu.classList.remove('show');
+        }
+        
+        // Close more menu if open
         if (typeof window.closeMoreMenu === 'function') {
             window.closeMoreMenu();
         }
         
+        // Switch to account tab
         if (typeof window.switchTab === 'function') {
             window.switchTab('account-tab');
         } else if (window.app && typeof window.app.switchTab === 'function') {
             window.app.switchTab('account-tab');
+        } else {
+            // Fallback: manually switch
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const accountTab = document.getElementById('account-tab');
+            if (accountTab) accountTab.classList.add('active');
+            const accountNav = document.querySelector('.bottom-nav .nav-item[data-tab="account-tab"]');
+            if (accountNav) accountNav.classList.add('active');
         }
         
+        // Load user account data
         if (typeof loadUserAccountData === 'function') {
-            setTimeout(() => loadUserAccountData(), 100);
+            setTimeout(() => loadUserAccountData(), 300);
         }
         
-        this.showToast('Profile', 'info');
+        // Update URL hash
+        if (typeof window.updateURLHash === 'function') {
+            window.updateURLHash('account-tab');
+        }
+        
+        this.showToast('Loading profile...', 'info');
     }
 
     showMyAds() {

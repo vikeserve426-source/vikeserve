@@ -245,14 +245,19 @@ class VikeServeApp {
     }
 
     switchTab(tabId) {
+        console.log('🔄 Switching to tab:', tabId);
         this.currentTab = tabId;
         
+        // Update bottom nav
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
         });
         const activeNav = document.querySelector(`.bottom-nav .nav-item[data-tab="${tabId}"]`);
-        if (activeNav) activeNav.classList.add('active');
+        if (activeNav) {
+            activeNav.classList.add('active');
+        }
         
+        // Update tab content
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -261,7 +266,26 @@ class VikeServeApp {
         if (targetTab) {
             targetTab.classList.add('active');
             this.loadTabContent(tabId);
+            console.log('✅ Tab activated:', tabId);
+        } else {
+            console.warn('⚠️ Tab not found:', tabId);
         }
+        
+        // Close any open menus
+        const userMenu = document.getElementById('user-menu');
+        if (userMenu) {
+            userMenu.classList.remove('show');
+        }
+        
+        // Close more menu if open
+        if (tabId !== 'more-tab') {
+            this.closeMoreMenu();
+        }
+        
+        // Dispatch event for other components
+        window.dispatchEvent(new CustomEvent('tabChanged', { 
+            detail: { tabId: tabId } 
+        }));
     }
 
     openMoreMenu() {
@@ -810,16 +834,22 @@ class VikeServeApp {
             newUserProfile.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('🖱️ User profile clicked');
                 
                 const isLoggedIn = this.currentUser !== null;
                 
                 if (!isLoggedIn) {
-                    if (typeof window.showAuthModal === 'function') {
-                        window.showAuthModal();
-                    } else if (typeof window.openAuthModal === 'function') {
+                    console.log('🔓 User not logged in, opening auth modal');
+                    if (typeof window.openAuthModal === 'function') {
                         window.openAuthModal();
+                    } else if (typeof window.showAuthModal === 'function') {
+                        window.showAuthModal();
+                    } else {
+                        const authModal = document.getElementById('auth-modal');
+                        if (authModal) authModal.style.display = 'flex';
                     }
                 } else {
+                    console.log('👤 User logged in, toggling user menu');
                     this.toggleUserMenu();
                 }
             });
