@@ -407,20 +407,116 @@ h6 {
     overflow: hidden !important;
     max-height: 80vh !important;
     overflow-y: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
-/* Add a small arrow/triangle pointing to profile icon */
+/* Small arrow pointing to profile icon - FIXED */
 .user-menu::before {
     content: '' !important;
     position: absolute !important;
     top: -8px !important;
-    right: 16px !important;
+    right: 20px !important;
     width: 0 !important;
     height: 0 !important;
     border-left: 8px solid transparent !important;
     border-right: 8px solid transparent !important;
     border-bottom: 8px solid var(--bg-secondary) !important;
     z-index: 10000 !important;
+    pointer-events: none !important;
+}
+
+/* Dark mode arrow */
+[data-theme="dark"] .user-menu::before {
+    border-bottom-color: var(--bg-secondary) !important;
+}
+
+.user-menu.show {
+    display: block !important;
+    animation: slideDown 0.2s ease !important;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* User menu items - ensure they are styled correctly */
+.user-menu .user-menu-header {
+    padding: var(--space-lg) !important;
+    background: var(--bg-tertiary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+}
+
+.user-menu .user-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: var(--space-md) !important;
+}
+
+.user-menu .user-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: var(--primary-gradient) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: white !important;
+    font-weight: 600 !important;
+    font-size: var(--font-size-lg) !important;
+    flex-shrink: 0 !important;
+}
+
+.user-menu .user-details {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.user-menu .user-name {
+    font-weight: 600 !important;
+    font-size: var(--font-size-sm) !important;
+    color: var(--text-primary) !important;
+}
+
+.user-menu .user-email {
+    font-size: var(--font-size-xs) !important;
+    color: var(--text-tertiary) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.user-menu .user-menu-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: var(--space-md) !important;
+    padding: var(--space-md) var(--space-lg) !important;
+    cursor: pointer !important;
+    transition: background 0.15s !important;
+    color: var(--text-secondary) !important;
+    font-size: var(--font-size-sm) !important;
+    border-bottom: 1px solid var(--border-light) !important;
+}
+
+.user-menu .user-menu-item:hover {
+    background: var(--bg-tertiary) !important;
+}
+
+.user-menu .user-menu-item i {
+    width: 20px !important;
+    color: var(--text-tertiary) !important;
+}
+
+.user-menu .user-menu-item:last-child {
+    border-bottom: none !important;
 }
 
 /* Dark mode arrow */
@@ -2747,4 +2843,31 @@ body.more-open .app-header {
 /* Dark mode adjustments */
 [data-theme="dark"] .more-overlay {
     background: rgba(0, 0, 0, 0.7);
+}
+
+/* Fix: Logo should not overlap with user menu */
+.logo {
+    display: flex !important;
+    align-items: center !important;
+    gap: var(--space-sm) !important;
+    flex-shrink: 0 !important;
+    z-index: 1 !important;
+}
+
+.logo-icon {
+    width: 36px !important;
+    height: 36px !important;
+    background: var(--primary-gradient) !important;
+    border-radius: var(--radius-md) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: white !important;
+    font-size: var(--font-size-md) !important;
+}
+
+.logo-text {
+    font-weight: 700 !important;
+    font-size: var(--font-size-lg) !important;
+    color: var(--text-primary) !important;
 }
