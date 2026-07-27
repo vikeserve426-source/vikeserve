@@ -346,13 +346,28 @@ h6 {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-md) 0;
+    padding: var(--space-md) var(--container-padding);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 100;
     min-height: 56px;
+    width: 100%;
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+}
+
+/* Make the header position relative for the user menu positioning */
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Ensure the user profile button container has relative positioning */
+.app-header .user-profile-wrapper {
+    position: relative;
 }
 
 .logo {
@@ -432,8 +447,8 @@ h6 {
 
 .user-menu {
     position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
+    top: calc(100% + 4px);
+    right: -10px;
     width: 280px;
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
@@ -442,6 +457,27 @@ h6 {
     display: none;
     z-index: 200;
     overflow: hidden;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+/* Add a small arrow/triangle pointing to profile icon */
+.user-menu::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: 20px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid var(--bg-secondary);
+    z-index: 201;
+}
+
+/* Dark mode arrow */
+[data-theme="dark"] .user-menu::before {
+    border-bottom-color: var(--bg-secondary);
 }
 .user-menu.show {
     display: block;
