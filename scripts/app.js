@@ -827,33 +827,34 @@ class VikeServeApp {
         });
         
         const userProfile = document.getElementById('user-profile');
-        if (userProfile) {
-            const newUserProfile = userProfile.cloneNode(true);
-            userProfile.parentNode.replaceChild(newUserProfile, userProfile);
-            
-            newUserProfile.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🖱️ User profile clicked');
-                
-                const isLoggedIn = this.currentUser !== null;
-                
-                if (!isLoggedIn) {
-                    console.log('🔓 User not logged in, opening auth modal');
-                    if (typeof window.openAuthModal === 'function') {
-                        window.openAuthModal();
-                    } else if (typeof window.showAuthModal === 'function') {
-                        window.showAuthModal();
-                    } else {
-                        const authModal = document.getElementById('auth-modal');
-                        if (authModal) authModal.style.display = 'flex';
-                    }
-                } else {
-                    console.log('👤 User logged in, toggling user menu');
-                    this.toggleUserMenu();
-                }
-            });
+if (userProfile) {
+    const newUserProfile = userProfile.cloneNode(true);
+    userProfile.parentNode.replaceChild(newUserProfile, userProfile);
+    
+    newUserProfile.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🖱️ User profile clicked');
+        
+        const isLoggedIn = this.currentUser !== null;
+        
+        if (!isLoggedIn) {
+            console.log('🔓 User not logged in, opening auth modal');
+            if (typeof window.openAuthModal === 'function') {
+                window.openAuthModal();
+            } else if (typeof window.showAuthModal === 'function') {
+                window.showAuthModal();
+            } else {
+                const authModal = document.getElementById('auth-modal');
+                if (authModal) authModal.style.display = 'flex';
+            }
+        } else {
+            console.log('👤 User logged in, toggling user menu');
+            // Force toggle the user menu
+            this.toggleUserMenu();
         }
+    });
+}
         
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('user-menu');
@@ -882,11 +883,17 @@ class VikeServeApp {
     }
 
     toggleUserMenu() {
-        const userMenu = document.getElementById('user-menu');
-        if (userMenu) {
-            userMenu.classList.toggle('show');
-        }
+    const userMenu = document.getElementById('user-menu');
+    if (userMenu) {
+        // Toggle the 'show' class
+        userMenu.classList.toggle('show');
+        console.log('🔄 User menu toggled:', userMenu.classList.contains('show') ? 'open' : 'closed');
+        console.log('📋 User menu classes:', userMenu.className);
+        console.log('📋 User menu display:', userMenu.style.display);
+    } else {
+        console.error('❌ User menu element not found');
     }
+}
 
     setupAdPromotionButtons() {
         const handlePromotionClick = () => {
