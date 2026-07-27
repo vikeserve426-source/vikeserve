@@ -1787,6 +1787,7 @@ async function viewProviderProfile(providerId) {
         const providerRating = provider.averageRating || provider.rating || 0;
         const providerRatingCount = provider.totalReviews || provider.ratingCount || 0;
         const ratingStars = generateStarRating(providerRating);
+        const roleDisplay = getRoleDisplay(provider.role || 'general-user');
         
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
@@ -1799,6 +1800,7 @@ async function viewProviderProfile(providerId) {
                         ${providerName.charAt(0).toUpperCase()}
                     </div>
                     <h3 style="margin: 0 0 5px 0;">${escapeHtml(providerName)}</h3>
+                    <div style="margin: 5px 0;">${roleDisplay}</div>
                     <div class="provider-rating" style="margin: 10px 0;">
                         ${ratingStars}
                         <span style="margin-left: 8px; color: var(--grey-dark);">${providerRating > 0 ? providerRating.toFixed(1) : 'No ratings yet'}</span>

@@ -502,6 +502,7 @@ async function viewSellerProfile(sellerId) {
         const sellerRating = seller.averageRating || seller.rating || 0;
         const sellerRatingCount = seller.totalReviews || seller.ratingCount || 0;
         const ratingStars = generateStarRating(sellerRating);
+        const roleDisplay = getRoleDisplay(seller.role || 'general-user');
         
         let itemsCount = 0;
         try {
@@ -536,6 +537,7 @@ async function viewSellerProfile(sellerId) {
                         ${sellerName.charAt(0).toUpperCase()}
                     </div>
                     <h3 style="margin: 0 0 5px 0;">${escapeHtml(sellerName)}</h3>
+                    <div style="margin: 5px 0;">${roleDisplay}</div>
                     <div class="seller-rating" style="margin: 10px 0;">
                         ${ratingStars}
                         <span style="margin-left: 8px; color: var(--grey-dark);">${sellerRating > 0 ? sellerRating.toFixed(1) : 'No ratings yet'}</span>

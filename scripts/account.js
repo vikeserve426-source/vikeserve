@@ -613,11 +613,19 @@ function updateProfileUI(userProfile) {
     const profileEmail = document.getElementById('profile-email');
     const profileLocation = document.getElementById('profile-location');
     const profileBio = document.getElementById('profile-bio');
+    const profileRole = document.getElementById('profile-role');
     
     if (profileName) profileName.textContent = userProfile.displayName || 'User';
     if (profileEmail) profileEmail.textContent = userProfile.email || '';
     if (profileLocation) profileLocation.textContent = userProfile.location || 'No location set';
     if (profileBio) profileBio.textContent = userProfile.bio || 'No bio yet';
+    
+    // Display user role with badge
+    if (profileRole) {
+        const role = userProfile.role || 'general-user';
+        const roleDisplay = getRoleDisplay(role);
+        profileRole.innerHTML = roleDisplay;
+    }
     
     if (profileAvatar) {
         if (userProfile.profilePicture) {
@@ -635,6 +643,18 @@ function updateProfileUI(userProfile) {
     } else {
         document.body.classList.remove('founder');
     }
+}
+
+// ========== GET ROLE DISPLAY WITH BADGE ==========
+function getRoleDisplay(role) {
+    const roleMap = {
+        'founder': '<span class="role-badge founder"><i class="fas fa-crown"></i> Founder</span>',
+        'cofounder': '<span class="role-badge cofounder"><i class="fas fa-handshake"></i> Co-Founder</span>',
+        'admin': '<span class="role-badge admin"><i class="fas fa-shield-alt"></i> Admin</span>',
+        'moderator': '<span class="role-badge moderator"><i class="fas fa-gavel"></i> Moderator</span>',
+        'general-user': '<span class="role-badge user"><i class="fas fa-user"></i> User</span>'
+    };
+    return roleMap[role] || roleMap['general-user'];
 }
 
 function getColorFromInitial(initial) {
@@ -875,6 +895,7 @@ window.editAd = editAd;
 window.viewAd = viewAd;
 window.viewBooking = viewBooking;
 window.generateStarRating = generateStarRating;
+window.getRoleDisplay = getRoleDisplay;
 
 if (typeof window.accountManager === 'undefined' || !window.accountManager) {
     auth.onAuthStateChanged(user => {

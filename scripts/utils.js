@@ -373,3 +373,33 @@ window.calculatePointsDiscount = calculatePointsDiscount;
 
 console.log('✅ Points system configured');
 console.log('✅ utils.js loaded');
+
+// ========== ROLE DISPLAY ==========
+function getRoleDisplay(role) {
+    const roleMap = {
+        'founder': '<span class="role-badge founder"><i class="fas fa-crown"></i> Founder</span>',
+        'cofounder': '<span class="role-badge cofounder"><i class="fas fa-handshake"></i> Co-Founder</span>',
+        'admin': '<span class="role-badge admin"><i class="fas fa-shield-alt"></i> Admin</span>',
+        'moderator': '<span class="role-badge moderator"><i class="fas fa-gavel"></i> Moderator</span>',
+        'general-user': '<span class="role-badge user"><i class="fas fa-user"></i> User</span>'
+    };
+    return roleMap[role] || roleMap['general-user'];
+}
+
+// Helper to get role name without HTML
+function getRoleName(role) {
+    const roleMap = {
+        'founder': 'Founder',
+        'cofounder': 'Co-Founder',
+        'admin': 'Admin',
+        'moderator': 'Moderator',
+        'general-user': 'User'
+    };
+    return roleMap[role] || 'User';
+}
+
+// Export role functions
+window.getRoleDisplay = getRoleDisplay;
+window.getRoleName = getRoleName;
+
+console.log('✅ Role display functions loaded');

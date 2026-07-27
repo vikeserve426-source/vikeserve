@@ -730,6 +730,14 @@ class AuthManager {
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = this.userData?.displayName || user.displayName || user.email;
         
+        // ========== ADD ROLE DISPLAY TO PROFILE ==========
+        const profileRole = document.getElementById('profile-role');
+        if (profileRole && this.userData) {
+            const role = this.userData.role || 'general-user';
+            const roleDisplay = typeof getRoleDisplay === 'function' ? getRoleDisplay(role) : role;
+            profileRole.innerHTML = roleDisplay;
+        }
+        
         const profileAvatar = document.getElementById('profile-avatar');
         if (profileAvatar) {
             if (user.photoURL) {
