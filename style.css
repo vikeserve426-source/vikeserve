@@ -349,8 +349,8 @@ h6 {
     padding: var(--space-md) var(--container-padding);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
+    /* CHANGE: Use relative positioning for the parent */
+    position: relative !important;
     z-index: 100;
     min-height: 56px;
     width: 100%;
@@ -358,67 +358,12 @@ h6 {
     margin: 0 auto;
 }
 
-/* Make the header position relative for the user menu positioning */
-.app-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-/* Ensure the user profile button container has relative positioning */
-.app-header .user-profile-wrapper {
-    position: relative;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-.logo-icon {
-    width: 36px;
-    height: 36px;
-    background: var(--primary-gradient);
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: var(--font-size-md);
-}
-.logo-text {
-    font-weight: 700;
-    font-size: var(--font-size-lg);
-    color: var(--text-primary);
-}
-
-.location-selector {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-full);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    max-width: 140px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: all 0.2s;
-}
-.location-selector:hover {
-    background: var(--border-color);
-}
-.location-selector i {
-    color: var(--primary);
-    font-size: var(--font-size-sm);
-    flex-shrink: 0;
-}
-.location-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* User profile wrapper - MUST be the positioning parent */
+.user-profile-wrapper {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    z-index: 150 !important;
 }
 
 .user-profile {
@@ -433,6 +378,8 @@ h6 {
     cursor: pointer;
     transition: transform 0.2s;
     flex-shrink: 0;
+    position: relative !important;
+    z-index: 160 !important;
 }
 .user-profile:hover {
     transform: scale(1.05);
@@ -446,42 +393,44 @@ h6 {
    ======================================== */
 
 .user-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: -10px;
-    width: 280px;
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xl);
-    border: 1px solid var(--border-color);
-    display: none;
-    z-index: 200;
-    overflow: hidden;
-    max-height: 80vh;
-    overflow-y: auto;
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    right: -10px !important;
+    width: 280px !important;
+    max-width: calc(100vw - 32px) !important;
+    background: var(--bg-secondary) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-xl) !important;
+    border: 1px solid var(--border-color) !important;
+    display: none !important;
+    z-index: 9999 !important;
+    overflow: hidden !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
 }
 
 /* Add a small arrow/triangle pointing to profile icon */
 .user-menu::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    right: 20px;
-    width: 0;
-    height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid var(--bg-secondary);
-    z-index: 201;
+    content: '' !important;
+    position: absolute !important;
+    top: -8px !important;
+    right: 16px !important;
+    width: 0 !important;
+    height: 0 !important;
+    border-left: 8px solid transparent !important;
+    border-right: 8px solid transparent !important;
+    border-bottom: 8px solid var(--bg-secondary) !important;
+    z-index: 10000 !important;
 }
 
 /* Dark mode arrow */
 [data-theme="dark"] .user-menu::before {
-    border-bottom-color: var(--bg-secondary);
+    border-bottom-color: var(--bg-secondary) !important;
 }
+
 .user-menu.show {
-    display: block;
-    animation: slideDown 0.2s ease;
+    display: block !important;
+    animation: slideDown 0.2s ease !important;
 }
 
 @keyframes slideDown {
@@ -493,74 +442,6 @@ h6 {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-.user-menu-header {
-    padding: var(--space-lg);
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-}
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-}
-.user-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--primary-gradient);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: var(--font-size-lg);
-    flex-shrink: 0;
-}
-.user-avatar img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-}
-.user-details {
-    flex: 1;
-    min-width: 0;
-}
-.user-name {
-    font-weight: 600;
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-}
-.user-email {
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-menu-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
-    cursor: pointer;
-    transition: background 0.15s;
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    border-bottom: 1px solid var(--border-light);
-}
-.user-menu-item:hover {
-    background: var(--bg-tertiary);
-}
-.user-menu-item i {
-    width: 20px;
-    color: var(--text-tertiary);
-}
-.user-menu-item:last-child {
-    border-bottom: none;
 }
 
 /* ========================================
