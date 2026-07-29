@@ -1789,8 +1789,11 @@ async function viewProviderProfile(providerId) {
         const ratingStars = generateStarRating(providerRating);
         const roleDisplay = getRoleDisplay(provider.role || 'general-user');
         
+        const currentUser = firebase.auth().currentUser;
+        const canReview = currentUser && currentUser.uid !== providerId;
+        
         const modalContent = `
-            <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+            <div class="modal-content" style="max-width: 400px; border-radius: 20px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                     <div class="modal-title"><i class="fas fa-user-circle"></i> Provider Profile</div>
                     <button class="close-modal-btn" onclick="closeProviderProfileModal()">&times;</button>
@@ -1810,13 +1813,18 @@ async function viewProviderProfile(providerId) {
                     ${provider.bio ? `<p style="margin: 10px 0; color: var(--grey-dark); font-size: 0.85rem; padding: 0 10px;">${escapeHtml(provider.bio)}</p>` : ''}
                     ${provider.location ? `<p style="margin: 5px 0;"><i class="fas fa-map-marker-alt" style="color: var(--primary);"></i> ${escapeHtml(provider.location)}</p>` : ''}
                     
-                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
                         <button class="btn btn-primary" id="contact-provider-from-profile" style="flex: 1;">
                             <i class="fas fa-comment"></i> Send Message
                         </button>
                         <button class="btn btn-outline" id="view-provider-services" style="flex: 1;">
                             <i class="fas fa-tools"></i> View Services
                         </button>
+                        ${canReview ? `
+                            <button class="btn btn-warning" id="review-provider-btn" style="flex: 1; background: var(--warning); color: white;">
+                                <i class="fas fa-star"></i> Review
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -1872,6 +1880,19 @@ async function viewProviderProfile(providerId) {
                 modal.remove();
                 if (typeof window.switchTab === 'function') {
                     window.switchTab('services-tab');
+                }
+            });
+        }
+        
+        // ========== REVIEW BUTTON ==========
+        const reviewBtn = document.getElementById('review-provider-btn');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', () => {
+                modal.remove();
+                if (typeof window.showReviewModal === 'function') {
+                    window.showReviewModal(providerId, providerName, 'service_provider');
+                } else {
+                    window.showToast('Review feature coming soon', 'info');
                 }
             });
         }
