@@ -388,6 +388,15 @@ async function loadUserAccountData() {
         await loadUserBookings();
         await loadUserReviews();
         await loadUserFavorites();
+        
+        // ========== FIX: Load Reviews Properly ==========
+        // Use reviewsManager to render reviews
+        if (typeof reviewsManager !== 'undefined' && reviewsManager) {
+            setTimeout(() => {
+                reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
+            }, 500);
+        }
+        
     } catch (error) {
         showToast('Error loading account data', 'error');
     }
@@ -520,6 +529,16 @@ async function loadUserReviews() {
             }
         }
         
+        // ========== FIX: Check if we should use reviewsManager ==========
+        if (typeof reviewsManager !== 'undefined' && reviewsManager) {
+            // Use the reviewsManager to render properly
+            setTimeout(() => {
+                reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
+            }, 100);
+            return;
+        }
+        
+        // Fallback to manual rendering
         if (reviews.length === 0) {
             reviewsContainer.innerHTML = '<div class="no-items">You don\'t have any reviews yet</div>';
             return;
@@ -531,6 +550,12 @@ async function loadUserReviews() {
             reviewsContainer.appendChild(reviewElement);
         });
     } catch (error) {
+        console.error('Error loading user reviews:', error);
+        // Fallback: show empty state
+        const reviewsContainer = document.getElementById('user-reviews-container');
+        if (reviewsContainer) {
+            reviewsContainer.innerHTML = '<div class="no-items">No reviews yet</div>';
+        }
     }
 }
 
@@ -642,6 +667,31 @@ function updateProfileUI(userProfile) {
         document.body.classList.add('founder');
     } else {
         document.body.classList.remove('founder');
+    }
+    
+    // ========== FIX: Ensure reviews container exists ==========
+    let reviewsContainer = document.getElementById('user-reviews-container');
+    if (!reviewsContainer) {
+        reviewsContainer = document.createElement('div');
+        reviewsContainer.id = 'user-reviews-container';
+        reviewsContainer.className = 'user-items-container';
+        
+        const accountTab = document.getElementById('account-tab');
+        const modules = accountTab.querySelectorAll('.module-card');
+        if (modules.length > 2) {
+            modules[2].appendChild(reviewsContainer);
+        }
+    }
+    
+    // Load reviews if user is logged in
+    if (auth.currentUser) {
+        setTimeout(() => {
+            if (typeof reviewsManager !== 'undefined' && reviewsManager) {
+                reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
+            } else {
+                loadUserReviews();
+            }
+        }, 200);
     }
 }
 
