@@ -883,6 +883,24 @@ class VikeServeApp {
                 this.closeMoreMenu();
             });
         }
+
+// ========== FIX: Home Tab Search ==========
+        const homeSearchInput = document.querySelector('#home-tab .search-input');
+        if (homeSearchInput) {
+            const newInput = homeSearchInput.cloneNode(true);
+            homeSearchInput.parentNode.replaceChild(newInput, homeSearchInput);
+            
+            let timeout;
+            newInput.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    const value = e.target.value;
+                    if (window.search && typeof window.search.handleSearch === 'function') {
+                        window.search.handleSearch(value);
+                    }
+                }, 300);
+            });
+        }
     }
 
     // ========== FIX: Global Close Button Handler ==========

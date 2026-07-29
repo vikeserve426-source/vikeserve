@@ -237,21 +237,53 @@ class SearchManager {
         const searchInputs = document.querySelectorAll('.search-input');
         
         searchInputs.forEach(input => {
+            // Remove old listeners by cloning
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            
             let timeout;
-            input.addEventListener('input', (e) => {
+            newInput.addEventListener('input', (e) => {
+                const value = e.target.value;
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
-                    this.handleSearch(e.target.value);
+                    // Determine which tab is active
+                    const activeTab = document.querySelector('.tab-content.active');
+                    let tabId = 'home-tab';
+                    if (activeTab) {
+                        tabId = activeTab.id;
+                    }
+                    
+                    // If in services or marketplace, use tab-specific search
+                    if (tabId === 'services-tab') {
+                        this.searchServices(value);
+                    } else if (tabId === 'marketplace-tab') {
+                        this.searchMarketplace(value);
+                    } else {
+                        this.handleSearch(value);
+                    }
                 }, 300);
             });
 
-            input.addEventListener('keypress', (e) => {
+            newInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
-                    this.handleSearch(e.target.value);
+                    const value = e.target.value;
+                    const activeTab = document.querySelector('.tab-content.active');
+                    let tabId = 'home-tab';
+                    if (activeTab) {
+                        tabId = activeTab.id;
+                    }
+                    
+                    if (tabId === 'services-tab') {
+                        this.searchServices(value);
+                    } else if (tabId === 'marketplace-tab') {
+                        this.searchMarketplace(value);
+                    } else {
+                        this.handleSearch(value);
+                    }
                 }
             });
 
-            input.addEventListener('focus', () => {
+            newInput.addEventListener('focus', () => {
                 if (!this.lastSearchTerm && this.searchHistory.length > 0) {
                     this.displaySearchHistory();
                 }
@@ -711,6 +743,156 @@ class SearchManager {
             resultsContainer.style.display = 'none';
         }
         document.removeEventListener('click', this.handleClickOutside.bind(this));
+    }
+
+        // ========== SERVICES TAB SEARCH ==========
+    searchServices(query) {
+        if (!query || query.trim().length < 2) {
+            // Reload services
+            if (typeof window.loadServices === 'function') {
+                window.loadServices();
+            }
+            this.hideSearchResults();
+            return;
+        }
+        
+        this.lastSearchTerm = query.trim();
+        this.saveToSearchHistory(this.lastSearchTerm);
+        
+        // Search only services and jobs
+        const allResults = this.performLocalSearch(query);
+        const serviceResults = allResults.filter(r => r.type === 'service' || r.type === 'job');
+        
+        // Display in services container instead of dropdown
+        const container = document.getElementById('services-list-container');
+        if (container) {
+            if (serviceResults.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-search" style="font-size: 2rem; color: var(--grey-dark);"></i>
+                        <p style="margin-top: 10px;">No services or jobs found for "${this.escapeHtml(query)}"</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '';
+                serviceResults.forEach(item => {
+                    const element = this.createServiceResultElement(item);
+                    container.appendChild(element);
+                });
+            }
+        }
+    }
+
+    // ========== MARKETPLACE TAB SEARCH ==========
+    searchMarketplace(query) {
+        if (!query || query.trim().length < 2) {
+            // Reload marketplace
+            if (typeof window.loadMarketplaceItems === 'function') {
+                window.loadMarketplaceItems('all');
+            }
+            this.hideSearchResults();
+            return;
+        }
+        
+        this.lastSearchTerm = query.trim();
+        this.saveToSearchHistory(this.lastSearchTerm);
+        
+        // Search only marketplace items
+        const allResults = this.performLocalSearch(query);
+        const marketplaceResults = allResults.filter(r => r.type === 'marketplace');
+        
+        // Display in marketplace container instead of dropdown
+        const container = document.getElementById('marketplace-items-container');
+        if (container) {
+            if (marketplaceResults.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-search" style="font-size: 2rem; color: var(--grey-dark);"></i>
+                        <p style="margin-top: 10px;">No items found for "${this.escapeHtml(query)}"</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '';
+                marketplaceResults.forEach(item => {
+                    const element = this.createMarketplaceResultElement(item);
+                    container.appendChild(element);
+                });
+            }
+        }
+    }
+
+    // ========== CREATE SERVICE RESULT ELEMENT ==========
+    createServiceResultElement(item) {
+        const div = document.createElement('div');
+        div.className = 'service-card';
+        div.style.cssText = 'width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;';
+        
+        const isJob = item.type === 'job';
+        const typeBadge = isJob ? '<span class="job-tag job-type">Job</span>' : '<span class="job-tag service-type">Service</span>';
+        
+        div.innerHTML = `
+            <div class="service-header">
+                <div class="service-title">${this.escapeHtml(item.title)}</div>
+                <div class="service-price">${isJob ? `KES ${item.salary}` : `KES ${item.price}`}</div>
+            </div>
+            <div class="service-description">${this.escapeHtml((item.description || 'No description').substring(0, 100))}...</div>
+            <div class="service-meta">
+                <span class="service-category">${this.escapeHtml(item.category)}</span>
+                <span class="service-location"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(item.location)}</span>
+            </div>
+            <div class="service-tags">${typeBadge}${item.urgent ? '<span class="job-tag urgent">Urgent</span>' : ''}</div>
+            <div class="service-actions">
+                <button class="btn-sm btn-primary view-search-result-btn" data-id="${item.id}" data-type="${item.type}">
+                    <i class="fas fa-info-circle"></i> View Details
+                </button>
+            </div>
+        `;
+        
+        const viewBtn = div.querySelector('.view-search-result-btn');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                this.selectResult(item.id, item.type);
+            });
+        }
+        
+        return div;
+    }
+
+    // ========== CREATE MARKETPLACE RESULT ELEMENT ==========
+    createMarketplaceResultElement(item) {
+        const div = document.createElement('div');
+        div.className = 'market-item';
+        div.style.cssText = 'width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; overflow: hidden !important;';
+        
+        const icon = getCategoryIcon ? getCategoryIcon(item.category) : 'fas fa-box';
+        
+        div.innerHTML = `
+            <div class="market-item-img">
+                <i class="${icon}" style="font-size: 2rem;"></i>
+            </div>
+            <div class="market-item-info">
+                <div class="market-item-title">${this.escapeHtml(item.title)}</div>
+                <div class="market-item-price">KES ${item.price}</div>
+                <div class="market-item-location">
+                    <i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(item.location)}
+                </div>
+                ${item.condition ? `<div style="font-size: 0.7rem; color: var(--grey-dark);">Condition: ${item.condition}</div>` : ''}
+                <div class="market-item-actions" style="margin-top: 8px;">
+                    <button class="btn btn-sm btn-primary view-search-result-btn" data-id="${item.id}" data-type="marketplace" style="flex: 1;">
+                        <i class="fas fa-info-circle"></i> View
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        const viewBtn = div.querySelector('.view-search-result-btn');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                this.selectResult(item.id, 'marketplace');
+            });
+        }
+        
+        return div;
     }
 
     // Handle clicks outside search results
