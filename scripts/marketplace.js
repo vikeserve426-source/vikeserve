@@ -526,8 +526,11 @@ async function viewSellerProfile(sellerId) {
             console.error('Error getting services count:', err);
         }
         
+        const currentUser = firebase.auth().currentUser;
+        const canReview = currentUser && currentUser.uid !== sellerId;
+        
         const modalContent = `
-            <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+            <div class="modal-content" style="max-width: 400px; border-radius: 20px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                     <div class="modal-title"><i class="fas fa-user-circle"></i> Seller Profile</div>
                     <button class="close-modal-btn" onclick="closeSellerProfileModal()">&times;</button>
@@ -560,13 +563,18 @@ async function viewSellerProfile(sellerId) {
                     ${sellerEmail ? `<p style="margin: 5px 0;"><i class="fas fa-envelope" style="color: var(--primary);"></i> ${escapeHtml(sellerEmail)}</p>` : ''}
                     ${sellerPhone ? `<p style="margin: 5px 0;"><i class="fas fa-phone" style="color: var(--primary);"></i> ${escapeHtml(sellerPhone)}</p>` : ''}
                     
-                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
                         <button class="btn btn-primary" id="contact-seller-from-profile" style="flex: 1;">
                             <i class="fas fa-comment"></i> Send Message
                         </button>
                         <button class="btn btn-outline" id="view-seller-listings" style="flex: 1;">
                             <i class="fas fa-store"></i> View Listings
                         </button>
+                        ${canReview ? `
+                            <button class="btn btn-warning" id="review-seller-btn" style="flex: 1; background: var(--warning); color: white;">
+                                <i class="fas fa-star"></i> Review
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -625,6 +633,19 @@ async function viewSellerProfile(sellerId) {
                     if (typeof window.switchTab === 'function') {
                         window.switchTab('marketplace-tab');
                     }
+                }
+            });
+        }
+        
+        // ========== REVIEW BUTTON ==========
+        const reviewBtn = document.getElementById('review-seller-btn');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', () => {
+                modal.remove();
+                if (typeof window.showReviewModal === 'function') {
+                    window.showReviewModal(sellerId, sellerName, 'seller');
+                } else {
+                    window.showToast('Review feature coming soon', 'info');
                 }
             });
         }
