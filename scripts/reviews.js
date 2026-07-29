@@ -566,7 +566,7 @@ class ReviewsManager {
                     
                     // Refresh reviews display
                     const container = document.getElementById('user-reviews-container');
-                    if (container && reviewedUserId === auth.currentUser?.uid) {
+                    if (container) {
                         this.renderReviews('user-reviews-container', reviewedUserId, 'received', 10);
                     }
                     
