@@ -1571,17 +1571,29 @@ async showGroupInfo(chatId) {
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
         
-        // Build member list HTML
-        let membersHtml = participants.map(uid => {
-            const name = participantNames[uid] || 'User';
+        // Build member list HTML - fetch fresh names if needed
+        let membersHtml = await Promise.all(participants.map(async (uid) => {
+            let name = participantNames[uid] || 'User';
+            
+            // Try to get fresh name if not available
+            if (!participantNames[uid] || participantNames[uid] === 'User') {
+                try {
+                    const userDoc = await this.db.collection('users').doc(uid).get();
+                    if (userDoc.exists) {
+                        const data = userDoc.data();
+                        name = data.displayName || data.userName || data.name || data.email || 'User';
+                    }
+                } catch (e) {}
+            }
+            
             const isCreator = uid === chatData.adminId;
             const isAdminUser = chatData.admins && chatData.admins.includes(uid);
             const isCurrentUser = uid === this.currentUser.uid;
             
             let badges = '';
-            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Creator</span>';
-            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Admin</span>';
-            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">You</span>';
+            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
+            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
+            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
             
             return `
                 <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
@@ -1594,13 +1606,15 @@ async showGroupInfo(chatId) {
                     </div>
                 </div>
             `;
-        }).join('');
+        }));
+        
+        const membersListHtml = membersHtml.join('');
         
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
                 <div class="modal-header">
                     <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
-                    <button class="close-modal-btn">&times;</button>
+                    <button class="close-modal-btn" onclick="closeModalById('group-info-modal')">&times;</button>
                 </div>
                 <div style="padding: 20px;">
                     <div style="text-align: center; margin-bottom: 20px;">
@@ -1614,7 +1628,7 @@ async showGroupInfo(chatId) {
                     <div style="margin-bottom: 15px;">
                         <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
                         <div style="max-height: 300px; overflow-y: auto;">
-                            ${membersHtml}
+                            ${membersListHtml}
                         </div>
                     </div>
                     
@@ -2834,7 +2848,7 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         return;
     }
     
-    // Prevent duplicate creation by checking if group already exists
+    // Prevent duplicate creation
     const allParticipants = [this.currentUser.uid, ...memberIds];
     
     // Fetch user names for all participants
@@ -2847,7 +2861,7 @@ async createGroupChat(groupName, memberIds, initialMessage) {
                 const userDoc = await this.db.collection('users').doc(uid).get();
                 if (userDoc.exists) {
                     const data = userDoc.data();
-                    userNames[uid] = data.displayName || data.userName || data.name || 'User';
+                    userNames[uid] = data.displayName || data.userName || data.name || data.email || 'User';
                 } else {
                     userNames[uid] = 'User';
                 }
@@ -2857,20 +2871,19 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         }
     }
     
-    // Check if group with same name and participants already exists
+    // Check if group with same participants already exists (regardless of name)
     const existingGroups = await this.db.collection('chats')
         .where('isGroup', '==', true)
-        .where('groupName', '==', groupName)
         .get();
     
     for (const doc of existingGroups.docs) {
         const data = doc.data();
         const participants = data.participants || [];
-        // Check if all participants match
+        // Check if all participants match (order doesn't matter)
         const allMatch = allParticipants.every(p => participants.includes(p)) && 
                          participants.every(p => allParticipants.includes(p));
         if (allMatch) {
-            this.showToast('This group already exists!', 'warning');
+            this.showToast('A group with these members already exists!', 'warning');
             this.closeModal('group-chat-modal');
             this.loadChat(doc.id);
             return;
@@ -2881,11 +2894,11 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         participants: allParticipants,
         participantNames: userNames,
         isGroup: true,
-        groupName: groupName,
+        groupName: groupName || 'Group Chat',
         adminId: this.currentUser.uid,
         admins: [this.currentUser.uid],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastMessage: initialMessage,
+        lastMessage: initialMessage || 'Welcome to the group!',
         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
@@ -2896,7 +2909,7 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         await chatRef.collection('messages').add({
             senderId: this.currentUser.uid,
             senderName: this.currentUser.displayName || this.currentUser.email || 'User',
-            text: initialMessage,
+            text: initialMessage || 'Welcome to the group!',
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             read: false
         });
@@ -2904,11 +2917,22 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         this.showToast('✅ Group chat created successfully!', 'success');
         
         // Close the modal properly
-        this.closeModal('group-chat-modal');
+        const groupModal = document.getElementById('group-chat-modal');
+        if (groupModal) {
+            groupModal.style.display = 'none';
+            document.body.style.overflow = '';
+            setTimeout(() => {
+                if (groupModal.parentNode) {
+                    groupModal.remove();
+                }
+            }, 300);
+        }
         
         // Refresh conversations and open the new group chat
         await this.loadConversations();
-        this.loadChat(chatRef.id);
+        setTimeout(() => {
+            this.loadChat(chatRef.id);
+        }, 500);
         
     } catch (error) {
         console.error('Error creating group chat:', error);
