@@ -349,10 +349,34 @@ class ReviewsManager {
             window.showModalWithContent('respond-modal', modalContent);
         }
         
+        // ========== FIX: Setup close buttons ==========
         setTimeout(() => {
+            // Close button for modal
+            const closeBtn = document.querySelector('#respond-modal .close-modal-btn');
+            if (closeBtn) {
+                const newCloseBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                newCloseBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const modal = document.getElementById('respond-modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                        setTimeout(() => {
+                            if (modal.parentNode) {
+                                modal.remove();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+            
             const submitBtn = document.getElementById('submit-response-btn');
             if (submitBtn) {
-                submitBtn.addEventListener('click', async () => {
+                const newSubmitBtn = submitBtn.cloneNode(true);
+                submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+                newSubmitBtn.addEventListener('click', async () => {
                     const response = document.getElementById('response-text')?.value;
                     if (!response) {
                         this.showToast('Please enter a response', 'error');
@@ -361,8 +385,16 @@ class ReviewsManager {
                     const result = await this.addReviewResponse(reviewId, response);
                     if (result.success) {
                         this.showToast('Response added!', 'success');
-                        if (typeof window.closeModal === 'function') {
-                            window.closeModal('respond-modal');
+                        // Close modal
+                        const modal = document.getElementById('respond-modal');
+                        if (modal) {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = '';
+                            setTimeout(() => {
+                                if (modal.parentNode) {
+                                    modal.remove();
+                                }
+                            }, 300);
                         }
                         // Refresh reviews display
                         const containerId = 'user-reviews-container';

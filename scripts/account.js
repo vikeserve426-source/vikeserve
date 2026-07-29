@@ -799,6 +799,27 @@ function showEditProfileForm() {
         }
         
         setTimeout(() => {
+            // ========== FIX: Close button for modal ==========
+            const closeBtn = document.querySelector('#edit-profile-modal .close-modal-btn');
+            if (closeBtn) {
+                const newCloseBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                newCloseBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const modal = document.getElementById('edit-profile-modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                        setTimeout(() => {
+                            if (modal.parentNode) {
+                                modal.remove();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+            
             const saveBtn = document.getElementById('save-profile-edit');
             if (saveBtn) {
                 const newSaveBtn = saveBtn.cloneNode(true);
@@ -817,6 +838,17 @@ function showEditProfileForm() {
                 newCancelBtn.addEventListener('click', () => {
                     if (typeof closeModal === 'function') {
                         closeModal('edit-profile-modal');
+                    } else {
+                        const modal = document.getElementById('edit-profile-modal');
+                        if (modal) {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = '';
+                            setTimeout(() => {
+                                if (modal.parentNode) {
+                                    modal.remove();
+                                }
+                            }, 300);
+                        }
                     }
                 });
             }

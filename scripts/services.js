@@ -680,23 +680,51 @@ function promoteService(serviceId) {
     
     document.body.appendChild(modal);
     
-    // Close button handler
+    // ========== FIX: Close button handler ==========
     const closeBtns = modal.querySelectorAll('.close-modal-btn');
     closeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            modal.remove();
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const modalEl = document.getElementById('promote-service-modal');
+            if (modalEl) {
+                modalEl.style.display = 'none';
+                document.body.style.overflow = '';
+                setTimeout(() => {
+                    if (modalEl.parentNode) {
+                        modalEl.remove();
+                    }
+                }, 300);
+            }
         });
+    });
+    
+    // Close on background click
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.style.display = 'none';
+            document.body.style.overflow = '';
+            setTimeout(() => {
+                if (this.parentNode) {
+                    this.remove();
+                }
+            }, 300);
+        }
     });
     
     // Convert and promote button handler
     const convertBtn = document.getElementById('convert-and-promote-btn');
     if (convertBtn) {
-        convertBtn.addEventListener('click', async () => {
+        const newConvertBtn = convertBtn.cloneNode(true);
+        convertBtn.parentNode.replaceChild(newConvertBtn, convertBtn);
+        newConvertBtn.addEventListener('click', async () => {
             console.log('Convert button clicked for service:', serviceId);
             
             // Show loading state
-            convertBtn.disabled = true;
-            convertBtn.innerHTML = '<div class="spinner"></div> Converting...';
+            newConvertBtn.disabled = true;
+            newConvertBtn.innerHTML = '<div class="spinner"></div> Converting...';
             
             try {
                 // Get the service data
@@ -773,8 +801,8 @@ function promoteService(serviceId) {
             } catch (error) {
                 console.error('Error converting service to marketplace:', error);
                 window.showToast('Error: ' + error.message, 'error');
-                convertBtn.disabled = false;
-                convertBtn.innerHTML = 'Convert to Marketplace & Promote';
+                newConvertBtn.disabled = false;
+                newConvertBtn.innerHTML = 'Convert to Marketplace & Promote';
             }
         });
     }

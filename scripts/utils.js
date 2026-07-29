@@ -151,6 +151,39 @@ function showModalWithContent(modalId, content) {
             box-sizing: border-box !important;
         `;
     }
+    
+    // ========== FIX: Setup close button ==========
+    setTimeout(() => {
+        const closeBtn = modal.querySelector('.close-modal-btn');
+        if (closeBtn) {
+            const newBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+                setTimeout(() => {
+                    if (modal.parentNode) {
+                        modal.remove();
+                    }
+                }, 300);
+            });
+        }
+        
+        // Close on background click
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+                document.body.style.overflow = '';
+                setTimeout(() => {
+                    if (this.parentNode) {
+                        this.remove();
+                    }
+                }, 300);
+            }
+        });
+    }, 100);
 }
 
 // ========== STAR RATING ==========

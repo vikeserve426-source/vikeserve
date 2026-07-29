@@ -81,6 +81,8 @@ class VikeServeApp {
     async init() {
         this.applyGlobalFixes();
         this.setupEventListeners();
+        // ADDED: Setup close buttons after app initializes
+        setTimeout(() => this.setupCloseButtons(), 300);
         this.setupNavigation();
         this.setupQuickActions();
         this.setupSettings();
@@ -827,34 +829,34 @@ class VikeServeApp {
         });
         
         const userProfile = document.getElementById('user-profile');
-if (userProfile) {
-    const newUserProfile = userProfile.cloneNode(true);
-    userProfile.parentNode.replaceChild(newUserProfile, userProfile);
-    
-    newUserProfile.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🖱️ User profile clicked');
-        
-        const isLoggedIn = this.currentUser !== null;
-        
-        if (!isLoggedIn) {
-            console.log('🔓 User not logged in, opening auth modal');
-            if (typeof window.openAuthModal === 'function') {
-                window.openAuthModal();
-            } else if (typeof window.showAuthModal === 'function') {
-                window.showAuthModal();
-            } else {
-                const authModal = document.getElementById('auth-modal');
-                if (authModal) authModal.style.display = 'flex';
-            }
-        } else {
-            console.log('👤 User logged in, toggling user menu');
-            // Force toggle the user menu
-            this.toggleUserMenu();
+        if (userProfile) {
+            const newUserProfile = userProfile.cloneNode(true);
+            userProfile.parentNode.replaceChild(newUserProfile, userProfile);
+            
+            newUserProfile.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🖱️ User profile clicked');
+                
+                const isLoggedIn = this.currentUser !== null;
+                
+                if (!isLoggedIn) {
+                    console.log('🔓 User not logged in, opening auth modal');
+                    if (typeof window.openAuthModal === 'function') {
+                        window.openAuthModal();
+                    } else if (typeof window.showAuthModal === 'function') {
+                        window.showAuthModal();
+                    } else {
+                        const authModal = document.getElementById('auth-modal');
+                        if (authModal) authModal.style.display = 'flex';
+                    }
+                } else {
+                    console.log('👤 User logged in, toggling user menu');
+                    // Force toggle the user menu
+                    this.toggleUserMenu();
+                }
+            });
         }
-    });
-}
         
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('user-menu');
@@ -877,23 +879,60 @@ if (userProfile) {
             newMoreCloseBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('🖱️ More menu close clicked');
                 this.closeMoreMenu();
             });
         }
     }
 
-    toggleUserMenu() {
-    const userMenu = document.getElementById('user-menu');
-    if (userMenu) {
-        // Toggle the 'show' class
-        userMenu.classList.toggle('show');
-        console.log('🔄 User menu toggled:', userMenu.classList.contains('show') ? 'open' : 'closed');
-        console.log('📋 User menu classes:', userMenu.className);
-        console.log('📋 User menu display:', userMenu.style.display);
-    } else {
-        console.error('❌ User menu element not found');
+    // ========== FIX: Global Close Button Handler ==========
+    setupCloseButtons() {
+        console.log('🔧 Setting up global close buttons...');
+        
+        // Close all modals when clicking ×
+        document.querySelectorAll('.close-modal-btn').forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Find the closest modal
+                const modal = this.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                    console.log('✅ Modal closed:', modal.id);
+                }
+            });
+        });
+        
+        // Also handle modal background clicks
+        document.querySelectorAll('.modal').forEach(modal => {
+            const newModal = modal.cloneNode(true);
+            modal.parentNode.replaceChild(newModal, modal);
+            newModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                    document.body.style.overflow = '';
+                    console.log('✅ Modal closed by background click:', this.id);
+                }
+            });
+        });
     }
-}
+
+    toggleUserMenu() {
+        const userMenu = document.getElementById('user-menu');
+        if (userMenu) {
+            // Toggle the 'show' class
+            userMenu.classList.toggle('show');
+            console.log('🔄 User menu toggled:', userMenu.classList.contains('show') ? 'open' : 'closed');
+            console.log('📋 User menu classes:', userMenu.className);
+            console.log('📋 User menu display:', userMenu.style.display);
+        } else {
+            console.error('❌ User menu element not found');
+        }
+    }
 
     setupAdPromotionButtons() {
         const handlePromotionClick = () => {

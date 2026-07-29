@@ -1072,10 +1072,26 @@ function showMarketplacePostModal() {
     if (modal) {
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
     } else {
-    console.error('marketplace-post-modal not found');
-    window.showToast('Form not available', 'error');
-}
+        console.error('marketplace-post-modal not found');
+        window.showToast('Form not available', 'error');
+    }
 }
 
 function setupFilterButtons() {
@@ -1134,7 +1150,26 @@ function setupMarketplaceSearch() {
 function showGasRefillPostModal() {
     resetGasRefillForm();
     const modal = document.getElementById('gas-refill-post-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
+    }
 }
 
 function resetGasRefillForm() {
@@ -1254,7 +1289,26 @@ async function submitGasRefillListing() {
 function showWaterDeliveryPostModal() {
     resetWaterDeliveryForm();
     const modal = document.getElementById('water-delivery-post-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
+    }
 }
 
 function resetWaterDeliveryForm() {
@@ -1320,7 +1374,26 @@ async function submitWaterDeliveryListing() {
 function showHotelPostModal() {
     resetHotelForm();
     const modal = document.getElementById('hotel-post-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
+    }
 }
 
 function resetHotelForm() {
@@ -1386,7 +1459,26 @@ async function submitHotelListing() {
 function showPropertyPostModal() {
     resetPropertyForm();
     const modal = document.getElementById('property-post-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
+    }
 }
 
 function resetPropertyForm() {
@@ -1453,7 +1545,26 @@ async function submitProperty() {
 function showLandPostModal() {
     resetLandForm();
     const modal = document.getElementById('land-post-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10001';
+        document.body.style.overflow = 'hidden';
+        
+        // ========== FIX: Ensure close button works ==========
+        setTimeout(() => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newBtn, closeBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }, 100);
+    }
 }
 
 function resetLandForm() {
