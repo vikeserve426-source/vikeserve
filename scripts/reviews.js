@@ -493,7 +493,11 @@ class ReviewsManager {
         // Setup form submission
         const submitBtn = document.getElementById('submit-review-btn');
         if (submitBtn) {
-            submitBtn.addEventListener('click', async () => {
+            // Remove old listener by cloning
+            const newSubmitBtn = submitBtn.cloneNode(true);
+            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+            
+            newSubmitBtn.addEventListener('click', async () => {
                 const rating = parseInt(document.getElementById('review-rating').value);
                 const comment = document.getElementById('review-comment').value;
                 
@@ -506,6 +510,10 @@ class ReviewsManager {
                     return;
                 }
 
+                // Show loading state
+                newSubmitBtn.disabled = true;
+                newSubmitBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+
                 const result = await this.addReview({
                     reviewedUserId: reviewedUserId,
                     reviewedUserName: reviewedUserName,
@@ -515,10 +523,45 @@ class ReviewsManager {
                     bookingId: bookingId
                 });
 
+                // Reset button
+                newSubmitBtn.disabled = false;
+                newSubmitBtn.innerHTML = 'Submit Review';
+
                 if (result.success) {
-                    this.showToast('Review submitted successfully!', 'success');
-                    if (typeof window.closeModal === 'function') {
-                        window.closeModal('review-modal');
+                    this.showToast('✅ Review submitted successfully!', 'success');
+                    
+                    // ========== CLOSE ALL MODALS ==========
+                    // Close review modal
+                    const reviewModal = document.getElementById('review-modal');
+                    if (reviewModal) {
+                        reviewModal.style.display = 'none';
+                        setTimeout(() => {
+                            if (reviewModal.parentNode) {
+                                reviewModal.remove();
+                            }
+                        }, 300);
+                    }
+                    
+                    // Close seller profile modal
+                    const sellerProfileModal = document.getElementById('seller-profile-modal');
+                    if (sellerProfileModal) {
+                        sellerProfileModal.style.display = 'none';
+                        setTimeout(() => {
+                            if (sellerProfileModal.parentNode) {
+                                sellerProfileModal.remove();
+                            }
+                        }, 300);
+                    }
+                    
+                    // Close provider profile modal
+                    const providerProfileModal = document.getElementById('provider-profile-modal');
+                    if (providerProfileModal) {
+                        providerProfileModal.style.display = 'none';
+                        setTimeout(() => {
+                            if (providerProfileModal.parentNode) {
+                                providerProfileModal.remove();
+                            }
+                        }, 300);
                     }
                     
                     // Refresh reviews display
