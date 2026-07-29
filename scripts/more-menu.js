@@ -2477,7 +2477,18 @@ async submitRating(rating) {
 
 async showFounderProfile() {
     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-    const founder = founderDoc.data() || { name: 'Victor Wanyama', totalStars: 0, ratingCount: 0, averageRating: 5.0, email: 'vikeserve426@gmail.com', county: 'Kakamega', country: 'Kenya', schools: 'Kakamega High School, JKUAT', achievements: 'Full Stack Developer, Firebase Expert, App Creator', bio: 'Passionate full-stack developer dedicated to creating solutions that empower local communities.' };
+    const founder = founderDoc.data() || { 
+        name: 'Victor Wanyama', 
+        totalStars: 0, 
+        ratingCount: 0, 
+        averageRating: 5.0, 
+        email: 'vikeserve426@gmail.com', 
+        county: 'Bungoma', 
+        country: 'Kenya', 
+        schools: 'Nalondo Boys High School, KYU', 
+        achievements: 'Telecommunication & Information Engineer (TIE)', 
+        bio: 'Telecommunication and information engineer.' 
+    };
     
     const announcementsSnapshot = await this.db.collection('announcements')
         .orderBy('date', 'desc')
@@ -2486,18 +2497,18 @@ async showFounderProfile() {
     const announcements = announcementsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     const modalContent = `
-        <div class="modal-content" style="max-width: 500px; z-index: 20002;">
+        <div class="modal-content" style="max-width: 500px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
                 <div class="modal-title"><i class="fas fa-user-tie"></i> Founder's Profile</div>
                 <button class="close-modal-btn">&times;</button>
             </div>
-            <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
+            <div style="padding: 20px;">
                 <div style="text-align: center; margin-bottom: 20px;">
                     <div style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-user-tie" style="font-size: 3rem; color: white;"></i>
                     </div>
-                    <h2 style="margin: 0;">${this.escapeHtml(founder.name)}</h2>
-                    <p style="color: var(--grey-dark);">Founder & Lead Developer</p>
+                    <h2 style="margin: 0;">Founder</h2>
+                    <p style="color: var(--grey-dark);">Lead Developer</p>
                     <p><i class="fas fa-envelope"></i> ${this.escapeHtml(founder.email || 'vikeserve426@gmail.com')}</p>
                     
                     <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-top: 10px;">
@@ -2530,12 +2541,12 @@ async showFounderProfile() {
                 
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-trophy"></i> Achievements</h4>
-                    <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.achievements || 'Full Stack Developer, Firebase Expert, App Creator')}</p>
+                    <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.achievements || 'Telecommunication & Information Engineer (TIE)')}</p>
                 </div>
                 
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-info-circle"></i> About</h4>
-                    <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.bio || 'Passionate full-stack developer dedicated to creating solutions that empower local communities.')}</p>
+                    <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.bio || 'Telecommunication and information engineer.')}</p>
                 </div>
                 
                 <div style="background: var(--light); border-radius: 12px; padding: 15px;">
