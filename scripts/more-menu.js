@@ -36,7 +36,7 @@ class MoreMenuManager {
         
         if (!founderDoc.exists) {
             await founderRef.set({
-                name: 'Victor Wanyama',
+                name: 'VikeServe',
                 email: 'vikeserve426@gmail.com',
                 role: 'founder',
                 totalStars: 0,
@@ -320,7 +320,7 @@ class MoreMenuManager {
     async getSettingsHTML() {
     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
     const founder = founderDoc.exists ? founderDoc.data() : { 
-        name: 'Victor Wanyama', 
+        name: 'VikeServe', 
         totalStars: 0, 
         ratingCount: 0, 
         averageRating: 5.0, 
@@ -488,7 +488,7 @@ class MoreMenuManager {
         <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
             <h4><i class="fas fa-link"></i> Quick Links</h4>
             <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
-                <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Victor Wanyama - Web Developer</div></div>
+                <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">VikeServe - Web Developer</div></div>
                 <i class="fas fa-external-link-alt" style="color: var(--text-tertiary);"></i>
             </div>
             <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
@@ -2472,7 +2472,7 @@ async submitRating(rating) {
 async showFounderProfile() {
     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
     const founder = founderDoc.data() || { 
-        name: 'Victor Wanyama', 
+        name: 'VikeServe', 
         totalStars: 0, 
         ratingCount: 0, 
         averageRating: 5.0, 
