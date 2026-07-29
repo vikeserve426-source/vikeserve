@@ -2025,12 +2025,11 @@ async startNewChat() {
         return;
     }
     
-    // Show options: Individual Chat or Group Chat
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
                 <div class="modal-title"><i class="fas fa-comment-plus"></i> New Conversation</div>
-                <button class="close-modal-btn">&times;</button>
+                <button class="close-modal-btn" onclick="closeModalById('new-chat-options-modal')">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <div style="display: flex; gap: 12px; margin-bottom: 20px;">
@@ -2047,7 +2046,7 @@ async startNewChat() {
                     <i class="fas fa-info-circle"></i> Start a conversation with one person or a group
                 </div>
                 <div class="form-actions" style="margin-top: 20px;">
-                    <button class="btn btn-outline close-modal-btn" style="width: 100%;">Cancel</button>
+                    <button class="btn btn-outline close-modal-btn" onclick="closeModalById('new-chat-options-modal')" style="width: 100%;">Cancel</button>
                 </div>
             </div>
         </div>
@@ -2055,7 +2054,7 @@ async startNewChat() {
     
     this.showModalWithContent('new-chat-options-modal', modalContent);
     
-    // Individual Chat button
+    // Fix: Use arrow functions to preserve 'this' context
     setTimeout(() => {
         const individualBtn = document.getElementById('new-individual-chat-btn');
         if (individualBtn) {
@@ -2072,6 +2071,14 @@ async startNewChat() {
                 setTimeout(() => this.showGroupChatModal(), 300);
             });
         }
+        
+        // Also handle close button by ID
+        const closeBtn = document.querySelector('#new-chat-options-modal .close-modal-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeModal('new-chat-options-modal');
+            });
+        }
     }, 100);
 }
 
@@ -2083,7 +2090,7 @@ async showIndividualChatModal() {
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
                 <div class="modal-title"><i class="fas fa-user"></i> Individual Chat</div>
-                <button class="close-modal-btn">&times;</button>
+                <button class="close-modal-btn" onclick="closeModalById('individual-chat-modal')">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <div class="form-group">
@@ -2098,7 +2105,7 @@ async showIndividualChatModal() {
                     <textarea id="chat-initial-message" class="form-input" rows="3" placeholder="Type your message..."></textarea>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-outline close-modal-btn" onclick="closeModalById('individual-chat-modal')">Cancel</button>
                     <button class="btn btn-primary" id="create-individual-chat-btn" disabled>Start Chat</button>
                 </div>
             </div>
@@ -2107,9 +2114,12 @@ async showIndividualChatModal() {
     
     this.showModalWithContent('individual-chat-modal', modalContent);
     
+    // Store reference to this for use in nested functions
+    const self = this;
     let allUsers = [];
     let selectedUserId = null;
     
+    // Load users
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -2133,7 +2143,7 @@ async showIndividualChatModal() {
         const container = document.getElementById('user-search-results');
         if (!container) return;
         
-        if (users.length === 0) {
+        if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
             return;
         }
@@ -2141,16 +2151,17 @@ async showIndividualChatModal() {
         container.innerHTML = users.map(user => `
             <div class="user-search-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s;">
                 <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
-                    ${user.displayName.charAt(0).toUpperCase()}
+                    ${user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(user.displayName)}</div>
-                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.escapeHtml(user.email)}</div>
+                    <div style="font-weight: 500; font-size: 0.9rem;">${self.escapeHtml(user.displayName || 'User')}</div>
+                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${self.escapeHtml(user.email || '')}</div>
                 </div>
                 <div class="user-select-indicator" style="width: 20px; height: 20px; border: 2px solid var(--grey); border-radius: 50%; flex-shrink: 0;"></div>
             </div>
         `).join('');
         
+        // Click handler for user selection
         container.querySelectorAll('.user-search-item').forEach(item => {
             item.addEventListener('click', function() {
                 container.querySelectorAll('.user-search-item').forEach(el => {
@@ -2159,6 +2170,7 @@ async showIndividualChatModal() {
                     if (indicator) {
                         indicator.style.borderColor = 'var(--grey)';
                         indicator.style.background = 'transparent';
+                        indicator.textContent = '';
                     }
                 });
                 this.style.background = 'rgba(46, 134, 222, 0.08)';
@@ -2174,11 +2186,13 @@ async showIndividualChatModal() {
                     indicator.style.fontSize = '0.6rem';
                 }
                 selectedUserId = this.getAttribute('data-user-id');
-                document.getElementById('create-individual-chat-btn').disabled = false;
+                const createBtn = document.getElementById('create-individual-chat-btn');
+                if (createBtn) createBtn.disabled = false;
             });
         });
     }
     
+    // Search functionality
     setTimeout(() => {
         const searchInput = document.getElementById('chat-user-search');
         if (searchInput) {
@@ -2189,8 +2203,8 @@ async showIndividualChatModal() {
                     return;
                 }
                 const filtered = allUsers.filter(user => 
-                    user.displayName.toLowerCase().includes(query) ||
-                    user.email.toLowerCase().includes(query)
+                    (user.displayName && user.displayName.toLowerCase().includes(query)) ||
+                    (user.email && user.email.toLowerCase().includes(query))
                 );
                 renderUserResults(filtered);
             });
@@ -2198,18 +2212,18 @@ async showIndividualChatModal() {
         
         const createBtn = document.getElementById('create-individual-chat-btn');
         if (createBtn) {
-            createBtn.addEventListener('click', async () => {
+            createBtn.addEventListener('click', async function() {
                 if (!selectedUserId) {
-                    this.showToast('Please select a user first', 'warning');
+                    self.showToast('Please select a user first', 'warning');
                     return;
                 }
                 const message = document.getElementById('chat-initial-message')?.value;
                 if (!message) {
-                    this.showToast('Please enter a message', 'warning');
+                    self.showToast('Please enter a message', 'warning');
                     return;
                 }
-                await this.startChatWithUser(selectedUserId, message);
-                this.closeModal('individual-chat-modal');
+                await self.startChatWithUser(selectedUserId, message);
+                self.closeModal('individual-chat-modal');
             });
         }
     }, 200);
@@ -2223,7 +2237,7 @@ async showGroupChatModal() {
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
                 <div class="modal-title"><i class="fas fa-users"></i> Create Group Chat</div>
-                <button class="close-modal-btn">&times;</button>
+                <button class="close-modal-btn" onclick="closeModalById('group-chat-modal')">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <div class="form-group">
@@ -2246,7 +2260,7 @@ async showGroupChatModal() {
                     <textarea id="group-initial-message" class="form-input" rows="2" placeholder="Type your first message..."></textarea>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-outline close-modal-btn" onclick="closeModalById('group-chat-modal')">Cancel</button>
                     <button class="btn btn-primary" id="create-group-chat-btn">Create Group</button>
                 </div>
             </div>
@@ -2255,9 +2269,11 @@ async showGroupChatModal() {
     
     this.showModalWithContent('group-chat-modal', modalContent);
     
+    const self = this;
     let allUsers = [];
     let selectedMembers = new Set();
     
+    // Load users
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -2281,7 +2297,7 @@ async showGroupChatModal() {
         const container = document.getElementById('group-user-search-results');
         if (!container) return;
         
-        if (users.length === 0) {
+        if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
             return;
         }
@@ -2291,11 +2307,11 @@ async showGroupChatModal() {
             return `
                 <div class="group-user-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s; ${isSelected ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
                     <div style="width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.8rem; flex-shrink: 0;">
-                        ${user.displayName.charAt(0).toUpperCase()}
+                        ${user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 500; font-size: 0.85rem;">${this.escapeHtml(user.displayName)}</div>
-                        <div style="font-size: 0.65rem; color: var(--grey-dark);">${this.escapeHtml(user.email)}</div>
+                        <div style="font-weight: 500; font-size: 0.85rem;">${self.escapeHtml(user.displayName || 'User')}</div>
+                        <div style="font-size: 0.65rem; color: var(--grey-dark);">${self.escapeHtml(user.email || '')}</div>
                     </div>
                     <div class="group-user-check" style="width: 22px; height: 22px; border: 2px solid ${isSelected ? 'var(--primary)' : 'var(--grey)'}; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: ${isSelected ? 'var(--primary)' : 'transparent'};">
                         ${isSelected ? '<i class="fas fa-check" style="color: white; font-size: 0.6rem;"></i>' : ''}
@@ -2330,33 +2346,29 @@ async showGroupChatModal() {
             return;
         }
         
-        // Show creator as well
-        const allMemberIds = [this.currentUser.uid, ...selectedMembers];
-        allMemberIds.forEach(uid => {
-            const user = allUsers.find(u => u.id === uid) || { displayName: 'You' };
-            const isCreator = uid === this.currentUser.uid;
-            const name = isCreator ? 'You (Admin)' : user.displayName || 'User';
+        selectedMembers.forEach(userId => {
+            const user = allUsers.find(u => u.id === userId);
+            const name = user ? user.displayName || 'User' : 'User';
             const div = document.createElement('div');
-            div.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; background: var(--primary-light); color: var(--primary); padding: 4px 10px; border-radius: 16px; font-size: 0.75rem;';
+            div.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; background: rgba(46, 134, 222, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 16px; font-size: 0.75rem;';
             div.textContent = name;
-            if (!isCreator) {
-                const removeBtn = document.createElement('span');
-                removeBtn.style.cssText = 'cursor: pointer; margin-left: 4px; font-weight: bold;';
-                removeBtn.textContent = '×';
-                removeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if (uid !== this.currentUser.uid) {
-                        selectedMembers.delete(uid);
-                        renderGroupUserResults(allUsers);
-                        updateSelectedMembersUI();
-                    }
-                };
-                div.appendChild(removeBtn);
-            }
+            const removeBtn = document.createElement('span');
+            removeBtn.style.cssText = 'cursor: pointer; margin-left: 4px; font-weight: bold; color: var(--danger);';
+            removeBtn.textContent = '×';
+            removeBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (userId) {
+                    selectedMembers.delete(userId);
+                    renderGroupUserResults(allUsers);
+                    updateSelectedMembersUI();
+                }
+            };
+            div.appendChild(removeBtn);
             list.appendChild(div);
         });
     }
     
+    // Search functionality
     setTimeout(() => {
         const searchInput = document.getElementById('group-user-search');
         if (searchInput) {
@@ -2367,8 +2379,8 @@ async showGroupChatModal() {
                     return;
                 }
                 const filtered = allUsers.filter(user => 
-                    user.displayName.toLowerCase().includes(query) ||
-                    user.email.toLowerCase().includes(query)
+                    (user.displayName && user.displayName.toLowerCase().includes(query)) ||
+                    (user.email && user.email.toLowerCase().includes(query))
                 );
                 renderGroupUserResults(filtered);
             });
@@ -2376,24 +2388,21 @@ async showGroupChatModal() {
         
         const createBtn = document.getElementById('create-group-chat-btn');
         if (createBtn) {
-            createBtn.addEventListener('click', async () => {
+            createBtn.addEventListener('click', async function() {
                 const groupName = document.getElementById('group-name-input')?.value.trim();
                 if (!groupName) {
-                    this.showToast('Please enter a group name', 'warning');
+                    self.showToast('Please enter a group name', 'warning');
                     return;
                 }
                 if (selectedMembers.size === 0) {
-                    this.showToast('Please select at least one member', 'warning');
+                    self.showToast('Please select at least one member', 'warning');
                     return;
                 }
                 const message = document.getElementById('group-initial-message')?.value.trim() || 'Welcome to the group!';
-                await this.createGroupChat(groupName, Array.from(selectedMembers), message);
-                this.closeModal('group-chat-modal');
+                await self.createGroupChat(groupName, Array.from(selectedMembers), message);
+                self.closeModal('group-chat-modal');
             });
         }
-        
-        // Initial render of selected members
-        setTimeout(() => updateSelectedMembersUI.call(this), 100);
     }, 200);
 }
 
@@ -3277,6 +3286,18 @@ window.addAppAnnouncement = async function(title, message) {
     } catch (error) {
         console.error('Error adding announcement:', error);
         return { success: false, error: error.message };
+    }
+};
+
+// ========== GLOBAL MODAL CLOSE FUNCTION ==========
+window.closeModalById = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.remove();
+    }
+    // Also try to close via the manager
+    if (window.moreMenuManager && typeof window.moreMenuManager.closeModal === 'function') {
+        window.moreMenuManager.closeModal(modalId);
     }
 };
 
