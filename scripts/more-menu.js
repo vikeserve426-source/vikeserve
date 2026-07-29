@@ -1411,29 +1411,32 @@ showChatWindow(chatId, chatData, otherParticipant) {
         existingContainer.remove();
     }
     
-    // Get the other participant's name properly
-    let otherName = 'User';
-    if (otherParticipant) {
-        otherName = otherParticipant.displayName || otherParticipant.userName || otherParticipant.name || 'User';
+    const isGroup = chatData.isGroup === true;
+    let displayName = 'User';
+    let avatarInitial = 'U';
+    
+    if (isGroup) {
+        displayName = chatData.groupName || 'Group Chat';
+        avatarInitial = '👥';
+    } else if (otherParticipant) {
+        displayName = otherParticipant.displayName || otherParticipant.userName || otherParticipant.name || 'User';
+        avatarInitial = displayName.charAt(0).toUpperCase();
     } else {
-        // Try to get from chatData
         const otherId = chatData.participants?.find(p => p !== this.currentUser?.uid);
         if (otherId) {
-            // We'll fetch it
-            this.db.collection('users').doc(otherId).get().then(doc => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    const name = data.displayName || data.userName || data.name || 'User';
-                    const nameElement = document.querySelector('#chat-window-container .chat-other-name');
-                    if (nameElement) nameElement.textContent = name;
-                    const avatarElement = document.querySelector('#chat-window-container .chat-other-avatar');
-                    if (avatarElement) avatarElement.textContent = name.charAt(0).toUpperCase();
-                }
-            }).catch(() => {});
+            // Try to get from participantNames
+            if (chatData.participantNames && chatData.participantNames[otherId]) {
+                displayName = chatData.participantNames[otherId];
+                avatarInitial = displayName.charAt(0).toUpperCase();
+            }
         }
     }
     
-    const otherAvatar = otherName.charAt(0).toUpperCase();
+    // Get member count for groups
+    let memberCount = '';
+    if (isGroup && chatData.participants) {
+        memberCount = `${chatData.participants.length} members`;
+    }
     
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
@@ -1447,16 +1450,21 @@ showChatWindow(chatId, chatData, otherParticipant) {
         messagesContent.innerHTML = `
             <div id="chat-window-container" style="display: flex; flex-direction: column; height: 100%; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
                 <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--primary); color: white; flex-shrink: 0;">
-                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                        <div class="chat-other-avatar" style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0;">${this.escapeHtml(otherAvatar)}</div>
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; cursor: pointer;" id="chat-header-click" data-chat-id="${chatId}">
+                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0;">
+                            ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
+                        </div>
                         <div style="min-width: 0;">
-                            <h3 class="chat-other-name" style="margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(otherName)}</h3>
-                            <p id="chat-typing-status" style="font-size: 0.7rem; opacity: 0.8; margin: 0;"></p>
+                            <h3 style="margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(displayName)}</h3>
+                            <p style="font-size: 0.7rem; opacity: 0.8; margin: 0;">${isGroup ? memberCount : 'Online'}</p>
                         </div>
                     </div>
-                    <button id="chat-back-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-                        <i class="fas fa-arrow-left"></i> Back
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${isGroup ? `<button id="chat-group-info-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 8px;"><i class="fas fa-info-circle"></i></button>` : ''}
+                        <button id="chat-back-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="chat-messages-area" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-tertiary); min-height: 0; max-height: 60vh;">
@@ -1476,11 +1484,14 @@ showChatWindow(chatId, chatData, otherParticipant) {
         `;
     }
     
+    // Set up event listeners
     setTimeout(() => {
         const input = document.getElementById('chat-message-input');
         const sendBtn = document.getElementById('chat-send-btn');
         const attachBtn = document.getElementById('chat-attach-btn');
         const backBtn = document.getElementById('chat-back-btn');
+        const groupInfoBtn = document.getElementById('chat-group-info-btn');
+        const headerClick = document.getElementById('chat-header-click');
         
         if (input) {
             input.addEventListener('keypress', (e) => {
@@ -1522,9 +1533,419 @@ showChatWindow(chatId, chatData, otherParticipant) {
             backBtn.parentNode.replaceChild(newBackBtn, backBtn);
             newBackBtn.addEventListener('click', () => this.closeChatWindow());
         }
+        
+        if (groupInfoBtn) {
+            groupInfoBtn.addEventListener('click', () => {
+                this.showGroupInfo(chatId);
+            });
+        }
+        
+        if (headerClick) {
+            headerClick.addEventListener('click', () => {
+                if (isGroup) {
+                    this.showGroupInfo(chatId);
+                }
+            });
+        }
     }, 100);
     
     this.loadChatMessages(chatId);
+}
+
+// ========== SHOW GROUP INFO ==========
+async showGroupInfo(chatId) {
+    try {
+        const chatDoc = await this.db.collection('chats').doc(chatId).get();
+        if (!chatDoc.exists) {
+            this.showToast('Group not found', 'error');
+            return;
+        }
+        
+        const chatData = chatDoc.data();
+        if (!chatData.isGroup) {
+            this.showToast('This is not a group chat', 'warning');
+            return;
+        }
+        
+        const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+        const participants = chatData.participants || [];
+        const participantNames = chatData.participantNames || {};
+        
+        // Build member list HTML
+        let membersHtml = participants.map(uid => {
+            const name = participantNames[uid] || 'User';
+            const isCreator = uid === chatData.adminId;
+            const isAdminUser = chatData.admins && chatData.admins.includes(uid);
+            const isCurrentUser = uid === this.currentUser.uid;
+            
+            let badges = '';
+            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Creator</span>';
+            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Admin</span>';
+            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">You</span>';
+            
+            return `
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
+                    <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
+                        ${name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
+                        <div style="font-size: 0.7rem; color: var(--grey-dark);">${badges}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
+                    <button class="close-modal-btn">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                            <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
+                        </div>
+                        <h3 style="margin: 0;">${this.escapeHtml(chatData.groupName || 'Group Chat')}</h3>
+                        <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            ${membersHtml}
+                        </div>
+                    </div>
+                    
+                    ${isAdmin ? `
+                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                            <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button id="edit-group-name-btn" class="btn btn-outline" style="width: 100%;">
+                                    <i class="fas fa-edit"></i> Edit Group Name
+                                </button>
+                                <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
+                                    <i class="fas fa-user-plus"></i> Add Members
+                                </button>
+                                <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
+                                    <i class="fas fa-sign-out-alt"></i> Leave Group
+                                </button>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                            <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
+                                <i class="fas fa-sign-out-alt"></i> Leave Group
+                            </button>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('group-info-modal', modalContent);
+        
+        // Handle buttons
+        setTimeout(() => {
+            const leaveBtn = document.getElementById('leave-group-btn');
+            if (leaveBtn) {
+                leaveBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to leave this group?')) {
+                        this.leaveGroup(chatId);
+                        this.closeModal('group-info-modal');
+                    }
+                });
+            }
+            
+            if (isAdmin) {
+                const editNameBtn = document.getElementById('edit-group-name-btn');
+                if (editNameBtn) {
+                    editNameBtn.addEventListener('click', () => {
+                        this.closeModal('group-info-modal');
+                        setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
+                    });
+                }
+                
+                const addMembersBtn = document.getElementById('add-group-members-btn');
+                if (addMembersBtn) {
+                    addMembersBtn.addEventListener('click', () => {
+                        this.closeModal('group-info-modal');
+                        setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
+                    });
+                }
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading group info:', error);
+        this.showToast('Error loading group info', 'error');
+    }
+}
+
+// ========== EDIT GROUP NAME ==========
+async showEditGroupNameModal(chatId, currentName) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-edit"></i> Edit Group Name</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">New Group Name</label>
+                    <input type="text" id="new-group-name-input" class="form-input" value="${this.escapeHtml(currentName)}" placeholder="Enter new group name">
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-group-name-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('edit-group-name-modal', modalContent);
+    
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-group-name-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newName = document.getElementById('new-group-name-input')?.value.trim();
+                if (!newName) {
+                    this.showToast('Please enter a group name', 'warning');
+                    return;
+                }
+                await this.updateGroupName(chatId, newName);
+                this.closeModal('edit-group-name-modal');
+            });
+        }
+    }, 100);
+}
+
+async updateGroupName(chatId, newName) {
+    try {
+        await this.db.collection('chats').doc(chatId).update({
+            groupName: newName
+        });
+        this.showToast('✅ Group name updated!', 'success');
+        this.loadChat(chatId);
+        this.loadConversations();
+    } catch (error) {
+        console.error('Error updating group name:', error);
+        this.showToast('Error updating group name', 'error');
+    }
+}
+
+// ========== ADD MEMBERS TO GROUP ==========
+async showAddGroupMembersModal(chatId) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-user-plus"></i> Add Members</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Search Users</label>
+                    <input type="text" id="add-member-search" class="form-input" placeholder="Type name or email...">
+                </div>
+                <div id="add-member-results" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+                    <div class="loading-spinner">Loading users...</div>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="add-members-confirm-btn">Add Selected</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('add-members-modal', modalContent);
+    
+    const self = this;
+    let allUsers = [];
+    let selectedNewMembers = new Set();
+    
+    // Get current group members
+    const chatDoc = await this.db.collection('chats').doc(chatId).get();
+    const chatData = chatDoc.data();
+    const currentParticipants = chatData.participants || [];
+    
+    try {
+        const usersSnapshot = await this.db.collection('users').limit(100).get();
+        allUsers = usersSnapshot.docs
+            .filter(doc => !currentParticipants.includes(doc.id))
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    displayName: data.displayName || data.userName || data.name || data.email || 'User',
+                    email: data.email || ''
+                };
+            });
+        renderAddMemberResults(allUsers);
+    } catch (error) {
+        console.error('Error loading users:', error);
+        const container = document.getElementById('add-member-results');
+        if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
+    }
+    
+    function renderAddMemberResults(users) {
+        const container = document.getElementById('add-member-results');
+        if (!container) return;
+        
+        if (!users || users.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users available to add</div>';
+            return;
+        }
+        
+        container.innerHTML = users.map(user => {
+            const isSelected = selectedNewMembers.has(user.id);
+            return `
+                <div class="add-member-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s; ${isSelected ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
+                    <div style="width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.8rem; flex-shrink: 0;">
+                        ${user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; font-size: 0.85rem;">${self.escapeHtml(user.displayName || 'User')}</div>
+                        <div style="font-size: 0.65rem; color: var(--grey-dark);">${self.escapeHtml(user.email || '')}</div>
+                    </div>
+                    <div class="add-member-check" style="width: 22px; height: 22px; border: 2px solid ${isSelected ? 'var(--primary)' : 'var(--grey)'}; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: ${isSelected ? 'var(--primary)' : 'transparent'};">
+                        ${isSelected ? '<i class="fas fa-check" style="color: white; font-size: 0.6rem;"></i>' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.querySelectorAll('.add-member-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                if (selectedNewMembers.has(userId)) {
+                    selectedNewMembers.delete(userId);
+                } else {
+                    selectedNewMembers.add(userId);
+                }
+                renderAddMemberResults(users);
+            });
+        });
+    }
+    
+    setTimeout(() => {
+        const searchInput = document.getElementById('add-member-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                if (query.length === 0) {
+                    renderAddMemberResults(allUsers);
+                    return;
+                }
+                const filtered = allUsers.filter(user => 
+                    (user.displayName && user.displayName.toLowerCase().includes(query)) ||
+                    (user.email && user.email.toLowerCase().includes(query))
+                );
+                renderAddMemberResults(filtered);
+            });
+        }
+        
+        const confirmBtn = document.getElementById('add-members-confirm-btn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async () => {
+                if (selectedNewMembers.size === 0) {
+                    self.showToast('Please select at least one member', 'warning');
+                    return;
+                }
+                await self.addMembersToGroup(chatId, Array.from(selectedNewMembers));
+                self.closeModal('add-members-modal');
+            });
+        }
+    }, 200);
+}
+
+async addMembersToGroup(chatId, newMemberIds) {
+    try {
+        const chatRef = this.db.collection('chats').doc(chatId);
+        const chatDoc = await chatRef.get();
+        const chatData = chatDoc.data();
+        
+        const currentParticipants = chatData.participants || [];
+        const currentParticipantNames = chatData.participantNames || {};
+        
+        // Fetch names for new members
+        const newNames = {};
+        for (const uid of newMemberIds) {
+            try {
+                const userDoc = await this.db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    newNames[uid] = data.displayName || data.userName || data.name || 'User';
+                } else {
+                    newNames[uid] = 'User';
+                }
+            } catch (e) {
+                newNames[uid] = 'User';
+            }
+        }
+        
+        const allParticipants = [...currentParticipants, ...newMemberIds];
+        const allNames = { ...currentParticipantNames, ...newNames };
+        
+        await chatRef.update({
+            participants: allParticipants,
+            participantNames: allNames
+        });
+        
+        this.showToast(`✅ ${newMemberIds.length} member(s) added!`, 'success');
+        this.loadConversations();
+        this.loadChat(chatId);
+        
+    } catch (error) {
+        console.error('Error adding members:', error);
+        this.showToast('Error adding members', 'error');
+    }
+}
+
+// ========== LEAVE GROUP ==========
+async leaveGroup(chatId) {
+    try {
+        const chatRef = this.db.collection('chats').doc(chatId);
+        const chatDoc = await chatRef.get();
+        const chatData = chatDoc.data();
+        
+        const participants = chatData.participants || [];
+        const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
+        
+        // Remove participant names
+        const participantNames = chatData.participantNames || {};
+        delete participantNames[this.currentUser.uid];
+        
+        if (newParticipants.length === 0) {
+            // If no members left, delete the group
+            await chatRef.delete();
+            this.showToast('Group deleted (no members left)', 'info');
+        } else {
+            // Update participants
+            await chatRef.update({
+                participants: newParticipants,
+                participantNames: participantNames
+            });
+            
+            // If admin left, assign new admin
+            if (chatData.adminId === this.currentUser.uid && newParticipants.length > 0) {
+                await chatRef.update({
+                    adminId: newParticipants[0]
+                });
+            }
+            
+            this.showToast('You left the group', 'info');
+        }
+        
+        this.closeChatWindow();
+        this.loadConversations();
+        
+    } catch (error) {
+        console.error('Error leaving group:', error);
+        this.showToast('Error leaving group', 'error');
+    }
 }
 
 closeChatWindow() {
@@ -2413,9 +2834,10 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         return;
     }
     
+    // Prevent duplicate creation by checking if group already exists
     const allParticipants = [this.currentUser.uid, ...memberIds];
     
-    // Fetch user names for participants
+    // Fetch user names for all participants
     const userNames = {};
     for (const uid of allParticipants) {
         if (uid === this.currentUser.uid) {
@@ -2435,15 +2857,36 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         }
     }
     
+    // Check if group with same name and participants already exists
+    const existingGroups = await this.db.collection('chats')
+        .where('isGroup', '==', true)
+        .where('groupName', '==', groupName)
+        .get();
+    
+    for (const doc of existingGroups.docs) {
+        const data = doc.data();
+        const participants = data.participants || [];
+        // Check if all participants match
+        const allMatch = allParticipants.every(p => participants.includes(p)) && 
+                         participants.every(p => allParticipants.includes(p));
+        if (allMatch) {
+            this.showToast('This group already exists!', 'warning');
+            this.closeModal('group-chat-modal');
+            this.loadChat(doc.id);
+            return;
+        }
+    }
+    
     const chatData = {
         participants: allParticipants,
         participantNames: userNames,
         isGroup: true,
         groupName: groupName,
         adminId: this.currentUser.uid,
+        admins: [this.currentUser.uid],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastMessage: initialMessage,
-        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
     try {
@@ -2459,8 +2902,14 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         });
         
         this.showToast('✅ Group chat created successfully!', 'success');
+        
+        // Close the modal properly
+        this.closeModal('group-chat-modal');
+        
+        // Refresh conversations and open the new group chat
         await this.loadConversations();
         this.loadChat(chatRef.id);
+        
     } catch (error) {
         console.error('Error creating group chat:', error);
         this.showToast('Error creating group: ' + error.message, 'error');
