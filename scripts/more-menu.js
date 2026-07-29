@@ -318,96 +318,116 @@ class MoreMenuManager {
     }
     
     async getSettingsHTML() {
-        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-        const founder = founderDoc.exists ? founderDoc.data() : { 
-            name: 'Victor Wanyama', 
-            totalStars: 0, 
-            ratingCount: 0, 
-            averageRating: 5.0, 
-            portfolioUrl: 'https://vike-store.netlify.app/',
-            county: 'Bungoma',
-            country: 'Kenya',
-            schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
-            achievements: 'TIE experience',
-            bio: 'Telecommunication and information engineer.'
-        };
+    const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+    const founder = founderDoc.exists ? founderDoc.data() : { 
+        name: 'Victor Wanyama', 
+        totalStars: 0, 
+        ratingCount: 0, 
+        averageRating: 5.0, 
+        portfolioUrl: 'https://vike-store.netlify.app/',
+        county: 'Bungoma',
+        country: 'Kenya',
+        schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
+        achievements: 'TIE experience',
+        bio: 'Telecommunication and information engineer.'
+    };
+    
+    return `
+        <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
         
-        return `
-            <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-palette"></i> App Preferences</h4>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: #666;">Switch between light and dark theme</div></div>
-                    <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
-                    <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: #666;">Receive push notifications</div></div>
-                    <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
-                </div>
+        <!-- ========== QUICK STATS CARD ========== -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+            <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" id="settings-points-display">0</div>
+                <div style="font-size: 0.7rem; color: var(--text-tertiary);">Your Points</div>
             </div>
-          
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-star" style="font-size: 2rem;"></i>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0;">Rate VikeServe</h3>
-                        <p style="margin: 0; opacity: 0.9;">Help us improve</p>
-                    </div>
+            <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${founder.totalStars || 0}</div>
+                <div style="font-size: 0.7rem; color: var(--text-tertiary);">App Stars</div>
+            </div>
+        </div>
+        
+        <!-- ========== APP PREFERENCES ========== -->
+        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-palette"></i> App Preferences</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Switch between light and dark theme</div></div>
+                <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Receive push notifications</div></div>
+                <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
+            </div>
+        </div>
+        
+        <!-- ========== RATE VIKESERVE ========== -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-star" style="font-size: 2rem;"></i>
                 </div>
-                
-                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
-                    <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
-                    <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
-                    <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
-                    <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
-                    <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
-                        <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
-                    </button>
-                    <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;">
-                        <i class="fas fa-user-circle"></i> Founder
-                    </button>
+                <div>
+                    <h3 style="margin: 0;">Rate VikeServe</h3>
+                    <p style="margin: 0; opacity: 0.9;">Help us improve</p>
                 </div>
             </div>
             
-            <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-coins" style="font-size: 2rem;"></i>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0;">My Points</h3>
-                        <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
-                    </div>
-                </div>
-                
-                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
-                    <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
-                    <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
-                    <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
-                </div>
-                
-                <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
-                    <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
-                </div>
-                
-                <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
-                    <i class="fas fa-history"></i> View Points History
+            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
+                <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
+                <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
+                <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
+                <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
+                    <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
+                </button>
+                <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;">
+                    <i class="fas fa-user-circle"></i> Founder
                 </button>
             </div>
-            
-            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 8px;"></i> How do I post a service?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
+        </div>
+        
+        <!-- ========== POINTS SECTION ========== -->
+        <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-coins" style="font-size: 2rem;"></i>
                 </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
+                <div>
+                    <h3 style="margin: 0;">My Points</h3>
+                    <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
+                <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
+                <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
+            </div>
+            
+            <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
+                <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
+            </div>
+            
+            <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
+                <i class="fas fa-history"></i> View Points History
+            </button>
+        </div>
+        
+        <!-- ========== FAQ SECTION ========== -->
+        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h4>
+            
+            <!-- FAQ 1: Post a Service -->
+            <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                    <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 10px;"></i> How do I post a service?</strong>
+                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
+                </div>
+                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
                     <p>Follow these simple steps to post your service:</p>
                     <ol style="margin: 8px 0 0 20px; padding-left: 0;">
                         <li>Tap on the <strong>Services</strong> tab at the bottom of the app</li>
@@ -420,37 +440,36 @@ class MoreMenuManager {
                 </div>
             </div>
             
-            <div class="faq-item" style="border-bottom: 1px solid var(--grey);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 8px;"></i> How do I promote my ad?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
+            <!-- FAQ 2: Promote Ad (Coming Soon) -->
+            <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                    <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 10px;"></i> How do I promote my ad?</strong>
+                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
                 </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
-                    <p>Promote your ad to reach more customers:</p>
-                    <ol style="margin: 8px 0 0 20px; padding-left: 0;">
-                        <li>Go to your posted ad in <strong>Marketplace</strong> or <strong>Services</strong> tab</li>
-                        <li>Click the <strong>"Promote"</strong> button on your ad (only visible to you as the owner)</li>
-                        <li>Choose a promotion package:
-                            <ul style="margin: 5px 0 5px 20px;">
-                                <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
-                                <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
-                                <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
-                                <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
-                            </ul>
-                        </li>
-                        <li>Select your preferred payment method (M-Pesa, Airtel Money, or Card)</li>
-                        <li>Complete payment to boost your ad visibility</li>
-                    </ol>
-                    <p style="margin-top: 8px;">📢 Promoted ads appear at the top of search results and get a special "PROMOTED" badge!</p>
+                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
+                    <div style="background: var(--warning-bg); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--warning);">
+                        <i class="fas fa-clock" style="color: var(--warning);"></i>
+                        <strong style="margin-left: 8px;">Coming Soon!</strong>
+                        <p style="margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">Ad promotion is currently under development. We're working hard to bring this feature to you soon!</p>
+                    </div>
+                    <p><strong>How it will work:</strong></p>
+                    <ul style="margin: 8px 0 0 20px; padding-left: 0;">
+                        <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
+                        <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
+                        <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
+                        <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
+                    </ul>
+                    <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
                 </div>
             </div>
             
+            <!-- FAQ 3: Payment Security -->
             <div class="faq-item">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 8px;"></i> Is my payment secure?</strong>
-                    <i class="fas fa-chevron-down faq-icon"></i>
+                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                    <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 10px;"></i> Is my payment secure?</strong>
+                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
                 </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 12px 20px; color: var(--grey-dark); font-size: 0.85rem; line-height: 1.6;">
+                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
                     <p>✅ Yes, your payments are completely secure! Here's why:</p>
                     <ul style="margin: 8px 0 0 20px; padding-left: 0;">
                         <li>🔒 All transactions are encrypted using SSL/TLS technology</li>
@@ -463,40 +482,50 @@ class MoreMenuManager {
                     <p style="margin-top: 8px;">For any payment issues, contact us at <strong>vikeserve426@gmail.com</strong></p>
                 </div>
             </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-link"></i> Quick Links</h4>
-                <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: #666;">Victor Wanyama - Web Developer</div></div>
-                    <i class="fas fa-external-link-alt"></i>
-                </div>
-                <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--grey);">
-                    <div><strong>Terms & Conditions</strong><div style="font-size: 0.8rem; color: #666;">App usage guidelines</div></div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-                <div class="support-option" data-action="privacy" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>Privacy Policy</strong><div style="font-size: 0.8rem; color: #666;">How we protect your data</div></div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
+        </div>
+        
+        <!-- ========== QUICK LINKS ========== -->
+        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-link"></i> Quick Links</h4>
+            <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Victor Wanyama - Web Developer</div></div>
+                <i class="fas fa-external-link-alt" style="color: var(--text-tertiary);"></i>
             </div>
-            
-            <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-                <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
-                <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                    <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: #666;">Invite friends to the app</div></div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
+            <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                <div><strong>Terms & Conditions</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">App usage guidelines</div></div>
+                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
             </div>
-            
-            <div style="text-align: center; margin-top: 20px; padding: 15px; color: #999;">
-                <div>VikeServe v1.0.0</div>
-                <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
-                <div style="font-size: 0.7rem; margin-top: 8px;">
-                    <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
-                </div>
+            <div class="support-option" data-action="privacy" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                <div><strong>Privacy Policy</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">How we protect your data</div></div>
+                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
             </div>
-        `;
-    }
+        </div>
+        
+        <!-- ========== SHARE & SUPPORT ========== -->
+        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+            <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
+            <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Invite friends to the app</div></div>
+                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+            </div>
+        </div>
+        
+        <!-- ========== APP VERSION ========== -->
+        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 4px;">📱 VikeServe v1.0.0</div>
+            <div style="font-size: 0.7rem; color: var(--text-tertiary);">Built with ❤️ in Kenya</div>
+        </div>
+        
+        <!-- ========== FOOTER ========== -->
+        <div style="text-align: center; margin-top: 20px; padding: 15px; color: var(--text-tertiary);">
+            <div>VikeServe v1.0.0</div>
+            <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
+            <div style="font-size: 0.7rem; margin-top: 8px;">
+                <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+            </div>
+        </div>
+    `;
+}
     
     generateStarRatingHTML(rating) {
         const fullStars = Math.floor(rating);
@@ -1983,43 +2012,28 @@ async startNewChat() {
         return;
     }
     
-    const usersSnapshot = await this.db.collection('users').limit(50).get();
-    const users = usersSnapshot.docs
-        .filter(doc => doc.id !== this.currentUser.uid)
-        .map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                displayName: data.displayName || data.userName || data.name || data.email || 'User'
-            };
-        });
-    
-    if (users.length === 0) {
-        this.showToast('No other users found', 'info');
-        return;
-    }
-    
+    // Show searchable user list modal
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
-                <div class="modal-title">Start New Chat</div>
+                <div class="modal-title"><i class="fas fa-user-plus"></i> Start New Chat</div>
                 <button class="close-modal-btn">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <div class="form-group">
-                    <label>Select User</label>
-                    <select id="chat-user-select" class="form-input">
-                        <option value="">-- Select a user --</option>
-                        ${users.map(user => `<option value="${user.id}">${this.escapeHtml(user.displayName)}</option>`).join('')}
-                    </select>
+                    <label class="form-label">Search Users</label>
+                    <input type="text" id="chat-user-search" class="form-input" placeholder="Type name or email...">
                 </div>
-                <div class="form-group">
-                    <label>Message</label>
+                <div id="user-search-results" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                    <div class="loading-spinner">Loading users...</div>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label class="form-label">Or type message</label>
                     <textarea id="chat-initial-message" class="form-input" rows="3" placeholder="Type your message..."></textarea>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-outline close-modal-btn">Cancel</button>
-                    <button class="btn btn-primary" id="create-chat-btn">Start Chat</button>
+                    <button class="btn btn-primary" id="create-chat-btn" disabled>Start Chat</button>
                 </div>
             </div>
         </div>
@@ -2027,75 +2041,126 @@ async startNewChat() {
     
     this.showModalWithContent('new-chat-modal', modalContent);
     
-    setTimeout(() => {
-        const createBtn = document.getElementById('create-chat-btn');
-        if (createBtn) {
-            const newCreateBtn = createBtn.cloneNode(true);
-            createBtn.parentNode.replaceChild(newCreateBtn, createBtn);
-            newCreateBtn.addEventListener('click', async () => {
-                const selectedUserId = document.getElementById('chat-user-select').value;
-                const message = document.getElementById('chat-initial-message').value;
-                
-                if (!selectedUserId) {
-                    this.showToast('Please select a user', 'error');
-                    return;
-                }
-                if (!message) {
-                    this.showToast('Please enter a message', 'error');
-                    return;
-                }
-                
-                // Check for existing chat
-                const existingChat = await this.db.collection('chats')
-                    .where('participants', 'array-contains', this.currentUser.uid)
-                    .get();
-                
-                let chatRef = null;
-                for (const doc of existingChat.docs) {
-                    const participants = doc.data().participants;
-                    if (participants.includes(selectedUserId)) {
-                        chatRef = doc.ref;
-                        break;
+    // Load all users for search
+    let allUsers = [];
+    let selectedUserId = null;
+    
+    try {
+        const usersSnapshot = await this.db.collection('users').limit(100).get();
+        allUsers = usersSnapshot.docs
+            .filter(doc => doc.id !== this.currentUser.uid)
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    displayName: data.displayName || data.userName || data.name || data.email || 'User',
+                    email: data.email || ''
+                };
+            });
+        
+        // Render initial users
+        renderUserResults(allUsers);
+    } catch (error) {
+        console.error('Error loading users:', error);
+        const resultsContainer = document.getElementById('user-search-results');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = '<div class="error-state">Error loading users</div>';
+        }
+    }
+    
+    function renderUserResults(users) {
+        const container = document.getElementById('user-search-results');
+        if (!container) return;
+        
+        if (users.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
+            return;
+        }
+        
+        container.innerHTML = users.map(user => `
+            <div class="user-search-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s;">
+                <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
+                    ${user.displayName.charAt(0).toUpperCase()}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 500; font-size: 0.9rem;">${escapeHtml(user.displayName)}</div>
+                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${escapeHtml(user.email)}</div>
+                </div>
+                <div class="user-select-indicator" style="width: 20px; height: 20px; border: 2px solid var(--grey); border-radius: 50%; flex-shrink: 0;"></div>
+            </div>
+        `).join('');
+        
+        // Add click handlers for user selection
+        container.querySelectorAll('.user-search-item').forEach(item => {
+            item.addEventListener('click', function() {
+                // Deselect all
+                container.querySelectorAll('.user-search-item').forEach(el => {
+                    el.style.background = 'transparent';
+                    const indicator = el.querySelector('.user-select-indicator');
+                    if (indicator) {
+                        indicator.style.borderColor = 'var(--grey)';
+                        indicator.style.background = 'transparent';
                     }
-                }
-                
-                if (!chatRef) {
-                    const chatData = {
-                        participants: [this.currentUser.uid, selectedUserId],
-                        lastMessage: message,
-                        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    chatRef = await this.db.collection('chats').add(chatData);
-                }
-                
-                await chatRef.collection('messages').add({
-                    senderId: this.currentUser.uid,
-                    senderName: this.currentUser.displayName || this.currentUser.email || 'User',
-                    text: message,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    read: false
                 });
                 
-                await chatRef.update({
-                    lastMessage: message,
-                    lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    lastMessageBy: this.currentUser.uid
-                });
-                
-                this.showToast('Chat started!', 'success');
-                this.closeModal('new-chat-modal');
-                await this.loadConversations();
-                
-                // Switch to messages tab and open chat
-                const messagesTab = document.querySelector('.more-tab-btn[data-more-tab="messages"]');
-                if (messagesTab) {
-                    messagesTab.click();
-                    setTimeout(() => this.loadChat(chatRef.id), 500);
+                // Select this one
+                this.style.background = 'rgba(46, 134, 222, 0.08)';
+                const indicator = this.querySelector('.user-select-indicator');
+                if (indicator) {
+                    indicator.style.borderColor = 'var(--primary)';
+                    indicator.style.background = 'var(--primary)';
+                    indicator.textContent = '✓';
+                    indicator.style.color = 'white';
+                    indicator.style.display = 'flex';
+                    indicator.style.alignItems = 'center';
+                    indicator.style.justifyContent = 'center';
+                    indicator.style.fontSize = '0.6rem';
                 }
+                
+                selectedUserId = this.getAttribute('data-user-id');
+                document.getElementById('create-chat-btn').disabled = false;
+            });
+        });
+    }
+    
+    // Search functionality
+    setTimeout(() => {
+        const searchInput = document.getElementById('chat-user-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                if (query.length === 0) {
+                    renderUserResults(allUsers);
+                    return;
+                }
+                
+                const filtered = allUsers.filter(user => 
+                    user.displayName.toLowerCase().includes(query) ||
+                    user.email.toLowerCase().includes(query)
+                );
+                renderUserResults(filtered);
             });
         }
-    }, 100);
+        
+        const createBtn = document.getElementById('create-chat-btn');
+        if (createBtn) {
+            createBtn.addEventListener('click', async () => {
+                if (!selectedUserId) {
+                    this.showToast('Please select a user first', 'warning');
+                    return;
+                }
+                
+                const message = document.getElementById('chat-initial-message')?.value;
+                if (!message) {
+                    this.showToast('Please enter a message', 'warning');
+                    return;
+                }
+                
+                await this.startChatWithUser(selectedUserId, message);
+                this.closeModal('new-chat-modal');
+            });
+        }
+    }, 200);
 }
 
 async startChatWithUser(userId, initialMessage) {
