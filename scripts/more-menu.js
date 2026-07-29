@@ -1310,31 +1310,50 @@ async loadConversations() {
             }
         }
         
-        container.innerHTML = conversations.map(conv => {
-            const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
-            const otherParticipant = otherParticipantId ? (userNames[otherParticipantId] || 'User') : 'User';
-            const unreadCount = unreadCounts[conv.id] || 0;
-            const hasUnread = unreadCount > 0;
-            const lastMessage = conv.lastMessage || 'No messages';
-            const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
-            const time = this.formatDate(conv.lastMessageAt);
-            
-            return `
-                <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
-                    <div class="conversation-avatar" style="width: 50px; height: 50px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
-                        ${otherParticipant.charAt(0).toUpperCase()}
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${this.escapeHtml(otherParticipant)}</div>
-                        <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
-                    </div>
-                    <div style="text-align: right; flex-shrink: 0;">
-                        <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
-                        ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Inside loadConversations(), replace the container.innerHTML map section
+container.innerHTML = conversations.map(conv => {
+    const isGroup = conv.isGroup === true;
+    const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
+    
+    let displayName = 'User';
+    let avatarInitial = 'U';
+    
+    if (isGroup) {
+        displayName = conv.groupName || 'Group Chat';
+        avatarInitial = displayName.charAt(0).toUpperCase() || 'G';
+    } else {
+        const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
+        if (otherParticipantId && conv.participantNames && conv.participantNames[otherParticipantId]) {
+            displayName = conv.participantNames[otherParticipantId];
+        } else if (otherParticipantId) {
+            // Fallback - try to get from userNames cache
+            displayName = userNames[otherParticipantId] || 'User';
+        }
+        avatarInitial = displayName.charAt(0).toUpperCase();
+    }
+    
+    const unreadCount = unreadCounts[conv.id] || 0;
+    const hasUnread = unreadCount > 0;
+    const lastMessage = conv.lastMessage || 'No messages';
+    const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
+    const time = this.formatDate(conv.lastMessageAt);
+    
+    return `
+        <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
+            <div class="conversation-avatar" style="width: 50px; height: 50px; background: ${isGroup ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'var(--primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
+                ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : avatarInitial}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+                <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${groupIcon}${this.escapeHtml(displayName)}</div>
+                <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0;">
+                <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
+                ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
+            </div>
+        </div>
+    `;
+}).join('');
         
         // Add click handlers
         document.querySelectorAll('.conversation-item').forEach(item => {
@@ -2006,11 +2025,64 @@ async startNewChat() {
         return;
     }
     
-    // Show searchable user list modal
+    // Show options: Individual Chat or Group Chat
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
-                <div class="modal-title"><i class="fas fa-user-plus"></i> Start New Chat</div>
+                <div class="modal-title"><i class="fas fa-comment-plus"></i> New Conversation</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <button id="new-individual-chat-btn" class="btn btn-primary" style="flex: 1; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                        <i class="fas fa-user" style="font-size: 1.5rem;"></i>
+                        <span style="font-size: 0.8rem;">Individual Chat</span>
+                    </button>
+                    <button id="new-group-chat-btn" class="btn btn-outline" style="flex: 1; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                        <i class="fas fa-users" style="font-size: 1.5rem;"></i>
+                        <span style="font-size: 0.8rem;">Group Chat</span>
+                    </button>
+                </div>
+                <div style="text-align: center; color: var(--grey-dark); font-size: 0.8rem;">
+                    <i class="fas fa-info-circle"></i> Start a conversation with one person or a group
+                </div>
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn" style="width: 100%;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('new-chat-options-modal', modalContent);
+    
+    // Individual Chat button
+    setTimeout(() => {
+        const individualBtn = document.getElementById('new-individual-chat-btn');
+        if (individualBtn) {
+            individualBtn.addEventListener('click', () => {
+                this.closeModal('new-chat-options-modal');
+                setTimeout(() => this.showIndividualChatModal(), 300);
+            });
+        }
+        
+        const groupBtn = document.getElementById('new-group-chat-btn');
+        if (groupBtn) {
+            groupBtn.addEventListener('click', () => {
+                this.closeModal('new-chat-options-modal');
+                setTimeout(() => this.showGroupChatModal(), 300);
+            });
+        }
+    }, 100);
+}
+
+// ========== INDIVIDUAL CHAT MODAL ==========
+async showIndividualChatModal() {
+    if (!this.currentUser) return;
+    
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-user"></i> Individual Chat</div>
                 <button class="close-modal-btn">&times;</button>
             </div>
             <div style="padding: 20px;">
@@ -2022,20 +2094,19 @@ async startNewChat() {
                     <div class="loading-spinner">Loading users...</div>
                 </div>
                 <div class="form-group" style="margin-top: 10px;">
-                    <label class="form-label">Or type message</label>
+                    <label class="form-label">Message</label>
                     <textarea id="chat-initial-message" class="form-input" rows="3" placeholder="Type your message..."></textarea>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-outline close-modal-btn">Cancel</button>
-                    <button class="btn btn-primary" id="create-chat-btn" disabled>Start Chat</button>
+                    <button class="btn btn-primary" id="create-individual-chat-btn" disabled>Start Chat</button>
                 </div>
             </div>
         </div>
     `;
     
-    this.showModalWithContent('new-chat-modal', modalContent);
+    this.showModalWithContent('individual-chat-modal', modalContent);
     
-    // Load all users for search
     let allUsers = [];
     let selectedUserId = null;
     
@@ -2051,15 +2122,11 @@ async startNewChat() {
                     email: data.email || ''
                 };
             });
-        
-        // Render initial users
         renderUserResults(allUsers);
     } catch (error) {
         console.error('Error loading users:', error);
-        const resultsContainer = document.getElementById('user-search-results');
-        if (resultsContainer) {
-            resultsContainer.innerHTML = '<div class="error-state">Error loading users</div>';
-        }
+        const container = document.getElementById('user-search-results');
+        if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
     }
     
     function renderUserResults(users) {
@@ -2077,17 +2144,15 @@ async startNewChat() {
                     ${user.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 500; font-size: 0.9rem;">${escapeHtml(user.displayName)}</div>
-                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${escapeHtml(user.email)}</div>
+                    <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(user.displayName)}</div>
+                    <div style="font-size: 0.7rem; color: var(--grey-dark);">${this.escapeHtml(user.email)}</div>
                 </div>
                 <div class="user-select-indicator" style="width: 20px; height: 20px; border: 2px solid var(--grey); border-radius: 50%; flex-shrink: 0;"></div>
             </div>
         `).join('');
         
-        // Add click handlers for user selection
         container.querySelectorAll('.user-search-item').forEach(item => {
             item.addEventListener('click', function() {
-                // Deselect all
                 container.querySelectorAll('.user-search-item').forEach(el => {
                     el.style.background = 'transparent';
                     const indicator = el.querySelector('.user-select-indicator');
@@ -2096,8 +2161,6 @@ async startNewChat() {
                         indicator.style.background = 'transparent';
                     }
                 });
-                
-                // Select this one
                 this.style.background = 'rgba(46, 134, 222, 0.08)';
                 const indicator = this.querySelector('.user-select-indicator');
                 if (indicator) {
@@ -2110,14 +2173,12 @@ async startNewChat() {
                     indicator.style.justifyContent = 'center';
                     indicator.style.fontSize = '0.6rem';
                 }
-                
                 selectedUserId = this.getAttribute('data-user-id');
-                document.getElementById('create-chat-btn').disabled = false;
+                document.getElementById('create-individual-chat-btn').disabled = false;
             });
         });
     }
     
-    // Search functionality
     setTimeout(() => {
         const searchInput = document.getElementById('chat-user-search');
         if (searchInput) {
@@ -2127,7 +2188,6 @@ async startNewChat() {
                     renderUserResults(allUsers);
                     return;
                 }
-                
                 const filtered = allUsers.filter(user => 
                     user.displayName.toLowerCase().includes(query) ||
                     user.email.toLowerCase().includes(query)
@@ -2136,25 +2196,266 @@ async startNewChat() {
             });
         }
         
-        const createBtn = document.getElementById('create-chat-btn');
+        const createBtn = document.getElementById('create-individual-chat-btn');
         if (createBtn) {
             createBtn.addEventListener('click', async () => {
                 if (!selectedUserId) {
                     this.showToast('Please select a user first', 'warning');
                     return;
                 }
-                
                 const message = document.getElementById('chat-initial-message')?.value;
                 if (!message) {
                     this.showToast('Please enter a message', 'warning');
                     return;
                 }
-                
                 await this.startChatWithUser(selectedUserId, message);
-                this.closeModal('new-chat-modal');
+                this.closeModal('individual-chat-modal');
             });
         }
     }, 200);
+}
+
+// ========== GROUP CHAT MODAL ==========
+async showGroupChatModal() {
+    if (!this.currentUser) return;
+    
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-users"></i> Create Group Chat</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Group Name *</label>
+                    <input type="text" id="group-name-input" class="form-input" placeholder="e.g., Project Team, Family, Friends">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Search & Add Members</label>
+                    <input type="text" id="group-user-search" class="form-input" placeholder="Type name or email...">
+                </div>
+                <div id="group-user-search-results" style="max-height: 200px; overflow-y: auto; margin-top: 10px;">
+                    <div class="loading-spinner">Loading users...</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label class="form-label">Selected Members (<span id="selected-members-count">0</span>)</label>
+                    <div id="selected-members-list" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 30px; padding: 4px; border: 1px dashed var(--border-color); border-radius: 8px;"></div>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label class="form-label">Initial Message</label>
+                    <textarea id="group-initial-message" class="form-input" rows="2" placeholder="Type your first message..."></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="create-group-chat-btn">Create Group</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('group-chat-modal', modalContent);
+    
+    let allUsers = [];
+    let selectedMembers = new Set();
+    
+    try {
+        const usersSnapshot = await this.db.collection('users').limit(100).get();
+        allUsers = usersSnapshot.docs
+            .filter(doc => doc.id !== this.currentUser.uid)
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    displayName: data.displayName || data.userName || data.name || data.email || 'User',
+                    email: data.email || ''
+                };
+            });
+        renderGroupUserResults(allUsers);
+    } catch (error) {
+        console.error('Error loading users:', error);
+        const container = document.getElementById('group-user-search-results');
+        if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
+    }
+    
+    function renderGroupUserResults(users) {
+        const container = document.getElementById('group-user-search-results');
+        if (!container) return;
+        
+        if (users.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
+            return;
+        }
+        
+        container.innerHTML = users.map(user => {
+            const isSelected = selectedMembers.has(user.id);
+            return `
+                <div class="group-user-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s; ${isSelected ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
+                    <div style="width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.8rem; flex-shrink: 0;">
+                        ${user.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; font-size: 0.85rem;">${this.escapeHtml(user.displayName)}</div>
+                        <div style="font-size: 0.65rem; color: var(--grey-dark);">${this.escapeHtml(user.email)}</div>
+                    </div>
+                    <div class="group-user-check" style="width: 22px; height: 22px; border: 2px solid ${isSelected ? 'var(--primary)' : 'var(--grey)'}; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: ${isSelected ? 'var(--primary)' : 'transparent'};">
+                        ${isSelected ? '<i class="fas fa-check" style="color: white; font-size: 0.6rem;"></i>' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.querySelectorAll('.group-user-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                if (selectedMembers.has(userId)) {
+                    selectedMembers.delete(userId);
+                } else {
+                    selectedMembers.add(userId);
+                }
+                renderGroupUserResults(users);
+                updateSelectedMembersUI();
+            });
+        });
+    }
+    
+    function updateSelectedMembersUI() {
+        const list = document.getElementById('selected-members-list');
+        const count = document.getElementById('selected-members-count');
+        if (!list) return;
+        if (count) count.textContent = selectedMembers.size;
+        
+        list.innerHTML = '';
+        if (selectedMembers.size === 0) {
+            list.innerHTML = '<span style="color: var(--grey-dark); font-size: 0.8rem; padding: 4px 8px;">No members selected</span>';
+            return;
+        }
+        
+        // Show creator as well
+        const allMemberIds = [this.currentUser.uid, ...selectedMembers];
+        allMemberIds.forEach(uid => {
+            const user = allUsers.find(u => u.id === uid) || { displayName: 'You' };
+            const isCreator = uid === this.currentUser.uid;
+            const name = isCreator ? 'You (Admin)' : user.displayName || 'User';
+            const div = document.createElement('div');
+            div.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; background: var(--primary-light); color: var(--primary); padding: 4px 10px; border-radius: 16px; font-size: 0.75rem;';
+            div.textContent = name;
+            if (!isCreator) {
+                const removeBtn = document.createElement('span');
+                removeBtn.style.cssText = 'cursor: pointer; margin-left: 4px; font-weight: bold;';
+                removeBtn.textContent = '×';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (uid !== this.currentUser.uid) {
+                        selectedMembers.delete(uid);
+                        renderGroupUserResults(allUsers);
+                        updateSelectedMembersUI();
+                    }
+                };
+                div.appendChild(removeBtn);
+            }
+            list.appendChild(div);
+        });
+    }
+    
+    setTimeout(() => {
+        const searchInput = document.getElementById('group-user-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                if (query.length === 0) {
+                    renderGroupUserResults(allUsers);
+                    return;
+                }
+                const filtered = allUsers.filter(user => 
+                    user.displayName.toLowerCase().includes(query) ||
+                    user.email.toLowerCase().includes(query)
+                );
+                renderGroupUserResults(filtered);
+            });
+        }
+        
+        const createBtn = document.getElementById('create-group-chat-btn');
+        if (createBtn) {
+            createBtn.addEventListener('click', async () => {
+                const groupName = document.getElementById('group-name-input')?.value.trim();
+                if (!groupName) {
+                    this.showToast('Please enter a group name', 'warning');
+                    return;
+                }
+                if (selectedMembers.size === 0) {
+                    this.showToast('Please select at least one member', 'warning');
+                    return;
+                }
+                const message = document.getElementById('group-initial-message')?.value.trim() || 'Welcome to the group!';
+                await this.createGroupChat(groupName, Array.from(selectedMembers), message);
+                this.closeModal('group-chat-modal');
+            });
+        }
+        
+        // Initial render of selected members
+        setTimeout(() => updateSelectedMembersUI.call(this), 100);
+    }, 200);
+}
+
+// ========== CREATE GROUP CHAT ==========
+async createGroupChat(groupName, memberIds, initialMessage) {
+    if (!this.currentUser) {
+        this.showToast('Please sign in to create a group', 'warning');
+        return;
+    }
+    
+    const allParticipants = [this.currentUser.uid, ...memberIds];
+    
+    // Fetch user names for participants
+    const userNames = {};
+    for (const uid of allParticipants) {
+        if (uid === this.currentUser.uid) {
+            userNames[uid] = this.currentUser.displayName || this.currentUser.email || 'You';
+        } else {
+            try {
+                const userDoc = await this.db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    userNames[uid] = data.displayName || data.userName || data.name || 'User';
+                } else {
+                    userNames[uid] = 'User';
+                }
+            } catch (e) {
+                userNames[uid] = 'User';
+            }
+        }
+    }
+    
+    const chatData = {
+        participants: allParticipants,
+        participantNames: userNames,
+        isGroup: true,
+        groupName: groupName,
+        adminId: this.currentUser.uid,
+        lastMessage: initialMessage,
+        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    try {
+        const chatRef = await this.db.collection('chats').add(chatData);
+        
+        // Send initial message
+        await chatRef.collection('messages').add({
+            senderId: this.currentUser.uid,
+            senderName: this.currentUser.displayName || this.currentUser.email || 'User',
+            text: initialMessage,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            read: false
+        });
+        
+        this.showToast('✅ Group chat created successfully!', 'success');
+        await this.loadConversations();
+        this.loadChat(chatRef.id);
+    } catch (error) {
+        console.error('Error creating group chat:', error);
+        this.showToast('Error creating group: ' + error.message, 'error');
+    }
 }
 
 async startChatWithUser(userId, initialMessage) {
