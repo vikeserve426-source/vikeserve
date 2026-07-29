@@ -509,17 +509,11 @@ class MoreMenuManager {
                 <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
             </div>
         </div>
-        
-        <!-- ========== APP VERSION ========== -->
-        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: center;">
-            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 4px;">📱 VikeServe v1.0.0</div>
-            <div style="font-size: 0.7rem; color: var(--text-tertiary);">Built with ❤️ in Kenya</div>
-        </div>
-        
+       
         <!-- ========== FOOTER ========== -->
         <div style="text-align: center; margin-top: 20px; padding: 15px; color: var(--text-tertiary);">
             <div>VikeServe v1.0.0</div>
-            <div>© 2026 VikeServe Ltd. Built with ❤️ by Victor Wanyama</div>
+            <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
             <div style="font-size: 0.7rem; margin-top: 8px;">
                 <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
             </div>
