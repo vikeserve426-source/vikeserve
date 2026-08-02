@@ -1752,157 +1752,452 @@ class MoreMenuManager {
     }
     
     // ========== SHOW GROUP INFO ==========
-    async showGroupInfo(chatId) {
-        try {
-            const chatDoc = await this.db.collection('chats').doc(chatId).get();
-            if (!chatDoc.exists) {
-                this.showToast('Group not found', 'error');
-                return;
+async showGroupInfo(chatId) {
+    try {
+        const chatDoc = await this.db.collection('chats').doc(chatId).get();
+        if (!chatDoc.exists) {
+            this.showToast('Group not found', 'error');
+            return;
+        }
+        
+        const chatData = chatDoc.data();
+        if (!chatData.isGroup) {
+            this.showToast('This is not a group chat', 'warning');
+            return;
+        }
+        
+        const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+        const isCreator = chatData.adminId === this.currentUser.uid;
+        const participants = chatData.participants || [];
+        const participantNames = chatData.participantNames || {};
+        
+        // Build member list HTML with clickable names
+        let membersHtml = await Promise.all(participants.map(async (uid) => {
+            let name = participantNames[uid] || 'User';
+            
+            if (!participantNames[uid] || participantNames[uid] === 'User') {
+                try {
+                    const userDoc = await this.db.collection('users').doc(uid).get();
+                    if (userDoc.exists) {
+                        const data = userDoc.data();
+                        name = data.displayName || data.userName || data.name || data.email || 'User';
+                    }
+                } catch (e) {}
             }
             
-            const chatData = chatDoc.data();
-            if (!chatData.isGroup) {
-                this.showToast('This is not a group chat', 'warning');
-                return;
-            }
+            const isMemberAdmin = chatData.admins && chatData.admins.includes(uid);
+            const isMemberCreator = uid === chatData.adminId;
+            const isCurrentUser = uid === this.currentUser.uid;
             
-            const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
-            const participants = chatData.participants || [];
-            const participantNames = chatData.participantNames || {};
+            let badges = '';
+            if (isMemberCreator) badges += '<span class="role-badge creator">👑 Creator</span>';
+            if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin">🛡️ Admin</span>';
+            if (isCurrentUser) badges += '<span class="role-badge you">👤 You</span>';
             
-            let membersHtml = await Promise.all(participants.map(async (uid) => {
-                let name = participantNames[uid] || 'User';
-                
-                if (!participantNames[uid] || participantNames[uid] === 'User') {
-                    try {
-                        const userDoc = await this.db.collection('users').doc(uid).get();
-                        if (userDoc.exists) {
-                            const data = userDoc.data();
-                            name = data.displayName || data.userName || data.name || data.email || 'User';
-                        }
-                    } catch (e) {}
-                }
-                
-                const isCreator = uid === chatData.adminId;
-                const isAdminUser = chatData.admins && chatData.admins.includes(uid);
-                const isCurrentUser = uid === this.currentUser.uid;
-                
-                let badges = '';
-                if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
-                if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
-                if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
-                
-                return `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
-                        <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
-                            ${name.charAt(0).toUpperCase()}
+            // Determine if this member can be managed by current user
+            const canManage = isAdmin && !isMemberCreator && uid !== this.currentUser.uid;
+            
+            return `
+                <div class="member-item" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}" data-is-admin="${isMemberAdmin}" data-is-creator="${isMemberCreator}" data-can-manage="${canManage}" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: ${canManage || isAdmin ? 'pointer' : 'default'};">
+                    <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
+                        ${name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
+                        <div style="font-size: 0.7rem; color: var(--grey-dark); display: flex; flex-wrap: wrap; gap: 4px;">${badges}</div>
+                    </div>
+                    ${canManage ? `<i class="fas fa-chevron-right" style="color: var(--grey-dark); font-size: 0.8rem;"></i>` : ''}
+                </div>
+            `;
+        }));
+        
+        const membersListHtml = membersHtml.join('');
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
+                    <button class="close-modal-btn" onclick="closeModalById('group-info-modal')">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <!-- GROUP NAME - Click to edit if admin -->
+                    <div style="text-align: center; margin-bottom: 20px; cursor: ${isAdmin ? 'pointer' : 'default'};" id="group-name-click">
+                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                            <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
                         </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
-                            <div style="font-size: 0.7rem; color: var(--grey-dark);">${badges}</div>
+                        <h3 style="margin: 0; ${isAdmin ? 'color: var(--primary);' : ''}">
+                            ${this.escapeHtml(chatData.groupName || 'Group Chat')}
+                            ${isAdmin ? ' <i class="fas fa-pen" style="font-size: 0.7rem; color: var(--primary);"></i>' : ''}
+                        </h3>
+                        <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
+                        ${isAdmin ? '<p style="font-size: 0.65rem; color: var(--grey-dark);">Tap group name to edit</p>' : ''}
+                    </div>
+                    
+                    <!-- MEMBERS LIST -->
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="margin-bottom: 10px;">
+                            <i class="fas fa-user-friends"></i> Members 
+                            <span style="font-size: 0.7rem; color: var(--grey-dark);">(${participants.length})</span>
+                        </h4>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            ${membersListHtml}
                         </div>
                     </div>
-                `;
-            }));
-            
-            const membersListHtml = membersHtml.join('');
-            
-            const modalContent = `
-                <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
-                    <div class="modal-header">
-                        <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
-                        <button class="close-modal-btn" onclick="closeModalById('group-info-modal')">&times;</button>
-                    </div>
-                    <div style="padding: 20px;">
-                        <div style="text-align: center; margin-bottom: 20px;">
-                            <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                                <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
-                            </div>
-                            <h3 style="margin: 0;">${this.escapeHtml(chatData.groupName || 'Group Chat')}</h3>
-                            <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
-                            <div style="max-height: 300px; overflow-y: auto;">
-                                ${membersListHtml}
+                    
+                    <!-- ADMIN CONTROLS -->
+                    ${isAdmin ? `
+                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                            <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button id="edit-group-name-btn" class="btn btn-outline" style="width: 100%;">
+                                    <i class="fas fa-edit"></i> Edit Group Name
+                                </button>
+                                <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
+                                    <i class="fas fa-user-plus"></i> Add Members
+                                </button>
+                                <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
+                                    <i class="fas fa-sign-out-alt"></i> Leave Group
+                                </button>
+                                <button id="delete-group-btn" class="btn btn-danger" style="width: 100%; background: #dc2626;">
+                                    <i class="fas fa-trash-alt"></i> Delete Group
+                                </button>
                             </div>
                         </div>
-                        
-                        ${isAdmin ? `
-                            <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
-                                <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
-                                <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    <button id="edit-group-name-btn" class="btn btn-outline" style="width: 100%;">
-                                        <i class="fas fa-edit"></i> Edit Group Name
-                                    </button>
-                                    <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
-                                        <i class="fas fa-user-plus"></i> Add Members
-                                    </button>
-                                    <button id="remove-member-btn" class="btn btn-warning" style="width: 100%;">
-                                        <i class="fas fa-user-minus"></i> Remove Member
-                                    </button>
-                                    <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
-                                        <i class="fas fa-sign-out-alt"></i> Leave Group
-                                    </button>
-                                </div>
-                            </div>
-                        ` : `
-                            <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                    ` : `
+                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button id="report-group-btn" class="btn btn-warning" style="width: 100%; background: var(--warning); color: white;">
+                                    <i class="fas fa-flag"></i> Report Group
+                                </button>
                                 <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
                                     <i class="fas fa-sign-out-alt"></i> Leave Group
                                 </button>
                             </div>
-                        `}
-                    </div>
+                        </div>
+                    `}
                 </div>
-            `;
+            </div>
+        `;
+        
+        this.showModalWithContent('group-info-modal', modalContent);
+        
+        // ========== EVENT HANDLERS ==========
+        setTimeout(() => {
+            // Click on group name to edit
+            const groupNameClick = document.getElementById('group-name-click');
+            if (groupNameClick && isAdmin) {
+                groupNameClick.addEventListener('click', () => {
+                    this.closeModal('group-info-modal');
+                    setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
+                });
+            }
             
-            this.showModalWithContent('group-info-modal', modalContent);
+            // Click on member to show options
+            document.querySelectorAll('.member-item[data-can-manage="true"]').forEach(item => {
+                item.addEventListener('click', () => {
+                    const userId = item.getAttribute('data-user-id');
+                    const userName = item.getAttribute('data-user-name');
+                    const isMemberAdmin = item.getAttribute('data-is-admin') === 'true';
+                    this.showMemberOptionsModal(chatId, userId, userName, isMemberAdmin);
+                });
+            });
             
-            setTimeout(() => {
-                const leaveBtn = document.getElementById('leave-group-btn');
-                if (leaveBtn) {
-                    leaveBtn.addEventListener('click', () => {
-                        if (confirm('Are you sure you want to leave this group?')) {
-                            this.leaveGroup(chatId);
-                            this.closeModal('group-info-modal');
-                        }
-                    });
+            // Edit Group Name button
+            const editNameBtn = document.getElementById('edit-group-name-btn');
+            if (editNameBtn) {
+                editNameBtn.addEventListener('click', () => {
+                    this.closeModal('group-info-modal');
+                    setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
+                });
+            }
+            
+            // Add Members button
+            const addMembersBtn = document.getElementById('add-group-members-btn');
+            if (addMembersBtn) {
+                addMembersBtn.addEventListener('click', () => {
+                    this.closeModal('group-info-modal');
+                    setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
+                });
+            }
+            
+            // Leave Group button
+            const leaveBtn = document.getElementById('leave-group-btn');
+            if (leaveBtn) {
+                leaveBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to leave this group?')) {
+                        this.leaveGroup(chatId);
+                        this.closeModal('group-info-modal');
+                    }
+                });
+            }
+            
+            // Delete Group button (admin only)
+            const deleteBtn = document.getElementById('delete-group-btn');
+            if (deleteBtn && isAdmin) {
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm(`Are you sure you want to permanently delete the group "${chatData.groupName || 'Group Chat'}"? This cannot be undone!`)) {
+                        this.deleteChat(chatId, true);
+                        this.closeModal('group-info-modal');
+                    }
+                });
+            }
+            
+            // Report Group button
+            const reportGroupBtn = document.getElementById('report-group-btn');
+            if (reportGroupBtn) {
+                reportGroupBtn.addEventListener('click', () => {
+                    this.closeModal('group-info-modal');
+                    setTimeout(() => this.showReportGroupModal(chatId, chatData.groupName), 300);
+                });
+            }
+            
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading group info:', error);
+        this.showToast('Error loading group info', 'error');
+    }
+}
+
+// ========== SHOW MEMBER OPTIONS ==========
+showMemberOptionsModal(chatId, userId, userName, isAdmin) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 360px; z-index: 20003;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-user-cog"></i> ${this.escapeHtml(userName)}</div>
+                <button class="close-modal-btn" onclick="closeModalById('member-options-modal')">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    ${isAdmin ? `
+                        <button id="member-remove-admin-btn" class="btn btn-warning" style="width: 100%; background: #f59e0b; color: white;">
+                            <i class="fas fa-user-minus"></i> Remove as Admin
+                        </button>
+                    ` : `
+                        <button id="member-make-admin-btn" class="btn btn-primary" style="width: 100%;">
+                            <i class="fas fa-user-shield"></i> Make Admin
+                        </button>
+                    `}
+                    <button id="member-remove-btn" class="btn btn-danger" style="width: 100%;">
+                        <i class="fas fa-user-slash"></i> Remove from Group
+                    </button>
+                    <button id="member-report-btn" class="btn btn-warning" style="width: 100%; background: var(--warning); color: white;">
+                        <i class="fas fa-flag"></i> Report Member
+                    </button>
+                    <button class="btn btn-outline" onclick="closeModalById('member-options-modal')" style="width: 100%;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('member-options-modal', modalContent);
+    
+    setTimeout(() => {
+        // Make Admin
+        const makeAdminBtn = document.getElementById('member-make-admin-btn');
+        if (makeAdminBtn) {
+            makeAdminBtn.addEventListener('click', async () => {
+                if (confirm(`Make ${userName} an admin?`)) {
+                    await this.makeGroupAdmin(chatId, userId);
+                    this.closeModal('member-options-modal');
+                    setTimeout(() => this.showGroupInfo(chatId), 300);
+                }
+            });
+        }
+        
+        // Remove Admin
+        const removeAdminBtn = document.getElementById('member-remove-admin-btn');
+        if (removeAdminBtn) {
+            removeAdminBtn.addEventListener('click', async () => {
+                if (confirm(`Remove ${userName} as admin?`)) {
+                    await this.removeGroupAdmin(chatId, userId);
+                    this.closeModal('member-options-modal');
+                    setTimeout(() => this.showGroupInfo(chatId), 300);
+                }
+            });
+        }
+        
+        // Remove Member
+        const removeBtn = document.getElementById('member-remove-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', async () => {
+                if (confirm(`Remove ${userName} from this group?`)) {
+                    await this.removeMemberFromGroup(chatId, userId);
+                    this.closeModal('member-options-modal');
+                    setTimeout(() => this.showGroupInfo(chatId), 300);
+                }
+            });
+        }
+        
+        // Report Member
+        const reportBtn = document.getElementById('member-report-btn');
+        if (reportBtn) {
+            reportBtn.addEventListener('click', () => {
+                this.closeModal('member-options-modal');
+                setTimeout(() => this.showReportMemberModal(chatId, userId, userName), 300);
+            });
+        }
+    }, 100);
+}
+
+// ========== MAKE GROUP ADMIN ==========
+async makeGroupAdmin(chatId, userId) {
+    try {
+        const chatRef = this.db.collection('chats').doc(chatId);
+        await chatRef.update({
+            admins: firebase.firestore.FieldValue.arrayUnion(userId)
+        });
+        this.showToast('Member is now an admin!', 'success');
+        this.loadConversations();
+    } catch (error) {
+        console.error('Error making admin:', error);
+        this.showToast('Error making admin', 'error');
+    }
+}
+
+// ========== REMOVE GROUP ADMIN ==========
+async removeGroupAdmin(chatId, userId) {
+    try {
+        const chatRef = this.db.collection('chats').doc(chatId);
+        await chatRef.update({
+            admins: firebase.firestore.FieldValue.arrayRemove(userId)
+        });
+        this.showToast('Admin privileges removed', 'success');
+        this.loadConversations();
+    } catch (error) {
+        console.error('Error removing admin:', error);
+        this.showToast('Error removing admin', 'error');
+    }
+}
+
+// ========== REPORT GROUP ==========
+showReportGroupModal(chatId, groupName) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20003;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-flag"></i> Report Group</div>
+                <button class="close-modal-btn" onclick="closeModalById('report-group-modal')">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Report the group <strong>${this.escapeHtml(groupName)}</strong> for:</p>
+                <div class="form-group">
+                    <select id="report-group-reason" class="form-input">
+                        <option value="">Select reason...</option>
+                        <option value="spam">Spam or misleading</option>
+                        <option value="harassment">Harassment or bullying</option>
+                        <option value="inappropriate">Inappropriate content</option>
+                        <option value="illegal">Illegal activity</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Additional details</label>
+                    <textarea id="report-group-details" class="form-input" rows="3" placeholder="Please provide more information..."></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="closeModalById('report-group-modal')" style="flex: 1;">Cancel</button>
+                    <button class="btn btn-danger" id="submit-report-group-btn" style="flex: 1;">Submit Report</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('report-group-modal', modalContent);
+    
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submit-report-group-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const reason = document.getElementById('report-group-reason').value;
+                const details = document.getElementById('report-group-details').value;
+                
+                if (!reason) {
+                    this.showToast('Please select a reason', 'warning');
+                    return;
                 }
                 
-                if (isAdmin) {
-                    const editNameBtn = document.getElementById('edit-group-name-btn');
-                    if (editNameBtn) {
-                        editNameBtn.addEventListener('click', () => {
-                            this.closeModal('group-info-modal');
-                            setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
-                        });
-                    }
-                    
-                    const addMembersBtn = document.getElementById('add-group-members-btn');
-                    if (addMembersBtn) {
-                        addMembersBtn.addEventListener('click', () => {
-                            this.closeModal('group-info-modal');
-                            setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
-                        });
-                    }
-                    
-                    const removeMemberBtn = document.getElementById('remove-member-btn');
-                    if (removeMemberBtn) {
-                        removeMemberBtn.addEventListener('click', () => {
-                            this.closeModal('group-info-modal');
-                            setTimeout(() => this.showRemoveMemberModal(chatId), 300);
-                        });
-                    }
-                }
-            }, 100);
-            
-        } catch (error) {
-            console.error('Error loading group info:', error);
-            this.showToast('Error loading group info', 'error');
+                await this.db.collection('group_reports').add({
+                    chatId: chatId,
+                    groupName: groupName,
+                    reporterId: this.currentUser.uid,
+                    reporterName: this.currentUser.displayName || this.currentUser.email,
+                    reason: reason,
+                    details: details,
+                    reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'pending'
+                });
+                
+                this.showToast('Group reported successfully! Our team will review it.', 'success');
+                this.closeModal('report-group-modal');
+            });
         }
-    }
+    }, 100);
+}
+
+// ========== REPORT MEMBER ==========
+showReportMemberModal(chatId, userId, userName) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px; z-index: 20003;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-flag"></i> Report Member</div>
+                <button class="close-modal-btn" onclick="closeModalById('report-member-modal')">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Report <strong>${this.escapeHtml(userName)}</strong> for:</p>
+                <div class="form-group">
+                    <select id="report-member-reason" class="form-input">
+                        <option value="">Select reason...</option>
+                        <option value="harassment">Harassment or bullying</option>
+                        <option value="spam">Spam or misleading</option>
+                        <option value="inappropriate">Inappropriate content</option>
+                        <option value="threats">Threats or intimidation</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Additional details</label>
+                    <textarea id="report-member-details" class="form-input" rows="3" placeholder="Please provide more information..."></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="closeModalById('report-member-modal')" style="flex: 1;">Cancel</button>
+                    <button class="btn btn-danger" id="submit-report-member-btn" style="flex: 1;">Submit Report</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('report-member-modal', modalContent);
+    
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submit-report-member-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const reason = document.getElementById('report-member-reason').value;
+                const details = document.getElementById('report-member-details').value;
+                
+                if (!reason) {
+                    this.showToast('Please select a reason', 'warning');
+                    return;
+                }
+                
+                await this.db.collection('member_reports').add({
+                    chatId: chatId,
+                    reportedUserId: userId,
+                    reportedUserName: userName,
+                    reporterId: this.currentUser.uid,
+                    reporterName: this.currentUser.displayName || this.currentUser.email,
+                    reason: reason,
+                    details: details,
+                    reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'pending'
+                });
+                
+                this.showToast('Member reported successfully! Our team will review it.', 'success');
+                this.closeModal('report-member-modal');
+            });
+        }
+    }, 100);
+}
 
 // ========== REMOVE MEMBER FROM GROUP ==========
 async showRemoveMemberModal(chatId) {
