@@ -1766,13 +1766,16 @@ async showGroupInfo(chatId) {
             return;
         }
         
-        // ===== FIX: Better admin detection =====
-        const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+        // ===== FIX: Determine if user is admin or creator =====
         const isCreator = chatData.adminId === this.currentUser.uid;
+        const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+        // User is admin if they are in admins array OR they are the creator
+        const userIsAdmin = isAdmin || isCreator;
+        
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
         
-        console.log('🔍 Group Info - isAdmin:', isAdmin, 'isCreator:', isCreator);
+        console.log('🔍 Group Info - isAdmin:', userIsAdmin, 'isCreator:', isCreator);
         console.log('🔍 Group admins:', chatData.admins);
         console.log('🔍 Current user:', this.currentUser.uid);
         
@@ -1799,9 +1802,8 @@ async showGroupInfo(chatId) {
             if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin" style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
             if (isCurrentUser) badges += '<span class="role-badge you" style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
             
-            // ===== FIX: Better canManage detection =====
             // Can manage if current user is admin and this member is not the creator and not the current user
-            const canManage = isAdmin && !isMemberCreator && uid !== this.currentUser.uid;
+            const canManage = userIsAdmin && !isMemberCreator && uid !== this.currentUser.uid;
             
             return `
                 <div class="member-item" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}" data-is-admin="${isMemberAdmin}" data-is-creator="${isMemberCreator}" data-can-manage="${canManage}" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: ${canManage ? 'pointer' : 'default'};">
@@ -1827,16 +1829,16 @@ async showGroupInfo(chatId) {
                 </div>
                 <div style="padding: 20px;">
                     <!-- GROUP NAME - Click to edit if admin -->
-                    <div style="text-align: center; margin-bottom: 20px; cursor: ${isAdmin ? 'pointer' : 'default'};" id="group-name-click">
+                    <div style="text-align: center; margin-bottom: 20px; cursor: ${userIsAdmin ? 'pointer' : 'default'};" id="group-name-click">
                         <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                             <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
                         </div>
-                        <h3 style="margin: 0; ${isAdmin ? 'color: var(--primary);' : ''}">
+                        <h3 style="margin: 0; ${userIsAdmin ? 'color: var(--primary);' : ''}">
                             ${this.escapeHtml(chatData.groupName || 'Group Chat')}
-                            ${isAdmin ? ' <i class="fas fa-pen" style="font-size: 0.7rem; color: var(--primary);"></i>' : ''}
+                            ${userIsAdmin ? ' <i class="fas fa-pen" style="font-size: 0.7rem; color: var(--primary);"></i>' : ''}
                         </h3>
                         <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
-                        ${isAdmin ? '<p style="font-size: 0.65rem; color: var(--grey-dark);">Tap group name to edit</p>' : ''}
+                        ${userIsAdmin ? '<p style="font-size: 0.65rem; color: var(--grey-dark);">Tap group name to edit</p>' : ''}
                     </div>
                     
                     <!-- MEMBERS LIST -->
@@ -1851,7 +1853,7 @@ async showGroupInfo(chatId) {
                     </div>
                     
                     <!-- ADMIN CONTROLS -->
-                    ${isAdmin ? `
+                    ${userIsAdmin ? `
                         <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
                             <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -1891,15 +1893,14 @@ async showGroupInfo(chatId) {
         setTimeout(() => {
             // Click on group name to edit
             const groupNameClick = document.getElementById('group-name-click');
-            if (groupNameClick && isAdmin) {
+            if (groupNameClick && userIsAdmin) {
                 groupNameClick.addEventListener('click', () => {
                     this.closeModal('group-info-modal');
                     setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
                 });
             }
             
-            // ===== FIX: Click on member to show options - even if not admin? =====
-            // For non-admins, only show report option
+            // Click on member to show options
             document.querySelectorAll('.member-item').forEach(item => {
                 const userId = item.getAttribute('data-user-id');
                 const userName = item.getAttribute('data-user-name');
@@ -1907,17 +1908,12 @@ async showGroupInfo(chatId) {
                 const canManage = item.getAttribute('data-can-manage') === 'true';
                 const isCurrentUser = userId === this.currentUser.uid;
                 
-                // If it's the current user, don't allow actions
                 if (isCurrentUser) return;
                 
-                // If user can manage (admin), show full options
-                // If not admin, only show report option
                 item.addEventListener('click', () => {
-                    if (canManage) {
-                        // Admin can manage this member
+                    if (canManage && userIsAdmin) {
                         this.showMemberOptionsModal(chatId, userId, userName, isMemberAdmin);
                     } else if (this.currentUser) {
-                        // Non-admin can only report
                         this.showMemberReportOnlyModal(chatId, userId, userName);
                     }
                 });
@@ -1954,7 +1950,7 @@ async showGroupInfo(chatId) {
             
             // Delete Group button (admin only)
             const deleteBtn = document.getElementById('delete-group-btn');
-            if (deleteBtn && isAdmin) {
+            if (deleteBtn && userIsAdmin) {
                 deleteBtn.addEventListener('click', () => {
                     if (confirm(`Are you sure you want to permanently delete the group "${chatData.groupName || 'Group Chat'}"? This cannot be undone!`)) {
                         this.deleteChat(chatId, true);
