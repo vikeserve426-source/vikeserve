@@ -1751,7 +1751,7 @@ class MoreMenuManager {
         this.loadChatMessages(chatId);
     }
     
-    // ========== SHOW GROUP INFO ==========
+    // ========== SHOW GROUP INFO - FIXED ==========
 async showGroupInfo(chatId) {
     try {
         const chatDoc = await this.db.collection('chats').doc(chatId).get();
@@ -1766,10 +1766,15 @@ async showGroupInfo(chatId) {
             return;
         }
         
+        // ===== FIX: Better admin detection =====
         const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
         const isCreator = chatData.adminId === this.currentUser.uid;
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
+        
+        console.log('🔍 Group Info - isAdmin:', isAdmin, 'isCreator:', isCreator);
+        console.log('🔍 Group admins:', chatData.admins);
+        console.log('🔍 Current user:', this.currentUser.uid);
         
         // Build member list HTML with clickable names
         let membersHtml = await Promise.all(participants.map(async (uid) => {
@@ -1790,15 +1795,16 @@ async showGroupInfo(chatId) {
             const isCurrentUser = uid === this.currentUser.uid;
             
             let badges = '';
-            if (isMemberCreator) badges += '<span class="role-badge creator">👑 Creator</span>';
-            if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin">🛡️ Admin</span>';
-            if (isCurrentUser) badges += '<span class="role-badge you">👤 You</span>';
+            if (isMemberCreator) badges += '<span class="role-badge creator" style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
+            if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin" style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
+            if (isCurrentUser) badges += '<span class="role-badge you" style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
             
-            // Determine if this member can be managed by current user
+            // ===== FIX: Better canManage detection =====
+            // Can manage if current user is admin and this member is not the creator and not the current user
             const canManage = isAdmin && !isMemberCreator && uid !== this.currentUser.uid;
             
             return `
-                <div class="member-item" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}" data-is-admin="${isMemberAdmin}" data-is-creator="${isMemberCreator}" data-can-manage="${canManage}" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: ${canManage || isAdmin ? 'pointer' : 'default'};">
+                <div class="member-item" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}" data-is-admin="${isMemberAdmin}" data-is-creator="${isMemberCreator}" data-can-manage="${canManage}" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: ${canManage ? 'pointer' : 'default'};">
                     <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
                         ${name.charAt(0).toUpperCase()}
                     </div>
@@ -1806,7 +1812,7 @@ async showGroupInfo(chatId) {
                         <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
                         <div style="font-size: 0.7rem; color: var(--grey-dark); display: flex; flex-wrap: wrap; gap: 4px;">${badges}</div>
                     </div>
-                    ${canManage ? `<i class="fas fa-chevron-right" style="color: var(--grey-dark); font-size: 0.8rem;"></i>` : ''}
+                    ${canManage ? `<i class="fas fa-chevron-right" style="color: var(--primary); font-size: 0.8rem;"></i>` : ''}
                 </div>
             `;
         }));
@@ -1892,13 +1898,28 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Click on member to show options
-            document.querySelectorAll('.member-item[data-can-manage="true"]').forEach(item => {
+            // ===== FIX: Click on member to show options - even if not admin? =====
+            // For non-admins, only show report option
+            document.querySelectorAll('.member-item').forEach(item => {
+                const userId = item.getAttribute('data-user-id');
+                const userName = item.getAttribute('data-user-name');
+                const isMemberAdmin = item.getAttribute('data-is-admin') === 'true';
+                const canManage = item.getAttribute('data-can-manage') === 'true';
+                const isCurrentUser = userId === this.currentUser.uid;
+                
+                // If it's the current user, don't allow actions
+                if (isCurrentUser) return;
+                
+                // If user can manage (admin), show full options
+                // If not admin, only show report option
                 item.addEventListener('click', () => {
-                    const userId = item.getAttribute('data-user-id');
-                    const userName = item.getAttribute('data-user-name');
-                    const isMemberAdmin = item.getAttribute('data-is-admin') === 'true';
-                    this.showMemberOptionsModal(chatId, userId, userName, isMemberAdmin);
+                    if (canManage) {
+                        // Admin can manage this member
+                        this.showMemberOptionsModal(chatId, userId, userName, isMemberAdmin);
+                    } else if (this.currentUser) {
+                        // Non-admin can only report
+                        this.showMemberReportOnlyModal(chatId, userId, userName);
+                    }
                 });
             });
             
@@ -2035,6 +2056,71 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
             reportBtn.addEventListener('click', () => {
                 this.closeModal('member-options-modal');
                 setTimeout(() => this.showReportMemberModal(chatId, userId, userName), 300);
+            });
+        }
+    }, 100);
+}
+
+// ========== SHOW MEMBER REPORT ONLY (For non-admins) ==========
+showMemberReportOnlyModal(chatId, userId, userName) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 360px; z-index: 20003;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-flag"></i> Report ${this.escapeHtml(userName)}</div>
+                <button class="close-modal-btn" onclick="closeModalById('member-report-only-modal')">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Report <strong>${this.escapeHtml(userName)}</strong> for:</p>
+                <div class="form-group">
+                    <select id="report-member-only-reason" class="form-input">
+                        <option value="">Select reason...</option>
+                        <option value="harassment">Harassment or bullying</option>
+                        <option value="spam">Spam or misleading</option>
+                        <option value="inappropriate">Inappropriate content</option>
+                        <option value="threats">Threats or intimidation</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Additional details</label>
+                    <textarea id="report-member-only-details" class="form-input" rows="3" placeholder="Please provide more information..."></textarea>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="closeModalById('report-member-only-modal')" style="flex: 1;">Cancel</button>
+                    <button class="btn btn-danger" id="submit-report-member-only-btn" style="flex: 1;">Submit Report</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModalWithContent('report-member-only-modal', modalContent);
+    
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submit-report-member-only-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const reason = document.getElementById('report-member-only-reason').value;
+                const details = document.getElementById('report-member-only-details').value;
+                
+                if (!reason) {
+                    this.showToast('Please select a reason', 'warning');
+                    return;
+                }
+                
+                await this.db.collection('member_reports').add({
+                    chatId: chatId,
+                    reportedUserId: userId,
+                    reportedUserName: userName,
+                    reporterId: this.currentUser.uid,
+                    reporterName: this.currentUser.displayName || this.currentUser.email,
+                    reason: reason,
+                    details: details,
+                    reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'pending'
+                });
+                
+                this.showToast('Member reported successfully!', 'success');
+                this.closeModal('report-member-only-modal');
             });
         }
     }, 100);
