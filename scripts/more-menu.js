@@ -1571,29 +1571,17 @@ async showGroupInfo(chatId) {
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
         
-        // Build member list HTML - fetch fresh names if needed
-        let membersHtml = await Promise.all(participants.map(async (uid) => {
-            let name = participantNames[uid] || 'User';
-            
-            // Try to get fresh name if not available
-            if (!participantNames[uid] || participantNames[uid] === 'User') {
-                try {
-                    const userDoc = await this.db.collection('users').doc(uid).get();
-                    if (userDoc.exists) {
-                        const data = userDoc.data();
-                        name = data.displayName || data.userName || data.name || data.email || 'User';
-                    }
-                } catch (e) {}
-            }
-            
+        // Build member list HTML
+        let membersHtml = participants.map(uid => {
+            const name = participantNames[uid] || 'User';
             const isCreator = uid === chatData.adminId;
             const isAdminUser = chatData.admins && chatData.admins.includes(uid);
             const isCurrentUser = uid === this.currentUser.uid;
             
             let badges = '';
-            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
-            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
-            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
+            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Creator</span>';
+            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Admin</span>';
+            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">You</span>';
             
             return `
                 <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
@@ -1606,9 +1594,7 @@ async showGroupInfo(chatId) {
                     </div>
                 </div>
             `;
-        }));
-        
-        const membersListHtml = membersHtml.join('');
+        }).join('');
         
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
@@ -1628,7 +1614,7 @@ async showGroupInfo(chatId) {
                     <div style="margin-bottom: 15px;">
                         <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
                         <div style="max-height: 300px; overflow-y: auto;">
-                            ${membersListHtml}
+                            ${membersHtml}
                         </div>
                     </div>
                     
@@ -1641,6 +1627,9 @@ async showGroupInfo(chatId) {
                                 </button>
                                 <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
                                     <i class="fas fa-user-plus"></i> Add Members
+                                </button>
+                                <button id="remove-member-btn" class="btn btn-warning" style="width: 100%;">
+                                    <i class="fas fa-user-minus"></i> Remove Member
                                 </button>
                                 <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
                                     <i class="fas fa-sign-out-alt"></i> Leave Group
@@ -1688,12 +1677,138 @@ async showGroupInfo(chatId) {
                         setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
                     });
                 }
+                
+                // ========== ADD REMOVE MEMBER BUTTON ==========
+                const removeMemberBtn = document.getElementById('remove-member-btn');
+                if (removeMemberBtn) {
+                    removeMemberBtn.addEventListener('click', () => {
+                        this.closeModal('group-info-modal');
+                        setTimeout(() => this.showRemoveMemberModal(chatId), 300);
+                    });
+                }
             }
         }, 100);
         
     } catch (error) {
         console.error('Error loading group info:', error);
         this.showToast('Error loading group info', 'error');
+    }
+}
+
+// ========== REMOVE MEMBER FROM GROUP ==========
+async showRemoveMemberModal(chatId) {
+    try {
+        const chatDoc = await this.db.collection('chats').doc(chatId).get();
+        if (!chatDoc.exists) {
+            this.showToast('Group not found', 'error');
+            return;
+        }
+        
+        const chatData = chatDoc.data();
+        const participants = chatData.participants || [];
+        const participantNames = chatData.participantNames || {};
+        
+        // Filter out the current user (can't remove self)
+        const membersToRemove = participants.filter(uid => uid !== this.currentUser.uid);
+        
+        if (membersToRemove.length === 0) {
+            this.showToast('No other members to remove', 'info');
+            return;
+        }
+        
+        const modalContent = `
+            <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <div class="modal-title"><i class="fas fa-user-minus"></i> Remove Member</div>
+                    <button class="close-modal-btn" onclick="closeModalById('remove-member-modal')">&times;</button>
+                </div>
+                <div style="padding: 20px;">
+                    <p style="margin-bottom: 15px; color: var(--text-secondary);">Select a member to remove from this group:</p>
+                    
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${membersToRemove.map(uid => {
+                            const name = participantNames[uid] || 'User';
+                            const isAdmin = chatData.admins && chatData.admins.includes(uid);
+                            return `
+                                <div class="remove-member-item" data-user-id="${uid}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
+                                            ${name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
+                                            ${isAdmin ? '<span style="font-size: 0.65rem; color: var(--grey-dark);">Admin</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-danger remove-member-confirm-btn" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}">
+                                        <i class="fas fa-times"></i> Remove
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button class="btn btn-outline" onclick="closeModalById('remove-member-modal')" style="width: 100%;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showModalWithContent('remove-member-modal', modalContent);
+        
+        setTimeout(() => {
+            document.querySelectorAll('.remove-member-confirm-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const userId = btn.getAttribute('data-user-id');
+                    const userName = btn.getAttribute('data-user-name');
+                    
+                    if (confirm(`Are you sure you want to remove ${userName} from this group?`)) {
+                        await this.removeMemberFromGroup(chatId, userId);
+                        this.closeModal('remove-member-modal');
+                    }
+                });
+            });
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading members for removal:', error);
+        this.showToast('Error loading members', 'error');
+    }
+}
+
+// ========== REMOVE MEMBER FROM GROUP ==========
+async removeMemberFromGroup(chatId, userId) {
+    try {
+        const chatRef = this.db.collection('chats').doc(chatId);
+        const chatDoc = await chatRef.get();
+        const chatData = chatDoc.data();
+        
+        // Can't remove admin/creator
+        if (chatData.adminId === userId) {
+            this.showToast('Cannot remove the group creator', 'warning');
+            return;
+        }
+        
+        const participants = chatData.participants || [];
+        const newParticipants = participants.filter(uid => uid !== userId);
+        
+        const participantNames = chatData.participantNames || {};
+        delete participantNames[userId];
+        
+        await chatRef.update({
+            participants: newParticipants,
+            participantNames: participantNames
+        });
+        
+        this.showToast('Member removed from group', 'success');
+        this.loadConversations();
+        this.loadChat(chatId);
+        
+    } catch (error) {
+        console.error('Error removing member:', error);
+        this.showToast('Error removing member', 'error');
     }
 }
 
