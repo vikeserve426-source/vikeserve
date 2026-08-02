@@ -318,208 +318,208 @@ class MoreMenuManager {
     }
     
     async getSettingsHTML() {
-    const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-    const founder = founderDoc.exists ? founderDoc.data() : { 
-        name: 'VikeServe', 
-        totalStars: 0, 
-        ratingCount: 0, 
-        averageRating: 5.0, 
-        portfolioUrl: 'https://vike-store.netlify.app/',
-        county: 'Bungoma',
-        country: 'Kenya',
-        schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
-        achievements: 'TIE experience',
-        bio: 'Telecommunication and information engineer.'
-    };
-    
-    return `
-        <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
+        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
+        const founder = founderDoc.exists ? founderDoc.data() : { 
+            name: 'VikeServe', 
+            totalStars: 0, 
+            ratingCount: 0, 
+            averageRating: 5.0, 
+            portfolioUrl: 'https://vike-store.netlify.app/',
+            county: 'Bungoma',
+            country: 'Kenya',
+            schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
+            achievements: 'TIE experience',
+            bio: 'Telecommunication and information engineer.'
+        };
         
-        <!-- ========== QUICK STATS CARD ========== -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-            <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" id="settings-points-display">0</div>
-                <div style="font-size: 0.7rem; color: var(--text-tertiary);">Your Points</div>
-            </div>
-            <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${founder.totalStars || 0}</div>
-                <div style="font-size: 0.7rem; color: var(--text-tertiary);">App Stars</div>
-            </div>
-        </div>
-        
-        <!-- ========== APP PREFERENCES ========== -->
-        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4><i class="fas fa-palette"></i> App Preferences</h4>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
-                <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Switch between light and dark theme</div></div>
-                <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
-                <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Receive push notifications</div></div>
-                <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
-            </div>
-        </div>
-        
-        <!-- ========== RATE VIKESERVE ========== -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-star" style="font-size: 2rem;"></i>
+        return `
+            <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
+            
+            <!-- ========== QUICK STATS CARD ========== -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" id="settings-points-display">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">Your Points</div>
                 </div>
-                <div>
-                    <h3 style="margin: 0;">Rate VikeServe</h3>
-                    <p style="margin: 0; opacity: 0.9;">Help us improve</p>
+                <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${founder.totalStars || 0}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">App Stars</div>
                 </div>
             </div>
             
-            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
-                <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
-                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
-                <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
-                <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
-                <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
-            </div>
-            
-            <div style="display: flex; gap: 10px;">
-                <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
-                    <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
-                </button>
-                <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;">
-                    <i class="fas fa-user-circle"></i> Founder
-                </button>
-            </div>
-        </div>
-        
-        <!-- ========== POINTS SECTION ========== -->
-        <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-coins" style="font-size: 2rem;"></i>
+            <!-- ========== APP PREFERENCES ========== -->
+            <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                <h4><i class="fas fa-palette"></i> App Preferences</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                    <div><strong>Dark Mode</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Switch between light and dark theme</div></div>
+                    <label class="switch"><input type="checkbox" class="dark-mode-toggle-settings" ${localStorage.getItem('darkMode') === 'enabled' ? 'checked' : ''}><span class="slider round"></span></label>
                 </div>
-                <div>
-                    <h3 style="margin: 0;">My Points</h3>
-                    <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                    <div><strong>Notifications</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Receive push notifications</div></div>
+                    <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
                 </div>
             </div>
             
-            <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
-                <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
-                <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
-                <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
-            </div>
-            
-            <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
-                <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
-            </div>
-            
-            <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
-                <i class="fas fa-history"></i> View Points History
-            </button>
-        </div>
-        
-        <!-- ========== FAQ SECTION ========== -->
-        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4 style="margin-bottom: 10px;"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h4>
-            
-            <!-- FAQ 1: Post a Service -->
-            <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
-                    <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 10px;"></i> How do I post a service?</strong>
-                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
-                </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                    <p>Follow these simple steps to post your service:</p>
-                    <ol style="margin: 8px 0 0 20px; padding-left: 0;">
-                        <li>Tap on the <strong>Services</strong> tab at the bottom of the app</li>
-                        <li>Click the <strong>"List Your Service"</strong> button</li>
-                        <li>Fill in your service details (title, description, price, location)</li>
-                        <li>Add photos of your service (optional but recommended)</li>
-                        <li>Click <strong>"Submit"</strong> to publish your service</li>
-                    </ol>
-                    <p style="margin-top: 8px;">✅ Your service will be visible to all users immediately after posting.</p>
-                </div>
-            </div>
-            
-            <!-- FAQ 2: Promote Ad (Coming Soon) -->
-            <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
-                    <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 10px;"></i> How do I promote my ad?</strong>
-                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
-                </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                    <div style="background: var(--warning-bg); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--warning);">
-                        <i class="fas fa-clock" style="color: var(--warning);"></i>
-                        <strong style="margin-left: 8px;">Coming Soon!</strong>
-                        <p style="margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">Ad promotion is currently under development. We're working hard to bring this feature to you soon!</p>
+            <!-- ========== RATE VIKESERVE ========== -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-star" style="font-size: 2rem;"></i>
                     </div>
-                    <p><strong>How it will work:</strong></p>
-                    <ul style="margin: 8px 0 0 20px; padding-left: 0;">
-                        <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
-                        <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
-                        <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
-                        <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
-                    </ul>
-                    <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
+                    <div>
+                        <h3 style="margin: 0;">Rate VikeServe</h3>
+                        <p style="margin: 0; opacity: 0.9;">Help us improve</p>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
+                    <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
+                    <div style="margin: 10px 0;">${this.generateStarRatingHTML(founder.averageRating || 5.0)}</div>
+                    <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
+                    <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
+                        <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
+                    </button>
+                    <button class="btn view-founder-profile-btn" style="flex: 1; background: rgba(255,255,255,0.2); color: white;">
+                        <i class="fas fa-user-circle"></i> Founder
+                    </button>
                 </div>
             </div>
             
-            <!-- FAQ 3: Payment Security -->
-            <div class="faq-item">
-                <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
-                    <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 10px;"></i> Is my payment secure?</strong>
-                    <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
+            <!-- ========== POINTS SECTION ========== -->
+            <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-coins" style="font-size: 2rem;"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0;">My Points</h3>
+                        <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
+                    </div>
                 </div>
-                <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                    <p>✅ Yes, your payments are completely secure! Here's why:</p>
-                    <ul style="margin: 8px 0 0 20px; padding-left: 0;">
-                        <li>🔒 All transactions are encrypted using SSL/TLS technology</li>
-                        <li>🏦 Payments are processed through <strong>IntaSend</strong>, a PCI-DSS compliant payment gateway</li>
-                        <li>💳 We never store your card information on our servers</li>
-                        <li>🛡️ All transactions are monitored for fraudulent activity</li>
-                        <li>📧 You'll receive a receipt via email after every payment</li>
-                        <li>🔄 Refund policy available for failed transactions</li>
-                    </ul>
-                    <p style="margin-top: 8px;">For any payment issues, contact us at <strong>vikeserve426@gmail.com</strong></p>
+                
+                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
+                    <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
+                    <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
+                    <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
+                </div>
+                
+                <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
+                    <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
+                </div>
+                
+                <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
+                    <i class="fas fa-history"></i> View Points History
+                </button>
+            </div>
+            
+            <!-- ========== FAQ SECTION ========== -->
+            <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h4>
+                
+                <!-- FAQ 1: Post a Service -->
+                <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
+                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                        <strong><i class="fas fa-tools" style="color: var(--primary); margin-right: 10px;"></i> How do I post a service?</strong>
+                        <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
+                    </div>
+                    <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
+                        <p>Follow these simple steps to post your service:</p>
+                        <ol style="margin: 8px 0 0 20px; padding-left: 0;">
+                            <li>Tap on the <strong>Services</strong> tab at the bottom of the app</li>
+                            <li>Click the <strong>"List Your Service"</strong> button</li>
+                            <li>Fill in your service details (title, description, price, location)</li>
+                            <li>Add photos of your service (optional but recommended)</li>
+                            <li>Click <strong>"Submit"</strong> to publish your service</li>
+                        </ol>
+                        <p style="margin-top: 8px;">✅ Your service will be visible to all users immediately after posting.</p>
+                    </div>
+                </div>
+                
+                <!-- FAQ 2: Promote Ad (Coming Soon) -->
+                <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
+                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                        <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 10px;"></i> How do I promote my ad?</strong>
+                        <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
+                    </div>
+                    <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
+                        <div style="background: var(--warning-bg); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--warning);">
+                            <i class="fas fa-clock" style="color: var(--warning);"></i>
+                            <strong style="margin-left: 8px;">Coming Soon!</strong>
+                            <p style="margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">Ad promotion is currently under development. We're working hard to bring this feature to you soon!</p>
+                        </div>
+                        <p><strong>How it will work:</strong></p>
+                        <ul style="margin: 8px 0 0 20px; padding-left: 0;">
+                            <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
+                            <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
+                            <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
+                            <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
+                        </ul>
+                        <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
+                    </div>
+                </div>
+                
+                <!-- FAQ 3: Payment Security -->
+                <div class="faq-item">
+                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
+                        <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 10px;"></i> Is my payment secure?</strong>
+                        <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
+                    </div>
+                    <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
+                        <p>✅ Yes, your payments are completely secure! Here's why:</p>
+                        <ul style="margin: 8px 0 0 20px; padding-left: 0;">
+                            <li>🔒 All transactions are encrypted using SSL/TLS technology</li>
+                            <li>🏦 Payments are processed through <strong>IntaSend</strong>, a PCI-DSS compliant payment gateway</li>
+                            <li>💳 We never store your card information on our servers</li>
+                            <li>🛡️ All transactions are monitored for fraudulent activity</li>
+                            <li>📧 You'll receive a receipt via email after every payment</li>
+                            <li>🔄 Refund policy available for failed transactions</li>
+                        </ul>
+                        <p style="margin-top: 8px;">For any payment issues, contact us at <strong>vikeserve426@gmail.com</strong></p>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- ========== QUICK LINKS ========== -->
-        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4><i class="fas fa-link"></i> Quick Links</h4>
-            <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
-                <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">VikeServe - Web Developer</div></div>
-                <i class="fas fa-external-link-alt" style="color: var(--text-tertiary);"></i>
+            
+            <!-- ========== QUICK LINKS ========== -->
+            <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                <h4><i class="fas fa-link"></i> Quick Links</h4>
+                <div class="support-option" data-action="portfolio" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                    <div><strong>Founder's Portfolio</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">VikeServe - Web Developer</div></div>
+                    <i class="fas fa-external-link-alt" style="color: var(--text-tertiary);"></i>
+                </div>
+                <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                    <div><strong>Terms & Conditions</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">App usage guidelines</div></div>
+                    <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+                </div>
+                <div class="support-option" data-action="privacy" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                    <div><strong>Privacy Policy</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">How we protect your data</div></div>
+                    <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+                </div>
             </div>
-            <div class="support-option" data-action="terms" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; border-bottom: 1px solid var(--border-color);">
-                <div><strong>Terms & Conditions</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">App usage guidelines</div></div>
-                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+            
+            <!-- ========== SHARE & SUPPORT ========== -->
+            <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
+                <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
+                    <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Invite friends to the app</div></div>
+                    <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+                </div>
             </div>
-            <div class="support-option" data-action="privacy" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                <div><strong>Privacy Policy</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">How we protect your data</div></div>
-                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
+            
+            <!-- ========== FOOTER ========== -->
+            <div style="text-align: center; margin-top: 20px; padding: 15px; color: var(--text-tertiary);">
+                <div>VikeServe v1.0.0</div>
+                <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
+                <div style="font-size: 0.7rem; margin-top: 8px;">
+                    <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+                </div>
             </div>
-        </div>
-        
-        <!-- ========== SHARE & SUPPORT ========== -->
-        <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
-            <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
-            <div class="support-option" data-action="share" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer;">
-                <div><strong>Share VikeServe</strong><div style="font-size: 0.8rem; color: var(--text-tertiary);">Invite friends to the app</div></div>
-                <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
-            </div>
-        </div>
-       
-        <!-- ========== FOOTER ========== -->
-        <div style="text-align: center; margin-top: 20px; padding: 15px; color: var(--text-tertiary);">
-            <div>VikeServe v1.0.0</div>
-            <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
-            <div style="font-size: 0.7rem; margin-top: 8px;">
-                <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
-            </div>
-        </div>
-    `;
-}
+        `;
+    }
     
     generateStarRatingHTML(rating) {
         const fullStars = Math.floor(rating);
@@ -1249,451 +1249,660 @@ class MoreMenuManager {
         }, 100);
     }
     
-
-async loadConversations() {
-    const container = document.getElementById('conversations-list-container');
-    if (!container) return;
-    
-    if (!this.currentUser) {
-        container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
-        return;
-    }
-    
-    try {
-        const snapshot = await this.db.collection('chats')
-            .where('participants', 'array-contains', this.currentUser.uid)
-            .orderBy('lastMessageAt', 'desc')
-            .limit(50)
-            .get();
+    async loadConversations() {
+        const container = document.getElementById('conversations-list-container');
+        if (!container) return;
         
-        const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        if (conversations.length === 0) {
-            container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
+        if (!this.currentUser) {
+            container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
             return;
         }
         
-        // Fetch user names for all participants
-        const userIds = new Set();
-        conversations.forEach(conv => {
-            conv.participants.forEach(p => {
-                if (p !== this.currentUser.uid) userIds.add(p);
+        try {
+            const snapshot = await this.db.collection('chats')
+                .where('participants', 'array-contains', this.currentUser.uid)
+                .orderBy('lastMessageAt', 'desc')
+                .limit(50)
+                .get();
+            
+            const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (conversations.length === 0) {
+                container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
+                return;
+            }
+            
+            // Fetch user names for all participants
+            const userIds = new Set();
+            conversations.forEach(conv => {
+                conv.participants.forEach(p => {
+                    if (p !== this.currentUser.uid) userIds.add(p);
+                });
             });
-        });
-        
-        const userNames = {};
-        await Promise.all([...userIds].map(async (uid) => {
-            try {
-                const userDoc = await this.db.collection('users').doc(uid).get();
-                if (userDoc.exists) {
-                    const data = userDoc.data();
-                    userNames[uid] = data.displayName || data.userName || data.name || 'User';
-                } else {
+            
+            const userNames = {};
+            await Promise.all([...userIds].map(async (uid) => {
+                try {
+                    const userDoc = await this.db.collection('users').doc(uid).get();
+                    if (userDoc.exists) {
+                        const data = userDoc.data();
+                        userNames[uid] = data.displayName || data.userName || data.name || 'User';
+                    } else {
+                        userNames[uid] = 'User';
+                    }
+                } catch (e) {
                     userNames[uid] = 'User';
                 }
-            } catch (e) {
-                userNames[uid] = 'User';
+            }));
+            
+            // Get unread counts
+            const unreadCounts = {};
+            for (const conv of conversations) {
+                try {
+                    const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
+                        .where('senderId', '!=', this.currentUser.uid)
+                        .where('read', '==', false)
+                        .get();
+                    unreadCounts[conv.id] = unreadSnapshot.size;
+                } catch (e) {
+                    unreadCounts[conv.id] = 0;
+                }
             }
-        }));
-        
-        // Get unread counts
-        const unreadCounts = {};
-        for (const conv of conversations) {
-            try {
-                const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
-                    .where('senderId', '!=', this.currentUser.uid)
-                    .where('read', '==', false)
-                    .get();
-                unreadCounts[conv.id] = unreadSnapshot.size;
-            } catch (e) {
-                unreadCounts[conv.id] = 0;
-            }
-        }
-        
-        // Inside loadConversations(), replace the container.innerHTML map section
-container.innerHTML = conversations.map(conv => {
-    const isGroup = conv.isGroup === true;
-    const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
-    
-    let displayName = 'User';
-    let avatarInitial = 'U';
-    
-    if (isGroup) {
-        displayName = conv.groupName || 'Group Chat';
-        avatarInitial = displayName.charAt(0).toUpperCase() || 'G';
-    } else {
-        const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
-        if (otherParticipantId && conv.participantNames && conv.participantNames[otherParticipantId]) {
-            displayName = conv.participantNames[otherParticipantId];
-        } else if (otherParticipantId) {
-            // Fallback - try to get from userNames cache
-            displayName = userNames[otherParticipantId] || 'User';
-        }
-        avatarInitial = displayName.charAt(0).toUpperCase();
-    }
-    
-    const unreadCount = unreadCounts[conv.id] || 0;
-    const hasUnread = unreadCount > 0;
-    const lastMessage = conv.lastMessage || 'No messages';
-    const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
-    const time = this.formatDate(conv.lastMessageAt);
-    
-    return `
-        <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--grey); cursor: pointer; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1);' : ''}">
-            <div class="conversation-avatar" style="width: 50px; height: 50px; background: ${isGroup ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'var(--primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
-                ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : avatarInitial}
-            </div>
-            <div style="flex: 1; min-width: 0;">
-                <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${groupIcon}${this.escapeHtml(displayName)}</div>
-                <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
-            </div>
-            <div style="text-align: right; flex-shrink: 0;">
-                <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
-                ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
-            </div>
-        </div>
-    `;
-}).join('');
-        
-        // Add click handlers
-        document.querySelectorAll('.conversation-item').forEach(item => {
-            const newItem = item.cloneNode(true);
-            item.parentNode.replaceChild(newItem, item);
-            newItem.addEventListener('click', () => {
-                this.openChat(newItem.getAttribute('data-chat-id'));
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error loading conversations:', error);
-        container.innerHTML = '<div class="error-state">Error loading messages</div>';
-    }
-}
-
-async openChat(chatId) {
-    await this.loadChat(chatId);
-}
-
-async loadChat(chatId) {
-    try {
-        const chatDoc = await this.db.collection('chats').doc(chatId).get();
-        if (!chatDoc.exists) {
-            this.showToast('Chat not found', 'error');
-            return;
-        }
-        
-        const chatData = chatDoc.data();
-        const otherParticipantId = chatData.participants.find(p => p !== this.currentUser?.uid);
-        
-        let otherParticipant = null;
-        if (otherParticipantId) {
-            const userDoc = await this.db.collection('users').doc(otherParticipantId).get();
-            if (userDoc.exists) {
-                otherParticipant = userDoc.data();
-            } else {
-                otherParticipant = { displayName: 'User', email: 'user@example.com' };
-            }
-        }
-        
-        this.showChatWindow(chatId, chatData, otherParticipant);
-        await this.markMessagesAsRead(chatId);
-        this.setupChatListener(chatId);
-        
-    } catch (error) {
-        console.error('Error loading chat:', error);
-        this.showToast('Error loading chat', 'error');
-    }
-}
-
-showChatWindow(chatId, chatData, otherParticipant) {
-    const existingContainer = document.getElementById('chat-window-container');
-    if (existingContainer) {
-        existingContainer.remove();
-    }
-    
-    const isGroup = chatData.isGroup === true;
-    let displayName = 'User';
-    let avatarInitial = 'U';
-    
-    if (isGroup) {
-        displayName = chatData.groupName || 'Group Chat';
-        avatarInitial = '👥';
-    } else if (otherParticipant) {
-        displayName = otherParticipant.displayName || otherParticipant.userName || otherParticipant.name || 'User';
-        avatarInitial = displayName.charAt(0).toUpperCase();
-    } else {
-        const otherId = chatData.participants?.find(p => p !== this.currentUser?.uid);
-        if (otherId) {
-            // Try to get from participantNames
-            if (chatData.participantNames && chatData.participantNames[otherId]) {
-                displayName = chatData.participantNames[otherId];
-                avatarInitial = displayName.charAt(0).toUpperCase();
-            }
-        }
-    }
-    
-    // Get member count for groups
-    let memberCount = '';
-    if (isGroup && chatData.participants) {
-        memberCount = `${chatData.participants.length} members`;
-    }
-    
-    const messagesContent = document.getElementById('messages-content');
-    if (messagesContent) {
-        messagesContent.innerHTML = '';
-        messagesContent.style.overflow = 'hidden';
-        messagesContent.style.display = 'flex';
-        messagesContent.style.flexDirection = 'column';
-        messagesContent.style.height = '100%';
-        messagesContent.style.maxHeight = '80vh';
-        
-        messagesContent.innerHTML = `
-            <div id="chat-window-container" style="display: flex; flex-direction: column; height: 100%; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--primary); color: white; flex-shrink: 0;">
-                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; cursor: pointer;" id="chat-header-click" data-chat-id="${chatId}">
-                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0;">
-                            ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
+            
+            container.innerHTML = conversations.map(conv => {
+                const isGroup = conv.isGroup === true;
+                const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
+                
+                let displayName = 'User';
+                let avatarInitial = 'U';
+                
+                if (isGroup) {
+                    displayName = conv.groupName || 'Group Chat';
+                    avatarInitial = '👥';
+                } else {
+                    const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
+                    if (otherParticipantId && conv.participantNames && conv.participantNames[otherParticipantId]) {
+                        displayName = conv.participantNames[otherParticipantId];
+                    } else if (otherParticipantId && userNames[otherParticipantId]) {
+                        displayName = userNames[otherParticipantId];
+                    } else if (otherParticipantId) {
+                        displayName = 'User';
+                    }
+                    avatarInitial = displayName.charAt(0).toUpperCase();
+                }
+                
+                const unreadCount = unreadCounts[conv.id] || 0;
+                const hasUnread = unreadCount > 0;
+                const lastMessage = conv.lastMessage || 'No messages';
+                const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
+                const time = this.formatDate(conv.lastMessageAt);
+                
+                return `
+                    <div class="conversation-item-wrapper" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--grey);">
+                        <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; flex: 1; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1); border-radius: 8px;' : ''}">
+                            <div class="conversation-avatar" style="width: 50px; height: 50px; background: ${isGroup ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'var(--primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
+                                ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${groupIcon}${this.escapeHtml(displayName)}</div>
+                                <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
+                                ${isGroup ? `<div style="font-size: 0.65rem; color: var(--grey-dark);">${conv.participants ? conv.participants.length : 0} members</div>` : ''}
+                            </div>
+                            <div style="text-align: right; flex-shrink: 0;">
+                                <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
+                                ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
+                            </div>
                         </div>
-                        <div style="min-width: 0;">
-                            <h3 style="margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(displayName)}</h3>
-                            <p style="font-size: 0.7rem; opacity: 0.8; margin: 0;">${isGroup ? memberCount : 'Online'}</p>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        ${isGroup ? `<button id="chat-group-info-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 8px;"><i class="fas fa-info-circle"></i></button>` : ''}
-                        <button id="chat-back-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-                            <i class="fas fa-arrow-left"></i> Back
+                        <!-- DELETE BUTTON -->
+                        <button class="delete-chat-btn" data-chat-id="${conv.id}" data-chat-name="${this.escapeHtml(displayName)}" data-is-group="${isGroup}" style="background: none; border: none; color: var(--grey-dark); cursor: pointer; padding: 8px; opacity: 0.5; transition: opacity 0.2s; flex-shrink: 0; font-size: 1rem;" title="Delete Chat">
+                            <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
-                </div>
-                
-                <div id="chat-messages-area" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-tertiary); min-height: 0; max-height: 60vh;">
-                    <div class="loading-spinner">Loading messages...</div>
-                </div>
-                
-                <div style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: var(--bg-secondary); border-top: 1px solid var(--border-color); flex-shrink: 0;">
-                    <button id="chat-attach-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--grey-dark); padding: 8px;">
-                        <i class="fas fa-paperclip"></i>
-                    </button>
-                    <textarea id="chat-message-input" placeholder="Type a message..." rows="1" style="flex: 1; border: 1px solid var(--border-color); border-radius: 20px; padding: 10px 15px; resize: none; font-family: inherit; font-size: 0.9rem; background: var(--bg-tertiary); color: var(--text-primary); min-height: 40px; max-height: 100px;"></textarea>
-                    <button id="chat-send-btn" style="background: var(--primary); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        `;
+                `;
+            }).join('');
+            
+            // Add click handlers for conversation items
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                const newItem = item.cloneNode(true);
+                item.parentNode.replaceChild(newItem, item);
+                newItem.addEventListener('click', () => {
+                    this.openChat(newItem.getAttribute('data-chat-id'));
+                });
+            });
+            
+            // Add click handlers for delete buttons
+            document.querySelectorAll('.delete-chat-btn').forEach(btn => {
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const chatId = newBtn.getAttribute('data-chat-id');
+                    const chatName = newBtn.getAttribute('data-chat-name');
+                    const isGroup = newBtn.getAttribute('data-is-group') === 'true';
+                    this.confirmDeleteChat(chatId, chatName, isGroup);
+                });
+            });
+            
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+            container.innerHTML = '<div class="error-state">Error loading messages</div>';
+        }
     }
     
-    // Set up event listeners
-    setTimeout(() => {
-        const input = document.getElementById('chat-message-input');
-        const sendBtn = document.getElementById('chat-send-btn');
-        const attachBtn = document.getElementById('chat-attach-btn');
-        const backBtn = document.getElementById('chat-back-btn');
-        const groupInfoBtn = document.getElementById('chat-group-info-btn');
-        const headerClick = document.getElementById('chat-header-click');
-        
-        if (input) {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendChatMessage(chatId);
-                }
-            });
-            
-            input.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-            });
-            
-            let typingTimeout;
-            input.addEventListener('input', () => {
-                this.sendTypingIndicator(chatId, true);
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    this.sendTypingIndicator(chatId, false);
-                }, 1000);
-            });
-        }
-        
-        if (sendBtn) {
-            const newSendBtn = sendBtn.cloneNode(true);
-            sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
-            newSendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
-        }
-        
-        if (attachBtn) {
-            const newAttachBtn = attachBtn.cloneNode(true);
-            attachBtn.parentNode.replaceChild(newAttachBtn, attachBtn);
-            newAttachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
-        }
-        
-        if (backBtn) {
-            const newBackBtn = backBtn.cloneNode(true);
-            backBtn.parentNode.replaceChild(newBackBtn, backBtn);
-            newBackBtn.addEventListener('click', () => this.closeChatWindow());
-        }
-        
-        if (groupInfoBtn) {
-            groupInfoBtn.addEventListener('click', () => {
-                this.showGroupInfo(chatId);
-            });
-        }
-        
-        if (headerClick) {
-            headerClick.addEventListener('click', () => {
-                if (isGroup) {
-                    this.showGroupInfo(chatId);
-                }
-            });
-        }
-    }, 100);
-    
-    this.loadChatMessages(chatId);
-}
-
-// ========== SHOW GROUP INFO ==========
-async showGroupInfo(chatId) {
-    try {
-        const chatDoc = await this.db.collection('chats').doc(chatId).get();
-        if (!chatDoc.exists) {
-            this.showToast('Group not found', 'error');
-            return;
-        }
-        
-        const chatData = chatDoc.data();
-        if (!chatData.isGroup) {
-            this.showToast('This is not a group chat', 'warning');
-            return;
-        }
-        
-        const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
-        const participants = chatData.participants || [];
-        const participantNames = chatData.participantNames || {};
-        
-        // Build member list HTML
-        let membersHtml = participants.map(uid => {
-            const name = participantNames[uid] || 'User';
-            const isCreator = uid === chatData.adminId;
-            const isAdminUser = chatData.admins && chatData.admins.includes(uid);
-            const isCurrentUser = uid === this.currentUser.uid;
-            
-            let badges = '';
-            if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Creator</span>';
-            if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">Admin</span>';
-            if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">You</span>';
-            
-            return `
-                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
-                    <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
-                        ${name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
-                        <div style="font-size: 0.7rem; color: var(--grey-dark);">${badges}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
+    // ========== CONFIRM DELETE CHAT ==========
+    confirmDeleteChat(chatId, chatName, isGroup) {
+        const chatType = isGroup ? 'group' : 'conversation';
         const modalContent = `
-            <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-content" style="max-width: 400px; z-index: 20002;">
                 <div class="modal-header">
-                    <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
-                    <button class="close-modal-btn" onclick="closeModalById('group-info-modal')">&times;</button>
+                    <div class="modal-title"><i class="fas fa-trash-alt" style="color: var(--danger);"></i> Delete ${chatType}</div>
+                    <button class="close-modal-btn" onclick="closeModalById('confirm-delete-modal')">&times;</button>
                 </div>
                 <div style="padding: 20px;">
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                            <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
-                        </div>
-                        <h3 style="margin: 0;">${this.escapeHtml(chatData.groupName || 'Group Chat')}</h3>
-                        <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--warning); margin-bottom: 15px;"></i>
+                        <p style="font-size: 1rem; font-weight: 500;">Delete "${chatName}"?</p>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 8px;">
+                            This will permanently delete this ${chatType} and all messages inside it.
+                            ${isGroup ? '<br><strong>Note:</strong> Only group admins can delete a group.' : ''}
+                        </p>
                     </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
-                        <div style="max-height: 300px; overflow-y: auto;">
-                            ${membersHtml}
-                        </div>
+                    <div class="form-actions" style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" onclick="closeModalById('confirm-delete-modal')" style="flex: 1;">Cancel</button>
+                        <button class="btn btn-danger" id="confirm-delete-chat-btn" style="flex: 1;">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
                     </div>
-                    
-                    ${isAdmin ? `
-                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
-                            <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <button id="edit-group-name-btn" class="btn btn-outline" style="width: 100%;">
-                                    <i class="fas fa-edit"></i> Edit Group Name
-                                </button>
-                                <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
-                                    <i class="fas fa-user-plus"></i> Add Members
-                                </button>
-                                <button id="remove-member-btn" class="btn btn-warning" style="width: 100%;">
-                                    <i class="fas fa-user-minus"></i> Remove Member
-                                </button>
-                                <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
-                                    <i class="fas fa-sign-out-alt"></i> Leave Group
-                                </button>
-                            </div>
-                        </div>
-                    ` : `
-                        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
-                            <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
-                                <i class="fas fa-sign-out-alt"></i> Leave Group
-                            </button>
-                        </div>
-                    `}
                 </div>
             </div>
         `;
         
-        this.showModalWithContent('group-info-modal', modalContent);
+        this.showModalWithContent('confirm-delete-modal', modalContent);
         
-        // Handle buttons
         setTimeout(() => {
-            const leaveBtn = document.getElementById('leave-group-btn');
-            if (leaveBtn) {
-                leaveBtn.addEventListener('click', () => {
-                    if (confirm('Are you sure you want to leave this group?')) {
-                        this.leaveGroup(chatId);
-                        this.closeModal('group-info-modal');
+            const deleteBtn = document.getElementById('confirm-delete-chat-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async () => {
+                    await this.deleteChat(chatId, isGroup);
+                    this.closeModal('confirm-delete-modal');
+                });
+            }
+        }, 100);
+    }
+    
+    // ========== DELETE CHAT ==========
+    async deleteChat(chatId, isGroup) {
+        try {
+            const chatRef = this.db.collection('chats').doc(chatId);
+            const chatDoc = await chatRef.get();
+            
+            if (!chatDoc.exists) {
+                this.showToast('Chat not found', 'error');
+                return;
+            }
+            
+            const chatData = chatDoc.data();
+            
+            // If group, check if user is admin
+            if (isGroup) {
+                const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+                if (!isAdmin) {
+                    this.showToast('Only group admins can delete this group', 'warning');
+                    return;
+                }
+            }
+            
+            // Check if user is participant
+            if (!chatData.participants || !chatData.participants.includes(this.currentUser.uid)) {
+                this.showToast('You are not a participant of this chat', 'error');
+                return;
+            }
+            
+            // If group and admin, delete the entire group
+            if (isGroup && chatData.admins && chatData.admins.includes(this.currentUser.uid)) {
+                // Delete all messages in the group
+                const messagesSnapshot = await chatRef.collection('messages').get();
+                const batch = this.db.batch();
+                messagesSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                
+                // Delete the group document
+                await chatRef.delete();
+                this.showToast('Group deleted successfully', 'success');
+            } else {
+                // For individual chat or non-admin group member: remove user from participants
+                const participants = chatData.participants || [];
+                const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
+                
+                if (newParticipants.length === 0) {
+                    // If no participants left, delete the chat
+                    await chatRef.delete();
+                    this.showToast('Chat deleted successfully', 'success');
+                } else {
+                    // Remove user from participants
+                    const participantNames = chatData.participantNames || {};
+                    delete participantNames[this.currentUser.uid];
+                    
+                    await chatRef.update({
+                        participants: newParticipants,
+                        participantNames: participantNames
+                    });
+                    
+                    // If user was admin, remove from admins
+                    if (chatData.admins) {
+                        const admins = chatData.admins.filter(uid => uid !== this.currentUser.uid);
+                        await chatRef.update({ admins: admins });
+                    }
+                    
+                    this.showToast('Removed from chat', 'success');
+                }
+            }
+            
+            // Close chat window if open
+            this.closeChatWindow();
+            
+            // Refresh conversations
+            await this.loadConversations();
+            
+        } catch (error) {
+            console.error('Error deleting chat:', error);
+            this.showToast('Error deleting chat: ' + error.message, 'error');
+        }
+    }
+    
+    // ========== CLEAR CHAT HISTORY ==========
+    async clearChatHistory(chatId) {
+        try {
+            const chatRef = this.db.collection('chats').doc(chatId);
+            const chatDoc = await chatRef.get();
+            
+            if (!chatDoc.exists) {
+                this.showToast('Chat not found', 'error');
+                return;
+            }
+            
+            // Delete all messages
+            const messagesSnapshot = await chatRef.collection('messages').get();
+            const batch = this.db.batch();
+            messagesSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            
+            // Update last message
+            await chatRef.update({
+                lastMessage: 'Chat history cleared',
+                lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastMessageBy: this.currentUser.uid
+            });
+            
+            this.showToast('Chat history cleared', 'success');
+            this.loadChatMessages(chatId);
+            this.loadConversations();
+            
+        } catch (error) {
+            console.error('Error clearing chat history:', error);
+            this.showToast('Error clearing chat history', 'error');
+        }
+    }
+    
+    async openChat(chatId) {
+        await this.loadChat(chatId);
+    }
+    
+    async loadChat(chatId) {
+        try {
+            const chatDoc = await this.db.collection('chats').doc(chatId).get();
+            if (!chatDoc.exists) {
+                this.showToast('Chat not found', 'error');
+                return;
+            }
+            
+            const chatData = chatDoc.data();
+            const otherParticipantId = chatData.participants.find(p => p !== this.currentUser?.uid);
+            
+            let otherParticipant = null;
+            if (otherParticipantId) {
+                const userDoc = await this.db.collection('users').doc(otherParticipantId).get();
+                if (userDoc.exists) {
+                    otherParticipant = userDoc.data();
+                } else {
+                    otherParticipant = { displayName: 'User', email: 'user@example.com' };
+                }
+            }
+            
+            this.showChatWindow(chatId, chatData, otherParticipant);
+            await this.markMessagesAsRead(chatId);
+            this.setupChatListener(chatId);
+            
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            this.showToast('Error loading chat', 'error');
+        }
+    }
+    
+    showChatWindow(chatId, chatData, otherParticipant) {
+        const existingContainer = document.getElementById('chat-window-container');
+        if (existingContainer) {
+            existingContainer.remove();
+        }
+        
+        const isGroup = chatData.isGroup === true;
+        let displayName = 'User';
+        let avatarInitial = 'U';
+        
+        if (isGroup) {
+            displayName = chatData.groupName || 'Group Chat';
+            avatarInitial = '👥';
+        } else if (otherParticipant) {
+            displayName = otherParticipant.displayName || otherParticipant.userName || otherParticipant.name || 'User';
+            avatarInitial = displayName.charAt(0).toUpperCase();
+        } else {
+            const otherId = chatData.participants?.find(p => p !== this.currentUser?.uid);
+            if (otherId) {
+                if (chatData.participantNames && chatData.participantNames[otherId]) {
+                    displayName = chatData.participantNames[otherId];
+                    avatarInitial = displayName.charAt(0).toUpperCase();
+                }
+            }
+        }
+        
+        let memberCount = '';
+        if (isGroup && chatData.participants) {
+            memberCount = `${chatData.participants.length} members`;
+        }
+        
+        const messagesContent = document.getElementById('messages-content');
+        if (messagesContent) {
+            messagesContent.innerHTML = '';
+            messagesContent.style.overflow = 'hidden';
+            messagesContent.style.display = 'flex';
+            messagesContent.style.flexDirection = 'column';
+            messagesContent.style.height = '100%';
+            messagesContent.style.maxHeight = '80vh';
+            
+            messagesContent.innerHTML = `
+                <div id="chat-window-container" style="display: flex; flex-direction: column; height: 100%; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--primary); color: white; flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; cursor: pointer;" id="chat-header-click" data-chat-id="${chatId}">
+                            <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0;">
+                                ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
+                            </div>
+                            <div style="min-width: 0;">
+                                <h3 style="margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(displayName)}</h3>
+                                <p style="font-size: 0.7rem; opacity: 0.8; margin: 0;">${isGroup ? memberCount : 'Online'}</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${isGroup ? `<button id="chat-group-info-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 8px;"><i class="fas fa-info-circle"></i></button>` : ''}
+                            <button id="chat-clear-history-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 8px; opacity: 0.7;" title="Clear Chat History">
+                                <i class="fas fa-eraser"></i>
+                            </button>
+                            <button id="chat-delete-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 8px; opacity: 0.7;" title="Delete Chat">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                            <button id="chat-back-btn" style="background: none; border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="chat-messages-area" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-tertiary); min-height: 0; max-height: 60vh;">
+                        <div class="loading-spinner">Loading messages...</div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: var(--bg-secondary); border-top: 1px solid var(--border-color); flex-shrink: 0;">
+                        <button id="chat-attach-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--grey-dark); padding: 8px;">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <textarea id="chat-message-input" placeholder="Type a message..." rows="1" style="flex: 1; border: 1px solid var(--border-color); border-radius: 20px; padding: 10px 15px; resize: none; font-family: inherit; font-size: 0.9rem; background: var(--bg-tertiary); color: var(--text-primary); min-height: 40px; max-height: 100px;"></textarea>
+                        <button id="chat-send-btn" style="background: var(--primary); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; flex-shrink: 0;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        setTimeout(() => {
+            const input = document.getElementById('chat-message-input');
+            const sendBtn = document.getElementById('chat-send-btn');
+            const attachBtn = document.getElementById('chat-attach-btn');
+            const backBtn = document.getElementById('chat-back-btn');
+            const groupInfoBtn = document.getElementById('chat-group-info-btn');
+            const clearHistoryBtn = document.getElementById('chat-clear-history-btn');
+            const deleteChatBtn = document.getElementById('chat-delete-btn');
+            const headerClick = document.getElementById('chat-header-click');
+            
+            if (input) {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendChatMessage(chatId);
+                    }
+                });
+                
+                input.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+                });
+                
+                let typingTimeout;
+                input.addEventListener('input', () => {
+                    this.sendTypingIndicator(chatId, true);
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        this.sendTypingIndicator(chatId, false);
+                    }, 1000);
+                });
+            }
+            
+            if (sendBtn) {
+                const newSendBtn = sendBtn.cloneNode(true);
+                sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+                newSendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
+            }
+            
+            if (attachBtn) {
+                const newAttachBtn = attachBtn.cloneNode(true);
+                attachBtn.parentNode.replaceChild(newAttachBtn, attachBtn);
+                newAttachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
+            }
+            
+            if (backBtn) {
+                const newBackBtn = backBtn.cloneNode(true);
+                backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+                newBackBtn.addEventListener('click', () => this.closeChatWindow());
+            }
+            
+            if (groupInfoBtn) {
+                groupInfoBtn.addEventListener('click', () => {
+                    this.showGroupInfo(chatId);
+                });
+            }
+            
+            if (clearHistoryBtn) {
+                clearHistoryBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to clear all messages in this chat?')) {
+                        this.clearChatHistory(chatId);
                     }
                 });
             }
             
-            if (isAdmin) {
-                const editNameBtn = document.getElementById('edit-group-name-btn');
-                if (editNameBtn) {
-                    editNameBtn.addEventListener('click', () => {
-                        this.closeModal('group-info-modal');
-                        setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
-                    });
-                }
-                
-                const addMembersBtn = document.getElementById('add-group-members-btn');
-                if (addMembersBtn) {
-                    addMembersBtn.addEventListener('click', () => {
-                        this.closeModal('group-info-modal');
-                        setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
-                    });
-                }
-                
-                // ========== ADD REMOVE MEMBER BUTTON ==========
-                const removeMemberBtn = document.getElementById('remove-member-btn');
-                if (removeMemberBtn) {
-                    removeMemberBtn.addEventListener('click', () => {
-                        this.closeModal('group-info-modal');
-                        setTimeout(() => this.showRemoveMemberModal(chatId), 300);
-                    });
-                }
+            if (deleteChatBtn) {
+                deleteChatBtn.addEventListener('click', () => {
+                    const isGroup = chatData.isGroup === true;
+                    const chatName = isGroup ? (chatData.groupName || 'Group Chat') : (otherParticipant?.displayName || 'Chat');
+                    this.confirmDeleteChat(chatId, chatName, isGroup);
+                });
+            }
+            
+            if (headerClick) {
+                headerClick.addEventListener('click', () => {
+                    if (isGroup) {
+                        this.showGroupInfo(chatId);
+                    }
+                });
             }
         }, 100);
         
-    } catch (error) {
-        console.error('Error loading group info:', error);
-        this.showToast('Error loading group info', 'error');
+        this.loadChatMessages(chatId);
     }
-}
+    
+    // ========== SHOW GROUP INFO ==========
+    async showGroupInfo(chatId) {
+        try {
+            const chatDoc = await this.db.collection('chats').doc(chatId).get();
+            if (!chatDoc.exists) {
+                this.showToast('Group not found', 'error');
+                return;
+            }
+            
+            const chatData = chatDoc.data();
+            if (!chatData.isGroup) {
+                this.showToast('This is not a group chat', 'warning');
+                return;
+            }
+            
+            const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
+            const participants = chatData.participants || [];
+            const participantNames = chatData.participantNames || {};
+            
+            let membersHtml = await Promise.all(participants.map(async (uid) => {
+                let name = participantNames[uid] || 'User';
+                
+                if (!participantNames[uid] || participantNames[uid] === 'User') {
+                    try {
+                        const userDoc = await this.db.collection('users').doc(uid).get();
+                        if (userDoc.exists) {
+                            const data = userDoc.data();
+                            name = data.displayName || data.userName || data.name || data.email || 'User';
+                        }
+                    } catch (e) {}
+                }
+                
+                const isCreator = uid === chatData.adminId;
+                const isAdminUser = chatData.admins && chatData.admins.includes(uid);
+                const isCurrentUser = uid === this.currentUser.uid;
+                
+                let badges = '';
+                if (isCreator) badges += '<span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
+                if (isAdminUser && !isCreator) badges += '<span style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
+                if (isCurrentUser) badges += '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
+                
+                return `
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
+                        <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
+                            ${name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500; font-size: 0.9rem;">${this.escapeHtml(name)}</div>
+                            <div style="font-size: 0.7rem; color: var(--grey-dark);">${badges}</div>
+                        </div>
+                    </div>
+                `;
+            }));
+            
+            const membersListHtml = membersHtml.join('');
+            
+            const modalContent = `
+                <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
+                    <div class="modal-header">
+                        <div class="modal-title"><i class="fas fa-users"></i> Group Info</div>
+                        <button class="close-modal-btn" onclick="closeModalById('group-info-modal')">&times;</button>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                                <i class="fas fa-users" style="font-size: 2rem; color: white;"></i>
+                            </div>
+                            <h3 style="margin: 0;">${this.escapeHtml(chatData.groupName || 'Group Chat')}</h3>
+                            <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="margin-bottom: 10px;"><i class="fas fa-user-friends"></i> Members</h4>
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                ${membersListHtml}
+                            </div>
+                        </div>
+                        
+                        ${isAdmin ? `
+                            <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                                <h4 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Admin Controls</h4>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <button id="edit-group-name-btn" class="btn btn-outline" style="width: 100%;">
+                                        <i class="fas fa-edit"></i> Edit Group Name
+                                    </button>
+                                    <button id="add-group-members-btn" class="btn btn-outline" style="width: 100%;">
+                                        <i class="fas fa-user-plus"></i> Add Members
+                                    </button>
+                                    <button id="remove-member-btn" class="btn btn-warning" style="width: 100%;">
+                                        <i class="fas fa-user-minus"></i> Remove Member
+                                    </button>
+                                    <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
+                                        <i class="fas fa-sign-out-alt"></i> Leave Group
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
+                                <button id="leave-group-btn" class="btn btn-danger" style="width: 100%;">
+                                    <i class="fas fa-sign-out-alt"></i> Leave Group
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+            
+            this.showModalWithContent('group-info-modal', modalContent);
+            
+            setTimeout(() => {
+                const leaveBtn = document.getElementById('leave-group-btn');
+                if (leaveBtn) {
+                    leaveBtn.addEventListener('click', () => {
+                        if (confirm('Are you sure you want to leave this group?')) {
+                            this.leaveGroup(chatId);
+                            this.closeModal('group-info-modal');
+                        }
+                    });
+                }
+                
+                if (isAdmin) {
+                    const editNameBtn = document.getElementById('edit-group-name-btn');
+                    if (editNameBtn) {
+                        editNameBtn.addEventListener('click', () => {
+                            this.closeModal('group-info-modal');
+                            setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
+                        });
+                    }
+                    
+                    const addMembersBtn = document.getElementById('add-group-members-btn');
+                    if (addMembersBtn) {
+                        addMembersBtn.addEventListener('click', () => {
+                            this.closeModal('group-info-modal');
+                            setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
+                        });
+                    }
+                    
+                    const removeMemberBtn = document.getElementById('remove-member-btn');
+                    if (removeMemberBtn) {
+                        removeMemberBtn.addEventListener('click', () => {
+                            this.closeModal('group-info-modal');
+                            setTimeout(() => this.showRemoveMemberModal(chatId), 300);
+                        });
+                    }
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error loading group info:', error);
+            this.showToast('Error loading group info', 'error');
+        }
+    }
 
 // ========== REMOVE MEMBER FROM GROUP ==========
 async showRemoveMemberModal(chatId) {
