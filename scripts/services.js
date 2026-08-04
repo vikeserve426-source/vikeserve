@@ -303,14 +303,46 @@ async function loadServices(category = null, limit = 20) {
         const services = result.services;
         
         if (services.length === 0) {
-            container.innerHTML = '<div class="no-services" style="text-align: center; padding: 40px;">No services available</div>';
-            return;
-        }
+    container.innerHTML = `
+        <div class="no-services" style="text-align: center; padding: 40px;">No services available</div>
+        <div style="text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 0.75rem; border-top: 1px solid var(--border-color); margin-top: 20px;">
+            <div style="font-weight: 600; margin-bottom: 4px;">VikeServe v1.0.0</div>
+            <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
+            <div style="font-size: 0.65rem; margin-top: 6px;">
+                <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+            </div>
+        </div>
+    `;
+    return;
+}
         
         container.innerHTML = '';
-        services.forEach(service => {
-            container.appendChild(createServiceElement(service));
-        });
+services.forEach(service => {
+    container.appendChild(createServiceElement(service));
+});
+
+// Add footer after services
+if (!document.getElementById('services-footer')) {
+    const footer = document.createElement('div');
+    footer.id = 'services-footer';
+    footer.style.cssText = `
+        text-align: center;
+        padding: 30px 20px 20px;
+        color: var(--text-tertiary);
+        font-size: 0.75rem;
+        border-top: 1px solid var(--border-color);
+        margin-top: 20px;
+        width: 100%;
+    `;
+    footer.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 4px;">VikeServe v1.0.0</div>
+        <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
+        <div style="font-size: 0.65rem; margin-top: 6px;">
+            <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+        </div>
+    `;
+    container.appendChild(footer);
+}
     } catch (error) {
         console.error('Error loading services:', error);
         container.innerHTML = '<div class="error-services">Failed to load services</div>';
