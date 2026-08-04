@@ -285,32 +285,62 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
         }
         
         if (itemsWithRatings.length === 0 && !loadMore) {
-            container.innerHTML = `
-                <div class="empty-marketplace" style="text-align: center; padding: 60px 20px; grid-column: span 2;">
-                    <i class="fas fa-store-slash" style="font-size: 3rem; color: var(--grey-dark); margin-bottom: 15px;"></i>
-                    <h3>No Items Listed Yet</h3>
-                    <p style="color: var(--grey-dark);">Be the first to sell something!</p>
-                    <button class="btn btn-primary show-marketplace-post-btn" style="margin-top: 15px;">
-                        <i class="fas fa-plus-circle"></i> Sell an Item
-                    </button>
-                </div>
-            `;
-            
-            const postBtn = container.querySelector('.show-marketplace-post-btn');
-            if (postBtn) {
-                postBtn.addEventListener('click', () => showMarketplacePostModal());
-            }
-            isLoadingMore = false;
-            return;
-        }
+    container.innerHTML = `
+        <div class="empty-marketplace" style="text-align: center; padding: 60px 20px; grid-column: span 2;">
+            <i class="fas fa-store-slash" style="font-size: 3rem; color: var(--grey-dark); margin-bottom: 15px;"></i>
+            <h3>No Items Listed Yet</h3>
+            <p style="color: var(--grey-dark);">Be the first to sell something!</p>
+            <button class="btn btn-primary show-marketplace-post-btn" style="margin-top: 15px;">
+                <i class="fas fa-plus-circle"></i> Sell an Item
+            </button>
+        </div>
+        <div style="text-align: center; padding: 20px; color: var(--text-tertiary); font-size: 0.75rem; border-top: 1px solid var(--border-color); margin-top: 20px; grid-column: span 2;">
+            <div style="font-weight: 600; margin-bottom: 4px;">VikeServe v1.0.0</div>
+            <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
+            <div style="font-size: 0.65rem; margin-top: 6px;">
+                <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+            </div>
+        </div>
+    `;
+    
+    const postBtn = container.querySelector('.show-marketplace-post-btn');
+    if (postBtn) {
+        postBtn.addEventListener('click', () => showMarketplacePostModal());
+    }
+    isLoadingMore = false;
+    return;
+}
         
         if (!loadMore) {
-            container.innerHTML = '';
-        }
-        
-        itemsWithRatings.forEach(item => {
-            container.appendChild(createMarketplaceItemElement(item));
-        });
+    container.innerHTML = '';
+}
+
+itemsWithRatings.forEach(item => {
+    container.appendChild(createMarketplaceItemElement(item));
+});
+
+// Add footer after items
+if (!document.getElementById('marketplace-footer')) {
+    const footer = document.createElement('div');
+    footer.id = 'marketplace-footer';
+    footer.style.cssText = `
+        text-align: center;
+        padding: 30px 20px 20px;
+        color: var(--text-tertiary);
+        font-size: 0.75rem;
+        border-top: 1px solid var(--border-color);
+        margin-top: 20px;
+        width: 100%;
+    `;
+    footer.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 4px;">VikeServe v1.0.0</div>
+        <div>© 2026 VikeServe Ltd. Built with ❤️ in KENYA</div>
+        <div style="font-size: 0.65rem; margin-top: 6px;">
+            <a href="https://vike-store.netlify.app/" target="_blank" style="color: var(--primary); text-decoration: none;">Visit our website</a>
+        </div>
+    `;
+    container.appendChild(footer);
+}
         
         if (snapshot.docs.length === 20) {
             let loadMoreBtn = document.getElementById('load-more-marketplace-btn');
