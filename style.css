@@ -823,7 +823,7 @@ h6 {
 }
 
 /* ========================================
-   14: MORE MENU (Slide-up Panel)
+   14: MORE MENU (Slide-up Panel) - FIXED
    ======================================== */
 
 /* Overlay for when More Menu is open */
@@ -838,6 +838,8 @@ h6 {
     display: none;
     opacity: 0;
     transition: opacity 0.3s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 .more-overlay.active {
     display: block;
@@ -858,21 +860,27 @@ h6 {
     z-index: 899;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease;
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
     overflow: hidden;
     height: var(--more-menu-max-height);
+    visibility: hidden;
+    pointer-events: none;
 }
+
 .more-section.active {
     transform: translateX(-50%) translateY(0);
+    visibility: visible !important;
+    pointer-events: all !important;
 }
 
 /* Hide app content when more menu is open */
 body.more-open .app-content,
 body.more-open .bottom-nav,
 body.more-open .app-header {
-    filter: blur(2px);
+    filter: blur(3px);
     pointer-events: none;
     user-select: none;
+    transition: filter 0.3s ease;
 }
 
 /* More header */
@@ -886,6 +894,7 @@ body.more-open .app-header {
     min-height: 56px;
     background: var(--more-menu-bg);
     z-index: 1;
+    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
 }
 
 /* ========================================
