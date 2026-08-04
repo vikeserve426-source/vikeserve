@@ -335,18 +335,6 @@ class MoreMenuManager {
         return `
             <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
             
-            <!-- ========== QUICK STATS CARD ========== -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);" id="settings-points-display">0</div>
-                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">Your Points</div>
-                </div>
-                <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 15px; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${founder.totalStars || 0}</div>
-                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">App Stars</div>
-                </div>
-            </div>
-            
             <!-- ========== APP PREFERENCES ========== -->
             <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-palette"></i> App Preferences</h4>
