@@ -1,18 +1,15 @@
 
 
 :root {
-    /* --- Primary Colors --- */
     --primary: #2E86DE;
     --primary-dark: #1a6bb0;
     --primary-light: #5ba3e6;
     --primary-gradient: linear-gradient(135deg, #2E86DE 0%, #1a6bb0 100%);
 
-    /* --- Secondary Colors --- */
     --secondary: #6c5ce7;
     --secondary-dark: #5a4bd1;
     --secondary-light: #a29bfe;
 
-    /* --- Status Colors --- */
     --success: #10b981;
     --success-bg: #d1fae5;
     --success-text: #065f46;
@@ -29,7 +26,6 @@
     --info-bg: #dbeafe;
     --info-text: #1e40af;
 
-    /* --- Neutral Colors --- */
     --bg-primary: #f5f7fa;
     --bg-secondary: #ffffff;
     --bg-tertiary: #f1f5f9;
@@ -44,20 +40,17 @@
     --border-light: #f1f5f9;
     --border-dark: #cbd5e1;
 
-    /* --- Shadows --- */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
     --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.16);
 
-    /* --- Radius --- */
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
     --radius-xl: 20px;
     --radius-full: 9999px;
 
-    /* --- Spacing --- */
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 12px;
@@ -66,7 +59,6 @@
     --space-2xl: 24px;
     --space-3xl: 32px;
 
-    /* --- Typography --- */
     --font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-size-xs: 0.65rem;
     --font-size-sm: 0.75rem;
@@ -78,24 +70,20 @@
     --font-size-3xl: 1.875rem;
     --font-size-4xl: 2.25rem;
 
-    /* --- Navigation --- */
     --nav-height: 64px;
     --nav-bg: #ffffff;
     --nav-active-color: var(--primary);
     --nav-inactive-color: var(--text-tertiary);
 
-    /* --- Quick Actions --- */
     --action-size: 80px;
     --action-radius: 16px;
     --action-bg: var(--bg-tertiary);
     --action-icon-size: 32px;
 
-    /* --- Badges --- */
     --badge-radius: 9999px;
     --badge-padding: 2px 10px;
     --badge-font-size: 0.6rem;
 
-    /* --- Status Badge Colors --- */
     --status-pending: #f59e0b;
     --status-pending-bg: #fef3c7;
     --status-confirmed: #3b82f6;
@@ -109,7 +97,6 @@
     --status-rejected: #6b7280;
     --status-rejected-bg: #f3f4f6;
 
-    /* --- Upload --- */
     --upload-progress-height: 8px;
     --upload-progress-radius: 4px;
     --upload-progress-bg: #e5e7eb;
@@ -117,31 +104,26 @@
     --upload-progress-success: var(--success);
     --upload-progress-error: var(--danger);
 
-    /* --- Chat --- */
     --chat-bubble-user: var(--primary);
     --chat-bubble-user-text: #ffffff;
     --chat-bubble-other: #ffffff;
     --chat-bubble-other-text: var(--text-primary);
     --chat-bubble-radius: 18px;
 
-    /* --- More Menu --- */
-    --more-menu-bg: #ffffff;
+    --more-menu-bg: #030303;
     --more-menu-radius: 20px 20px 0 0;
     --more-menu-max-height: 80vh;
 
-    /* --- Points --- */
     --points-gradient-start: #667eea;
     --points-gradient-end: #764ba2;
     --points-color: #ffffff;
 
-    /* --- Toggle --- */
     --toggle-width: 48px;
     --toggle-height: 26px;
     --toggle-bg: #d1d5db;
     --toggle-active: var(--primary);
     --toggle-knob: #ffffff;
 
-    /* --- Container --- */
     --container-max-width: 480px;
     --container-padding: 16px;
 }
@@ -219,7 +201,6 @@ body {
     padding-bottom: calc(var(--nav-height) + 20px);
 }
 
-/* --- Scrollbar --- */
 ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -232,13 +213,11 @@ body {
     border-radius: 9999px;
 }
 
-/* --- Selection --- */
 ::selection {
     background: var(--primary);
     color: white;
 }
 
-/* --- Links --- */
 a {
     color: var(--primary);
     text-decoration: none;
@@ -247,14 +226,12 @@ a:hover {
     color: var(--primary-dark);
 }
 
-/* --- Images --- */
 img {
     max-width: 100%;
     height: auto;
     display: block;
 }
 
-/* --- Buttons --- */
 button {
     font-family: inherit;
     cursor: pointer;
@@ -273,7 +250,6 @@ button {
     padding-bottom: 80px;
 }
 
-/* --- Tab Content --- */
 .tab-content {
     display: none;
     animation: fadeIn 0.3s ease;
@@ -326,7 +302,6 @@ h6 {
     padding: var(--space-md) var(--container-padding);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    /* CHANGE: Use relative positioning for the parent */
     position: relative !important;
     z-index: 100;
     min-height: 56px;
@@ -335,7 +310,6 @@ h6 {
     margin: 0 auto;
 }
 
-/* User profile wrapper - MUST be the positioning parent */
 .user-profile-wrapper {
     position: relative !important;
     display: flex !important;
@@ -385,7 +359,6 @@ h6 {
     margin: 0 !important;
 }
 
-/* Small arrow pointing to profile icon - FIXED */
 .user-menu::before {
     content: '' !important;
     position: absolute !important;
@@ -400,7 +373,6 @@ h6 {
     pointer-events: none !important;
 }
 
-/* Dark mode arrow */
 [data-theme="dark"] .user-menu::before {
     border-bottom-color: var(--bg-secondary) !important;
 }
@@ -421,7 +393,6 @@ h6 {
     }
 }
 
-/* User menu items - ensure they are styled correctly */
 .user-menu .user-menu-header {
     padding: var(--space-lg) !important;
     background: var(--bg-tertiary) !important;
@@ -493,7 +464,6 @@ h6 {
     border-bottom: none !important;
 }
 
-/* Dark mode arrow */
 [data-theme="dark"] .user-menu::before {
     border-bottom-color: var(--bg-secondary) !important;
 }
@@ -602,7 +572,6 @@ h6 {
     line-height: 1.2;
 }
 
-/* --- Coming Soon --- */
 .coming-soon-action {
     opacity: 0.7;
     position: relative;
@@ -779,7 +748,6 @@ h6 {
 }
 
 
-/* Overlay for when More Menu is open */
 .more-overlay {
     position: fixed;
     top: 0;
@@ -826,7 +794,6 @@ h6 {
     pointer-events: all !important;
 }
 
-/* Hide app content when more menu is open */
 body.more-open .app-content,
 body.more-open .bottom-nav,
 body.more-open .app-header {
@@ -836,7 +803,6 @@ body.more-open .app-header {
     transition: filter 0.3s ease;
 }
 
-/* More header */
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -1002,7 +968,6 @@ select.form-input {
     flex: 1;
 }
 
-/* --- Password Toggle --- */
 .password-container {
     position: relative;
 }
@@ -1265,7 +1230,7 @@ select.form-input {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-clamp: 2; /* Standard property for future compatibility */
+    line-clamp: 2;
     overflow: hidden;
 }
 
@@ -1453,7 +1418,6 @@ select.form-input {
     flex: 1;
 }
 
-/* --- Filters --- */
 .market-filters {
     display: flex;
     gap: var(--space-sm);
@@ -1692,7 +1656,6 @@ select.form-input {
     margin-top: var(--space-sm);
 }
 
-/* --- Star Rating Input --- */
 .star-rating-input {
     display: flex;
     gap: var(--space-xs);
@@ -1711,7 +1674,6 @@ select.form-input {
     color: var(--warning);
 }
 
-/* --- Rating Breakdown --- */
 .rating-breakdown .rating-row {
     display: flex;
     align-items: center;
@@ -1907,7 +1869,6 @@ select.form-input {
     padding: 0 4px;
 }
 
-/* --- Chat Messages --- */
 .chat-messages-area {
     flex: 1;
     overflow-y: auto;
@@ -1993,7 +1954,6 @@ select.form-input {
     font-size: var(--font-size-xs);
 }
 
-/* --- Image Upload Area --- */
 .image-upload-area {
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
@@ -2290,7 +2250,6 @@ select.form-input {
     }
 }
 
-/* --- Skeleton Loading --- */
 .skeleton {
     background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
@@ -2370,7 +2329,6 @@ select.form-input {
 }
 
 
-/* --- Small Phones (320px - 374px) --- */
 @media (max-width: 374px) {
     .quick-actions {
         grid-template-columns: repeat(3, 1fr);
@@ -2408,7 +2366,6 @@ select.form-input {
     }
 }
 
-/* --- Standard Phones (375px - 767px) --- */
 @media (min-width: 375px) and (max-width: 767px) {
     .quick-actions {
         grid-template-columns: repeat(4, 1fr);
@@ -2421,7 +2378,6 @@ select.form-input {
     }
 }
 
-/* --- Tablets (768px - 1023px) --- */
 @media (min-width: 768px) and (max-width: 1023px) {
     :root {
         --container-max-width: 600px;
@@ -2434,7 +2390,6 @@ select.form-input {
     }
 }
 
-/* --- Desktops (1024px+) --- */
 @media (min-width: 1024px) {
     :root {
         --container-max-width: 480px;
@@ -2464,7 +2419,6 @@ select.form-input {
     }
 }
 
-/* --- Dark mode responsive adjustments --- */
 [data-theme="dark"] .quick-action {
     border-color: var(--border-color);
 }
@@ -2593,7 +2547,6 @@ select.form-input {
     display: block !important;
 }
 
-/* --- Print --- */
 @media print {
     .bottom-nav,
     .more-section,
@@ -2613,7 +2566,6 @@ select.form-input {
 }
 
 
-/* More Menu Overlay */
 .more-overlay {
     position: fixed;
     top: 0;
@@ -2633,12 +2585,10 @@ select.form-input {
     opacity: 1;
 }
 
-/* Body state when more menu is open */
 body.more-open {
     overflow: hidden;
 }
 
-/* Blur background content when more menu is open */
 body.more-open .app-content,
 body.more-open .bottom-nav,
 body.more-open .app-header {
@@ -2648,7 +2598,6 @@ body.more-open .app-header {
     transition: filter 0.3s ease;
 }
 
-/* More Section - slide up */
 .more-section {
     position: fixed;
     bottom: 0;
@@ -2672,7 +2621,6 @@ body.more-open .app-header {
     transform: translateX(-50%) translateY(0);
 }
 
-/* More header - sticky */
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -2685,7 +2633,6 @@ body.more-open .app-header {
     z-index: 1;
 }
 
-/* More tab nav - sticky */
 .more-tab-nav {
     display: flex;
     overflow-x: auto;
@@ -2701,7 +2648,6 @@ body.more-open .app-header {
     height: 0;
 }
 
-/* More tab content - scrollable */
 .more-tab-content {
     display: none;
     padding: var(--space-lg);
@@ -2717,7 +2663,6 @@ body.more-open .app-header {
     animation: fadeIn 0.2s ease;
 }
 
-/* Scrollable containers inside tabs */
 #education-content,
 #alerts-content,
 #messages-content,
@@ -2731,7 +2676,6 @@ body.more-open .app-header {
     box-sizing: border-box;
 }
 
-/* Chat messages area */
 #chat-messages-area {
     overflow-y: auto !important;
     flex: 1 1 auto !important;
@@ -2739,12 +2683,10 @@ body.more-open .app-header {
     max-height: 50vh !important;
 }
 
-/* Dark mode adjustments */
 [data-theme="dark"] .more-overlay {
     background: rgba(0, 0, 0, 0.7);
 }
 
-/* Fix: Logo should not overlap with user menu */
 .logo {
     display: flex !important;
     align-items: center !important;
@@ -2814,7 +2756,6 @@ body.more-open .app-header {
     color: white;
 }
 
-/* Dark mode adjustments */
 [data-theme="dark"] .role-badge.founder {
     color: #1a1a2e;
 }
@@ -2882,7 +2823,6 @@ body.more-open .app-header {
     transform: scale(0.95);
 }
 
-/* Ensure close button is always visible and touchable */
 .modal-header .close-modal-btn {
     margin-left: auto;
 }
@@ -2903,7 +2843,6 @@ body.more-open .app-header {
     animation: fadeIn 0.2s ease;
 }
 
-/* Scrollable containers inside tabs */
 #education-content,
 #alerts-content,
 #messages-content,
@@ -2917,7 +2856,6 @@ body.more-open .app-header {
     box-sizing: border-box;
 }
 
-/* Chat messages area */
 #chat-messages-area {
     overflow-y: auto !important;
     flex: 1 1 auto !important;
