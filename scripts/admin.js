@@ -1,36 +1,36 @@
 const ROLES = {
-    founder: { 
-        name: 'Founder', 
-        level: 100, 
-        icon: 'fa-crown', 
+    founder: {
+        name: 'Founder',
+        level: 100,
+        icon: 'fa-crown',
         color: '#f1c40f',
         permissions: ['all']
     },
-    cofounder: { 
-        name: 'Co-Founder', 
-        level: 90, 
-        icon: 'fa-handshake', 
+    cofounder: {
+        name: 'Co-Founder',
+        level: 90,
+        icon: 'fa-handshake',
         color: '#9b59b6',
         permissions: ['manage_admins', 'manage_users', 'manage_posts', 'view_reports', 'manage_settings', 'view_analytics']
     },
-    admin: { 
-        name: 'Admin', 
-        level: 80, 
-        icon: 'fa-shield-alt', 
+    admin: {
+        name: 'Admin',
+        level: 80,
+        icon: 'fa-shield-alt',
         color: '#3498db',
         permissions: ['manage_users', 'manage_posts', 'view_reports', 'view_analytics']
     },
-    moderator: { 
-        name: 'Moderator', 
-        level: 50, 
-        icon: 'fa-gavel', 
+    moderator: {
+        name: 'Moderator',
+        level: 50,
+        icon: 'fa-gavel',
         color: '#2ecc71',
         permissions: ['manage_posts', 'view_reports']
     },
-    user: { 
-        name: 'User', 
-        level: 10, 
-        icon: 'fa-user', 
+    user: {
+        name: 'User',
+        level: 10,
+        icon: 'fa-user',
         color: '#2c3e50',
         permissions: []
     }
@@ -52,7 +52,7 @@ class AdminManager {
     async loadCurrentUserRole() {
         const user = this.auth.currentUser;
         if (!user) return;
-        
+
         try {
             const userDoc = await collections.users().doc(user.uid).get();
             if (userDoc.exists) {
@@ -74,13 +74,13 @@ class AdminManager {
     canManageUser(targetUserId, targetRole) {
         const currentLevel = ROLES[this.currentUserRole]?.level || 0;
         const targetLevel = ROLES[targetRole]?.level || 0;
-        
+
         if (targetRole === 'founder') return false;
-        
+
         if (this.currentUserRole === 'cofounder' && targetRole !== 'founder') return true;
-        
+
         if (this.currentUserRole === 'admin' && (targetRole === 'moderator' || targetRole === 'user')) return true;
-        
+
         return currentLevel > targetLevel;
     }
 
@@ -89,7 +89,7 @@ class AdminManager {
             const snapshot = await collections.users()
                 .where('role', 'in', ['founder', 'cofounder', 'admin', 'moderator'])
                 .get();
-            
+
             return snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -108,7 +108,7 @@ class AdminManager {
             }
             const snapshot = await query.get();
             const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            
+
             return {
                 users: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
                 lastVisible
@@ -125,24 +125,24 @@ class AdminManager {
             if (!targetUserDoc.exists) {
                 return { success: false, error: 'User not found' };
             }
-            
+
             const currentRole = targetUserDoc.data().role || 'user';
-            
+
             if (!this.canManageUser(userId, currentRole)) {
                 return { success: false, error: 'You do not have permission to manage this user' };
             }
-            
+
             if (currentRole === 'founder') {
                 return { success: false, error: 'Cannot modify founder role' };
             }
-            
+
             await collections.users().doc(userId).update({
                 role: newRole,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 roleUpdatedBy: updatedBy,
                 roleUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             await this.logAdminAction({
                 action: 'update_role',
                 targetUserId: userId,
@@ -151,7 +151,7 @@ class AdminManager {
                 performedBy: updatedBy,
                 timestamp: new Date().toISOString()
             });
-            
+
             return { success: true };
         } catch (error) {
             console.error('Error updating user role:', error);
@@ -170,7 +170,7 @@ class AdminManager {
                 .orderBy('reportedAt', 'desc')
                 .limit(limit)
                 .get();
-            
+
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch (error) {
             console.error('Error getting reported posts:', error);
@@ -182,11 +182,11 @@ class AdminManager {
         try {
             const postRef = collections.marketplaceItems().doc(postId);
             const postDoc = await postRef.get();
-            
+
             if (!postDoc.exists) {
                 return { success: false, error: 'Post not found' };
             }
-            
+
             if (action === 'delete') {
                 await postRef.update({
                     status: 'deleted',
@@ -208,7 +208,7 @@ class AdminManager {
                     approvedBy: moderatedBy
                 });
             }
-            
+
             await this.logAdminAction({
                 action: 'moderate_post',
                 targetPostId: postId,
@@ -217,7 +217,7 @@ class AdminManager {
                 performedBy: moderatedBy,
                 timestamp: new Date().toISOString()
             });
-            
+
             return { success: true };
         } catch (error) {
             console.error('Error moderating post:', error);
@@ -231,7 +231,7 @@ class AdminManager {
                 .orderBy('timestamp', 'desc')
                 .limit(limit)
                 .get();
-            
+
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch (error) {
             console.error('Error getting admin logs:', error);
@@ -257,7 +257,7 @@ class AdminManager {
                 collections.marketplaceItems().where('status', '==', 'active').get(),
                 collections.bookings().get()
             ]);
-            
+
             return {
                 totalUsers: usersSnapshot.size,
                 totalActivePosts: postsSnapshot.size,
@@ -278,8 +278,8 @@ class AdminManager {
     setupAdminListeners() {
         this.auth.onAuthStateChanged(async (user) => {
             await this.loadCurrentUserRole();
-            window.dispatchEvent(new CustomEvent('adminRoleChanged', { 
-                detail: { role: this.currentUserRole } 
+            window.dispatchEvent(new CustomEvent('adminRoleChanged', {
+                detail: { role: this.currentUserRole }
             }));
         });
     }
@@ -291,22 +291,21 @@ function initAdminManager() {
     if (!adminManager) {
         adminManager = new AdminManager();
         window.adminManager = adminManager;
-        console.log('✅ Admin Manager initialized');
-    }
+        }
     return adminManager;
 }
 
 async function loadFounderPanel() {
     const founderContainer = document.getElementById('founder-tab');
     if (!founderContainer) return;
-    
+
     const stats = await adminManager.getPlatformStats();
     const admins = await adminManager.getAdminUsers();
     const logs = await adminManager.getAdminLogs(20);
-    
+
     founderContainer.innerHTML = `
         <div class="section-title"><i class="fas fa-crown"></i> Founder Control Panel</div>
-        
+
         <!-- Stats Cards -->
         <div class="stats-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
             <div class="stat-card" style="background: var(--light); padding: 15px; border-radius: 12px; text-align: center;">
@@ -326,7 +325,7 @@ async function loadFounderPanel() {
                 <div style="font-size: 0.8rem;">Team Members</div>
             </div>
         </div>
-        
+
         <!-- Admin Management -->
         <div class="module-card">
             <div class="card-header">
@@ -354,7 +353,7 @@ async function loadFounderPanel() {
                 `).join('')}
             </div>
         </div>
-        
+
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-flag"></i> Reported Content</div>
@@ -364,7 +363,7 @@ async function loadFounderPanel() {
                 <div class="loading-spinner">Loading reported posts...</div>
             </div>
         </div>
-        
+
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-history"></i> Admin Activity Log</div>
@@ -379,7 +378,7 @@ async function loadFounderPanel() {
                 ${logs.length === 0 ? '<div style="padding: 20px; text-align: center;">No logs yet</div>' : ''}
             </div>
         </div>
-        
+
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-sliders-h"></i> Platform Settings</div>
@@ -397,20 +396,20 @@ async function loadFounderPanel() {
             <button class="btn btn-primary" onclick="savePlatformSettings()">Save All Settings</button>
         </div>
     `;
-    
+
     loadReportedPosts();
 }
 
 async function loadAdminPanel() {
     const adminContainer = document.getElementById('admin-tab');
     if (!adminContainer) return;
-    
+
     const stats = await adminManager.getPlatformStats();
     const reportedPosts = await adminManager.getReportedPosts(10);
-    
+
     adminContainer.innerHTML = `
         <div class="section-title"><i class="fas fa-shield-alt"></i> Admin Dashboard</div>
-        
+
         <div class="stats-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
             <div class="stat-card" style="background: var(--light); padding: 15px; border-radius: 12px; text-align: center;">
                 <div style="font-size: 2rem; font-weight: bold; color: var(--primary);">${stats.totalUsers}</div>
@@ -421,7 +420,7 @@ async function loadAdminPanel() {
                 <div style="font-size: 0.8rem;">Active Posts</div>
             </div>
         </div>
-        
+
         <div class="module-card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-flag"></i> Reported Content (${reportedPosts.length})</div>
@@ -446,7 +445,7 @@ async function loadAdminPanel() {
 
 async function showAddAdminModal() {
     const users = await adminManager.getAllUsers(50);
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
@@ -478,27 +477,27 @@ async function showAddAdminModal() {
             </div>
         </div>
     `;
-    
+
     showModalWithContent('add-admin-modal', modalContent);
 }
 
 async function addNewAdmin() {
     const userId = document.getElementById('new-admin-user')?.value;
     const newRole = document.getElementById('new-admin-role')?.value;
-    
+
     if (!userId) {
         showToast('Please select a user', 'error');
         return;
     }
-    
+
     const user = auth.currentUser;
     if (!user) {
         showToast('Please sign in', 'error');
         return;
     }
-    
+
     const result = await adminManager.updateUserRole(userId, newRole, user.uid);
-    
+
     if (result.success) {
         showToast('Team member added successfully!', 'success');
         closeModal();
@@ -532,21 +531,21 @@ function showEditAdminRoleModal(userId, currentRole) {
             </div>
         </div>
     `;
-    
+
     showModalWithContent('edit-role-modal', modalContent);
 }
 
 async function updateAdminRole(userId) {
     const newRole = document.getElementById('edit-role-select')?.value;
     const user = auth.currentUser;
-    
+
     if (!newRole) {
         showToast('Please select a role', 'error');
         return;
     }
-    
+
     const result = await adminManager.updateUserRole(userId, newRole, user.uid);
-    
+
     if (result.success) {
         showToast('Role updated successfully!', 'success');
         closeModal();
@@ -558,10 +557,10 @@ async function updateAdminRole(userId) {
 
 async function removeAdmin(userId) {
     if (!confirm('Are you sure you want to remove this team member? They will become a regular user.')) return;
-    
+
     const user = auth.currentUser;
     const result = await adminManager.updateUserRole(userId, 'user', user.uid);
-    
+
     if (result.success) {
         showToast('Team member removed successfully', 'success');
         loadFounderPanel();
@@ -573,14 +572,14 @@ async function removeAdmin(userId) {
 async function loadReportedPosts() {
     const container = document.getElementById('reported-posts-container');
     if (!container) return;
-    
+
     const reportedPosts = await adminManager.getReportedPosts(20);
-    
+
     if (reportedPosts.length === 0) {
         container.innerHTML = '<div style="padding: 20px; text-align: center;">No reported posts</div>';
         return;
     }
-    
+
     container.innerHTML = reportedPosts.map(post => `
         <div style="padding: 12px; border-bottom: 1px solid var(--grey);">
             <div><strong>${escapeHtml(post.title)}</strong></div>
@@ -602,10 +601,10 @@ async function moderatePost(postId, action) {
         reason = prompt(`Please provide a reason for ${action}ing this post:`);
         if (!reason) return;
     }
-    
+
     const user = auth.currentUser;
     const result = await adminManager.moderatePost(postId, action, reason, user.uid);
-    
+
     if (result.success) {
         showToast(`Post ${action}d successfully!`, 'success');
         loadReportedPosts();
@@ -621,15 +620,14 @@ function toggleMaintenanceMode(enabled) {
 
 async function savePlatformSettings() {
     const maintenanceMode = document.getElementById('maintenance-mode-toggle')?.checked || false;
-    
-    // Save to Firestore
+
     try {
         await collections.systemSettings().doc('platform').set({
             maintenanceMode: maintenanceMode,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: auth.currentUser?.uid
         }, { merge: true });
-        
+
         showToast('Platform settings saved!', 'success');
     } catch (error) {
         console.error('Error saving settings:', error);
@@ -661,7 +659,7 @@ window.savePlatformSettings = savePlatformSettings;
 
 document.addEventListener('DOMContentLoaded', function() {
     initAdminManager();
-    
+
     setTimeout(() => {
         if (adminManager && adminManager.currentUserRole) {
             if (adminManager.currentUserRole === 'founder' || adminManager.currentUserRole === 'cofounder') {

@@ -9,7 +9,7 @@ if (typeof window.showModalWithContent !== 'function') {
         modal.innerHTML = content;
         document.body.appendChild(modal);
         modal.style.display = 'block';
-        
+
         const closeBtn = modal.querySelector('.close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -25,7 +25,7 @@ class HousingManager {
         this.auth = auth;
         this.storage = storage;
         this.currentListeners = {};
-        
+
         this.housingCollection = collections.propertyListings();
         this.usersCollection = collections.users();
         this.chatsCollection = collections.chats ? collections.chats() : collections.bookingChats();
@@ -66,7 +66,7 @@ class HousingManager {
                 .get();
 
             const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            
+
             return {
                 listings: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
                 lastVisible
@@ -102,9 +102,9 @@ class HousingManager {
                 .get();
 
             const listings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             const searchLower = searchTerm.toLowerCase();
-            const filteredListings = listings.filter(listing => 
+            const filteredListings = listings.filter(listing =>
                 listing.title.toLowerCase().includes(searchLower) ||
                 (listing.description && listing.description.toLowerCase().includes(searchLower)) ||
                 listing.location.toLowerCase().includes(searchLower)
@@ -152,17 +152,17 @@ class HousingManager {
     async uploadHousingImages(files, listingId) {
         try {
             const imageUrls = [];
-            
+
             for (const file of files) {
                 const fileExtension = file.name.split('.').pop();
                 const filename = `image-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-                
+
                 const storageRef = this.storage.ref(`properties/${listingId}/${filename}`);
                 const snapshot = await storageRef.put(file);
                 const downloadURL = await snapshot.ref.getDownloadURL();
                 imageUrls.push(downloadURL);
             }
-            
+
             return { success: true, urls: imageUrls };
         } catch (error) {
             console.error('Error uploading housing images:', error);
@@ -180,7 +180,7 @@ class HousingManager {
 
             const listing = listingDoc.data();
             const listerId = listing.userId;
-            
+
             if (user.uid === listerId) {
                 return { success: false, error: 'You cannot contact yourself' };
             }
@@ -276,14 +276,14 @@ class HousingManager {
             for (let i = 0; i < favorites.length; i += batchSize) {
                 batches.push(favorites.slice(i, i + batchSize));
             }
-            
+
             const allListings = [];
             for (const batch of batches) {
                 const snapshot = await this.housingCollection
                     .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
                     .where('status', '==', 'active')
                     .get();
-                
+
                 allListings.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             }
 
@@ -390,8 +390,7 @@ class HousingManager {
 
 function initializeHousingManager() {
     window.housingManager = new HousingManager();
-    console.log("✅ Housing Manager initialized with propertyListings collection");
-}
+    }
 
 if (typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth) {
     initializeHousingManager();
@@ -404,9 +403,9 @@ async function loadHousingListings(type, filters = {}) {
     if (!housingContainer) return;
 
     housingContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading listings...</div>';
-    
+
     const result = await housingManager.getHousingListings(type, filters, 20);
-    
+
     if (result.listings.length === 0) {
         housingContainer.innerHTML = '<div class="no-listings" style="text-align: center; padding: 40px;">No housing listings available in this category</div>';
         return;
@@ -435,8 +434,8 @@ div.style.cssText = `
     div.setAttribute('data-id', listing.id);
     div.innerHTML = `
         <div class="property-image" style="cursor: pointer;">
-            ${listing.images && listing.images.length > 0 ? 
-                `<img src="${listing.images[0]}" alt="${escapeHtml(listing.title)}" loading="lazy">` : 
+            ${listing.images && listing.images.length > 0 ?
+                `<img src="${listing.images[0]}" alt="${escapeHtml(listing.title)}" loading="lazy">` :
                 `<div style="height: 180px; background: var(--light); display: flex; align-items: center; justify-content: center;"><i class="fas fa-home" style="font-size: 3rem; color: var(--grey-dark);"></i></div>`
             }
             ${listing.urgent ? '<div class="property-badge urgent">Urgent</div>' : ''}
@@ -466,12 +465,12 @@ div.style.cssText = `
             </div>
         </div>
     `;
-    
+
     const imageDiv = div.querySelector('.property-image');
     if (imageDiv) {
         imageDiv.addEventListener('click', () => viewHousingDetails(listing.id));
     }
-    
+
     const contactBtn = div.querySelector('.contact-lister-btn');
     if (contactBtn) {
         contactBtn.addEventListener('click', (e) => {
@@ -479,7 +478,7 @@ div.style.cssText = `
             contactHousingLister(listing.id);
         });
     }
-    
+
     const detailsBtn = div.querySelector('.view-details-btn');
     if (detailsBtn) {
         detailsBtn.addEventListener('click', (e) => {
@@ -487,7 +486,7 @@ div.style.cssText = `
             viewHousingDetails(listing.id);
         });
     }
-    
+
     const favBtn = div.querySelector('.favorite-btn');
     if (favBtn) {
         favBtn.addEventListener('click', (e) => {
@@ -495,7 +494,7 @@ div.style.cssText = `
             toggleHousingFavorite(listing.id, favBtn);
         });
     }
-    
+
     return div;
 }
 
@@ -505,7 +504,7 @@ async function contactHousingLister(listingId) {
         if (typeof openAuthModal === 'function') openAuthModal();
         return;
     }
-    
+
     showContactMessageModal(listingId);
 }
 
@@ -528,11 +527,11 @@ function showContactMessageModal(listingId) {
             </div>
         </div>
     `;
-    
+
     if (typeof window.showModalWithContent === 'function') {
         window.showModalWithContent('contact-modal', modalContent);
     }
-    
+
     setTimeout(() => {
         const sendBtn = document.getElementById('send-message-btn');
         if (sendBtn) {
@@ -542,7 +541,7 @@ function showContactMessageModal(listingId) {
                     showToast('Please enter a message', 'error');
                     return;
                 }
-                
+
                 const result = await housingManager.contactLister(listingId, message);
                 if (result.success) {
                     showToast('Message sent to property owner!', 'success');
@@ -580,8 +579,8 @@ function showHousingModal(listing) {
             </div>
             <div style="padding: 15px;">
                 <div class="housing-images" style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
-                    ${listing.images && listing.images.length > 0 ? 
-                        listing.images.map(img => `<img src="${img}" alt="${escapeHtml(listing.title)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('') : 
+                    ${listing.images && listing.images.length > 0 ?
+                        listing.images.map(img => `<img src="${img}" alt="${escapeHtml(listing.title)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${img}', '_blank')">`).join('') :
                         '<div class="no-image" style="height: 150px; background: var(--light); display: flex; align-items: center; justify-content: center;"><i class="fas fa-home" style="font-size: 3rem;"></i></div>'
                     }
                 </div>
@@ -600,11 +599,11 @@ function showHousingModal(listing) {
             </div>
         </div>
     `;
-    
+
     if (typeof window.showModalWithContent === 'function') {
         window.showModalWithContent('housing-details-modal', modalContent);
     }
-    
+
     setTimeout(() => {
         const contactBtn = document.querySelector('#housing-details-modal .contact-from-modal-btn');
         if (contactBtn) {
@@ -615,7 +614,7 @@ function showHousingModal(listing) {
                 contactHousingLister(listing.id);
             });
         }
-        
+
         const favBtn = document.querySelector('#housing-details-modal .favorite-modal-btn');
         if (favBtn) {
             favBtn.addEventListener('click', () => {
@@ -636,7 +635,7 @@ async function toggleHousingFavorite(listingId, button = null) {
 
         const userDoc = await collections.users().doc(user.uid).get();
         const favorites = userDoc.exists ? userDoc.data().housingFavorites || [] : [];
-        
+
         if (favorites.includes(listingId)) {
             await housingManager.removeFromFavorites(listingId);
             if (button) button.innerHTML = '<i class="far fa-heart"></i>';
@@ -656,7 +655,7 @@ function showHousingFilters(type) {
     const housingTypes = housingManager.getHousingTypes();
     const currentType = housingTypes.find(t => t.id === type);
     const locations = housingManager.getCommonLocations();
-    
+
     const filterContent = `
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
@@ -713,11 +712,11 @@ function showHousingFilters(type) {
             </div>
         </div>
     `;
-    
+
     if (typeof window.showModalWithContent === 'function') {
         window.showModalWithContent('filter-modal', filterContent);
     }
-    
+
     setTimeout(() => {
         const applyBtn = document.getElementById('apply-filters-btn');
         if (applyBtn) {
@@ -728,7 +727,7 @@ function showHousingFilters(type) {
                 const bedrooms = document.getElementById('bedrooms').value;
                 const bathrooms = document.getElementById('bathrooms').value;
                 const furnished = document.getElementById('furnished').value;
-                
+
                 const filters = {};
                 if (minPrice) filters.minPrice = minPrice;
                 if (maxPrice) filters.maxPrice = maxPrice;
@@ -736,7 +735,7 @@ function showHousingFilters(type) {
                 if (bedrooms) filters.bedrooms = bedrooms;
                 if (bathrooms) filters.bathrooms = bathrooms;
                 if (furnished) filters.furnished = furnished;
-                
+
                 loadHousingListings(type, filters);
                 if (typeof window.closeModal === 'function') {
                     window.closeModal('filter-modal');
@@ -754,26 +753,26 @@ function loadHousingListingsByType(type) {
 function searchHousing() {
     const searchInput = document.querySelector('#services-tab .search-input');
     const searchTerm = searchInput?.value.trim();
-    
+
     if (!searchTerm || searchTerm.length === 0) {
         if (window.currentHousingType) {
             loadHousingListings(window.currentHousingType);
         }
         return;
     }
-    
+
     const housingContainer = document.getElementById('housing-container');
     if (!housingContainer) return;
-    
+
     housingContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Searching properties...</div>';
-    
+
     housingManager.searchHousingListings(searchTerm, window.currentHousingType).then(listings => {
         housingContainer.innerHTML = '';
         if (listings.length === 0) {
             housingContainer.innerHTML = '<div class="no-listings" style="text-align: center; padding: 40px;">No properties found for "' + escapeHtml(searchTerm) + '"</div>';
             return;
         }
-        
+
         listings.forEach(listing => {
             const listingElement = createHousingListingElement(listing);
             housingContainer.appendChild(listingElement);

@@ -11,8 +11,7 @@ class AuthManager {
         if (this.auth && this.auth.setPersistence) {
             try {
                 await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                console.log('✅ Auth persistence set to LOCAL');
-            } catch (error) {
+                } catch (error) {
                 console.error('Error setting persistence:', error);
             }
         }
@@ -22,14 +21,14 @@ class AuthManager {
             if (user) {
                 await this.loadUserData(user.uid);
                 this.updateUIForAuthenticatedUser(user);
-                window.dispatchEvent(new CustomEvent('authStateChanged', { 
-                    detail: { user: user, isLoggedIn: true } 
+                window.dispatchEvent(new CustomEvent('authStateChanged', {
+                    detail: { user: user, isLoggedIn: true }
                 }));
             } else {
                 this.userData = null;
                 this.updateUIForGuest();
-                window.dispatchEvent(new CustomEvent('authStateChanged', { 
-                    detail: { user: null, isLoggedIn: false } 
+                window.dispatchEvent(new CustomEvent('authStateChanged', {
+                    detail: { user: null, isLoggedIn: false }
                 }));
             }
         });
@@ -45,7 +44,6 @@ class AuthManager {
                 this.userData = userDoc.data();
                 return this.userData;
             } else {
-                console.log('User profile will be created by firebase.js');
                 return null;
             }
         } catch (error) {
@@ -79,31 +77,24 @@ class AuthManager {
 
     setupUserMenuButtons() {
         const userMenu = document.getElementById('user-menu');
-        console.log('🔧 Setting up user menu buttons...');
-        
         const buttons = [
             { id: 'profile-button', handler: () => {
-                console.log('👤 My Profile clicked');
                 this.showProfile();
             }},
             { id: 'my-ads-button', handler: () => {
-                console.log('📢 My Ads clicked');
                 this.showMyAds();
             }},
             { id: 'my-bookings-button', handler: () => {
-                console.log('📅 My Bookings clicked');
                 this.showMyBookings();
             }},
             { id: 'logout-button', handler: () => {
-                console.log('🚪 Logout clicked');
                 this.signOut();
             }},
             { id: 'settings-button', handler: () => {
-                console.log('⚙️ Settings clicked');
                 this.openSettings();
             }}
         ];
-        
+
         buttons.forEach(btn => {
             const element = document.getElementById(btn.id);
             if (element) {
@@ -112,43 +103,32 @@ class AuthManager {
                 newElement.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log(`🖱️ ${btn.id} clicked`);
-                    
-                    // Close user menu
                     if (userMenu) {
                         userMenu.classList.remove('show');
                     }
-                    
-                    // Execute handler
+
                     btn.handler();
                 });
             } else {
-                console.warn(`⚠️ Button not found: ${btn.id}`);
-            }
+                }
         });
     }
 
     showProfile() {
-        console.log('👤 Opening profile...');
-        
-        // Close the user menu first
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
             userMenu.classList.remove('show');
         }
-        
-        // Close more menu if open
+
         if (typeof window.closeMoreMenu === 'function') {
             window.closeMoreMenu();
         }
-        
-        // Switch to account tab
+
         if (typeof window.switchTab === 'function') {
             window.switchTab('account-tab');
         } else if (window.app && typeof window.app.switchTab === 'function') {
             window.app.switchTab('account-tab');
         } else {
-            // Fallback: manually switch
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -160,17 +140,15 @@ class AuthManager {
             const accountNav = document.querySelector('.bottom-nav .nav-item[data-tab="account-tab"]');
             if (accountNav) accountNav.classList.add('active');
         }
-        
-        // Load user account data
+
         if (typeof loadUserAccountData === 'function') {
             setTimeout(() => loadUserAccountData(), 300);
         }
-        
-        // Update URL hash
+
         if (typeof window.updateURLHash === 'function') {
             window.updateURLHash('account-tab');
         }
-        
+
         this.showToast('Loading profile...', 'info');
     }
 
@@ -178,7 +156,7 @@ class AuthManager {
         if (typeof window.switchTab === 'function') {
             window.switchTab('marketplace-tab');
         }
-        
+
         const currentUser = this.currentUser;
         if (currentUser) {
             this.loadUserAdsFromFirebase(currentUser.uid);
@@ -196,9 +174,9 @@ class AuthManager {
                 .where('status', '==', 'active')
                 .orderBy('createdAt', 'desc')
                 .get();
-            
+
             const userItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             if (userItems.length === 0) {
                 this.showToast('You have not posted any ads yet', 'info');
                 setTimeout(() => {
@@ -242,11 +220,11 @@ class AuthManager {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('my-ads-modal', modalContent);
         }
-        
+
         setTimeout(() => {
             document.querySelectorAll('.view-ad-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -256,7 +234,7 @@ class AuthManager {
                     }
                 });
             });
-            
+
             document.querySelectorAll('.delete-ad-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const adId = btn.getAttribute('data-id');
@@ -273,7 +251,7 @@ class AuthManager {
                     }
                 });
             });
-            
+
             const postNewBtn = document.getElementById('post-new-ad-btn');
             if (postNewBtn) {
                 postNewBtn.addEventListener('click', () => {
@@ -283,7 +261,7 @@ class AuthManager {
                     }
                 });
             }
-            
+
             const closeBtn = document.querySelector('#my-ads-modal .close-modal-btn');
             if (closeBtn) {
                 closeBtn.addEventListener('click', () => {
@@ -297,23 +275,23 @@ class AuthManager {
         if (typeof window.switchTab === 'function') {
             window.switchTab('services-tab');
         }
-        
+
         const currentUser = this.currentUser;
         if (!currentUser) {
             this.showToast('Please sign in to view your bookings', 'warning');
             if (typeof showAuthModal === 'function') showAuthModal();
             return;
         }
-        
+
         try {
             const snapshot = await firebase.firestore()
                 .collection('bookings')
                 .where('customerId', '==', currentUser.uid)
                 .orderBy('createdAt', 'desc')
                 .get();
-            
+
             const userBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             if (userBookings.length === 0) {
                 this.showToast('You have no bookings yet', 'info');
             } else {
@@ -348,11 +326,11 @@ class AuthManager {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('my-bookings-modal', modalContent);
         }
-        
+
         setTimeout(() => {
             const closeBtn = document.querySelector('#my-bookings-modal .close-modal-btn');
             if (closeBtn) {
@@ -395,7 +373,7 @@ class AuthManager {
 
         try {
             const result = await this.signInWithEmail(email, password);
-            
+
             if (result.success) {
                 this.showToast('✅ Signed in successfully!', 'success');
                 this.forceCloseAllOverlays();
@@ -426,7 +404,6 @@ class AuthManager {
         const password = form.querySelector('#register-password')?.value;
         const confirmPassword = form.querySelector('#register-confirm-password')?.value;
         const displayName = form.querySelector('#register-name')?.value;
-        // Get role from text input instead of hidden field
         const roleInput = document.getElementById('user-role-input');
         const role = roleInput ? roleInput.value.trim() : 'general-user';
 
@@ -454,7 +431,7 @@ class AuthManager {
 
         try {
             const result = await this.registerWithEmail(email, password, displayName, finalRole);
-            
+
             if (result.success) {
                 this.showToast(`🎉 Welcome to VikeServe, ${displayName}! Please verify your email.`, 'success');
                 this.forceCloseAllOverlays();
@@ -479,12 +456,12 @@ class AuthManager {
     async registerWithEmail(email, password, displayName, role) {
         try {
             const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
-            
+
             await userCredential.user.sendEmailVerification();
             this.showToast('Verification email sent! Please check your inbox.', 'success');
-            
+
             await userCredential.user.updateProfile({ displayName: displayName });
-            
+
             return { success: true, user: userCredential.user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -494,16 +471,16 @@ class AuthManager {
     async signInWithEmail(email, password) {
         try {
             const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
-            
+
             if (!userCredential.user.emailVerified) {
                 await this.auth.signOut();
                 return { success: false, error: 'email-not-verified' };
             }
-            
+
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
-            
+
             return { success: true, user: userCredential.user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -512,20 +489,20 @@ class AuthManager {
 
     async signInWithGoogle() {
         const isEmulator = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
+
         if (isEmulator) {
             this.showToast('Google sign-in not available in development mode. Please use email sign-in.', 'warning');
             return { success: false };
         }
-        
+
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
-            
+
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
-            
+
             this.showToast('✅ Signed in with Google!', 'success');
             this.closeAuthModal();
             this.forceCloseAllOverlays();
@@ -538,20 +515,20 @@ class AuthManager {
 
     async signInWithFacebook() {
         const isEmulator = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
+
         if (isEmulator) {
             this.showToast('Facebook sign-in not available in development mode. Please use email sign-in.', 'warning');
             return { success: false };
         }
-        
+
         try {
             const provider = new firebase.auth.FacebookAuthProvider();
             const userCredential = await this.auth.signInWithPopup(provider);
-            
+
             await this.db.collection('users').doc(userCredential.user.uid).update({
                 lastLogin: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(() => {});
-            
+
             this.showToast('✅ Signed in with Facebook!', 'success');
             this.closeAuthModal();
             this.forceCloseAllOverlays();
@@ -567,17 +544,17 @@ class AuthManager {
             if (typeof window.clearUserCache === 'function') {
                 window.clearUserCache();
             }
-            
+
             await this.auth.signOut();
             this.currentUser = null;
             this.userData = null;
-            
+
             const userMenu = document.getElementById('user-menu');
             if (userMenu) userMenu.classList.remove('show');
-            
+
             this.showToast('Signed out successfully', 'success');
             this.updateUIForGuest();
-            
+
             return { success: true };
         } catch (error) {
             this.showToast('Sign out failed: ' + error.message, 'error');
@@ -605,11 +582,11 @@ class AuthManager {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('reset-password-modal', modalContent);
         }
-        
+
         setTimeout(() => {
             const sendBtn = document.getElementById('send-reset-btn');
             if (sendBtn) {
@@ -627,7 +604,7 @@ class AuthManager {
                     }
                 });
             }
-            
+
             const closeBtn = document.querySelector('#reset-password-modal .close-modal-btn');
             if (closeBtn) {
                 closeBtn.addEventListener('click', () => {
@@ -660,7 +637,7 @@ class AuthManager {
             this.showToast('Please sign in first', 'error');
             return;
         }
-        
+
         try {
             await user.sendEmailVerification();
             this.showToast('Verification email sent! Check your inbox.', 'success');
@@ -696,10 +673,10 @@ class AuthManager {
         const userName = document.getElementById('user-name');
         const userEmail = document.getElementById('user-email');
         const userAvatar = document.getElementById('user-avatar');
-        
+
         if (userName) userName.textContent = this.userData?.displayName || user.displayName || user.email;
         if (userEmail) userEmail.textContent = user.email;
-        
+
         if (userAvatar) {
             if (user.photoURL) {
                 userAvatar.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
@@ -709,35 +686,34 @@ class AuthManager {
                 userAvatar.style.background = 'var(--primary)';
             }
         }
-        
+
         const authButton = document.getElementById('auth-button');
         const profileButton = document.getElementById('profile-button');
         const logoutButton = document.getElementById('logout-button');
         const myAdsButton = document.getElementById('my-ads-button');
         const myBookingsButton = document.getElementById('my-bookings-button');
-        
+
         if (authButton) authButton.style.display = 'none';
         if (profileButton) profileButton.style.display = 'flex';
         if (logoutButton) logoutButton.style.display = 'flex';
         if (myAdsButton) myAdsButton.style.display = 'flex';
         if (myBookingsButton) myBookingsButton.style.display = 'flex';
-        
+
         const guestMessage = document.getElementById('guest-message');
         const authContent = document.getElementById('authenticated-content');
         if (guestMessage) guestMessage.style.display = 'none';
         if (authContent) authContent.style.display = 'block';
-        
+
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = this.userData?.displayName || user.displayName || user.email;
-        
-        // ========== ADD ROLE DISPLAY TO PROFILE ==========
+
         const profileRole = document.getElementById('profile-role');
         if (profileRole && this.userData) {
             const role = this.userData.role || 'general-user';
             const roleDisplay = typeof getRoleDisplay === 'function' ? getRoleDisplay(role) : role;
             profileRole.innerHTML = roleDisplay;
         }
-        
+
         const profileAvatar = document.getElementById('profile-avatar');
         if (profileAvatar) {
             if (user.photoURL) {
@@ -748,12 +724,11 @@ class AuthManager {
                 profileAvatar.style.background = 'var(--primary)';
             }
         }
-        
-        // ADD THIS: Update founder body class
+
         if (window.app && typeof window.app.updateFounderBodyClass === 'function') {
             setTimeout(() => window.app.updateFounderBodyClass(), 100);
         }
-        
+
         this.setupUserMenuButtons();
     }
 
@@ -761,41 +736,40 @@ class AuthManager {
         const userName = document.getElementById('user-name');
         const userEmail = document.getElementById('user-email');
         const userAvatar = document.getElementById('user-avatar');
-        
+
         if (userName) userName.textContent = 'Guest User';
         if (userEmail) userEmail.textContent = 'Sign in to access all features';
         if (userAvatar) {
             userAvatar.innerHTML = '<i class="fas fa-user"></i>';
             userAvatar.style.background = 'var(--primary)';
         }
-        
+
         const authButton = document.getElementById('auth-button');
         const profileButton = document.getElementById('profile-button');
         const logoutButton = document.getElementById('logout-button');
         const myAdsButton = document.getElementById('my-ads-button');
         const myBookingsButton = document.getElementById('my-bookings-button');
-        
+
         if (authButton) authButton.style.display = 'flex';
         if (profileButton) profileButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'none';
         if (myAdsButton) myAdsButton.style.display = 'none';
         if (myBookingsButton) myBookingsButton.style.display = 'none';
-        
+
         const guestMessage = document.getElementById('guest-message');
         const authContent = document.getElementById('authenticated-content');
         if (guestMessage) guestMessage.style.display = 'block';
         if (authContent) authContent.style.display = 'none';
-        
+
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = 'Guest User';
-        
+
         const profileAvatar = document.getElementById('profile-avatar');
         if (profileAvatar) {
             profileAvatar.innerHTML = '<i class="fas fa-user"></i>';
             profileAvatar.style.background = 'var(--primary)';
         }
-        
-        // Remove founder class on body
+
         document.body.classList.remove('founder');
     }
 
@@ -810,8 +784,7 @@ class AuthManager {
         if (typeof window.showToast === 'function') {
             window.showToast(message, type);
         } else {
-            console.log(`${type}: ${message}`);
-        }
+            }
     }
 
     isAuthenticated() {
@@ -863,7 +836,7 @@ function toggleAuthForm() {
     const registerForm = document.getElementById('register-form');
     const switchText = document.getElementById('auth-switch-text');
     const switchLink = document.getElementById('auth-switch-link');
-    
+
     if (loginForm && registerForm) {
         if (loginForm.style.display !== 'none') {
             loginForm.style.display = 'none';
@@ -908,8 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof auth !== 'undefined' && auth) {
             authManager = new AuthManager();
             window.authManager = authManager;
-            console.log('✅ AuthManager initialized');
-        }
+            }
     }, 500);
 });
 
@@ -928,13 +900,13 @@ function setupAuthModalButtons() {
         }
         return false;
     };
-    
+
     attachClick('#google-signin', () => signInWithGoogle(), 'Google sign in');
     attachClick('#facebook-signin', () => signInWithFacebook(), 'Facebook sign in');
     attachClick('#auth-switch-link', () => toggleAuthForm(), 'Auth switch link');
     attachClick('#forgot-password', () => showForgotPassword(), 'Forgot password');
     attachClick('#auth-modal .close-modal-btn', () => closeAuthModal(), 'Close modal button');
-    
+
     const passwordToggles = document.querySelectorAll('.password-toggle');
     passwordToggles.forEach(toggle => {
         const newToggle = toggle.cloneNode(true);
@@ -963,27 +935,27 @@ window.openAuthModal = function() {
         moreSection.style.display = 'none';
         moreSection.classList.remove('active');
     }
-    
+
     const mainBottomNav = document.querySelector('.bottom-nav');
     if (mainBottomNav) mainBottomNav.style.display = 'flex';
-    
+
     const moreBottomNav = document.querySelector('.more-bottom-nav');
     if (moreBottomNav) moreBottomNav.style.display = 'none';
-    
+
     const authModal = document.getElementById('auth-modal');
     if (authModal) {
         const loginForm = document.getElementById('login-form');
         const registerForm = document.getElementById('register-form');
         const switchText = document.getElementById('auth-switch-text');
         const switchLink = document.getElementById('auth-switch-link');
-        
+
         if (loginForm && registerForm) {
             loginForm.style.display = 'block';
             registerForm.style.display = 'none';
             if (switchText) switchText.textContent = 'Don\'t have an account?';
             if (switchLink) switchLink.textContent = 'Sign Up';
         }
-        
+
         authModal.style.display = 'flex';
         authModal.style.zIndex = '100000';
         document.body.style.overflow = 'hidden';

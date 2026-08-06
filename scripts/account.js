@@ -7,21 +7,20 @@ class AccountManager {
         this.bookingsCollection = collections.bookings();
         this.reviewsCollection = collections.reviews();
         this.favoritesCollection = collections.favorites ? collections.favorites() : null;
-        
+
         if (!this.favoritesCollection) {
-            console.warn('Favorites collection not found. Favorites feature will be disabled.');
-        }
+            }
     }
 
     async getUserProfile(userId) {
         try {
             const userDoc = await this.usersCollection.doc(userId).get();
-            
+
             if (!userDoc.exists) {
                 await this.createUserProfile(userId);
                 return this.getDefaultProfile(userId);
             }
-            
+
             return { id: userDoc.id, ...userDoc.data() };
         } catch (error) {
             return this.getDefaultProfile(userId);
@@ -46,8 +45,7 @@ class AccountManager {
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        console.log('User profile created with role: general-user');
-    } catch (error) {
+        } catch (error) {
         console.error('Error creating user profile:', error);
     }
 }
@@ -77,7 +75,7 @@ class AccountManager {
                 ...updates,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -87,11 +85,11 @@ class AccountManager {
     isValidPhoneNumber(phone) {
     if (!phone) return false;
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    
+
     const kenyanRegex = /^(?:\+254|0|254)([17]\d{8})$/;
-    
+
     const internationalRegex = /^\+?[0-9]{8,15}$/;
-    
+
     return kenyanRegex.test(cleaned) || internationalRegex.test(cleaned);
 }
 
@@ -99,13 +97,13 @@ class AccountManager {
         try {
             const fileExtension = file.name.split('.').pop();
             const filename = `profile_${userId}_${Date.now()}.${fileExtension}`;
-            
+
             const storageRef = storage.ref(`profile-pictures/${userId}/${filename}`);
             const snapshot = await storageRef.put(file);
             const downloadURL = await snapshot.ref.getDownloadURL();
-            
+
             await this.updateUserProfile(userId, { profilePicture: downloadURL });
-            
+
             return { success: true, url: downloadURL };
         } catch (error) {
             return { success: false, error: error.message };
@@ -142,15 +140,15 @@ class AccountManager {
                 .get();
 
             const bookings = [
-                ...customerBookings.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
+                ...customerBookings.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
                     type: 'customer',
                     createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
                 })),
-                ...providerBookings.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
+                ...providerBookings.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
                     type: 'provider',
                     createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
                 }))
@@ -176,15 +174,15 @@ class AccountManager {
                 .get();
 
             const reviews = [
-                ...givenReviews.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
+                ...givenReviews.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
                     type: 'given',
                     createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
                 })),
-                ...receivedReviews.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
+                ...receivedReviews.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
                     type: 'received',
                     createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
                 }))
@@ -236,7 +234,7 @@ class AccountManager {
                 status: 'deleted',
                 deletedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -249,7 +247,7 @@ class AccountManager {
                 preferences: preferences,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -269,17 +267,17 @@ class AccountManager {
                 this.reviewsCollection.where('revieweeId', '==', userId).get(),
                 this.favoritesCollection.where('userId', '==', userId).get()
             ]);
-            
+
             let totalRating = 0;
             let averageRating = 0;
-            
+
             if (!receivedReviews.empty) {
                 receivedReviews.forEach(doc => {
                     totalRating += doc.data().rating || 0;
                 });
                 averageRating = receivedReviews.size > 0 ? totalRating / receivedReviews.size : 0;
             }
-            
+
             return {
                 ads: adsCount.size,
                 bookings: bookingsCount.size,
@@ -358,7 +356,7 @@ function generateStarRating(rating) {
     const fullStars = Math.floor(rating);
     const halfStar = rating % 1 >= 0.5;
     const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
-    
+
     let stars = '';
     for (let i = 0; i < fullStars; i++) {
         stars += '<i class="fas fa-star"></i>';
@@ -374,29 +372,27 @@ function generateStarRating(rating) {
 
 async function loadUserAccountData() {
     if (!auth.currentUser) return;
-    
+
     try {
         const userProfile = await accountManager.getUserProfile(auth.currentUser.uid);
         if (userProfile) {
             updateProfileUI(userProfile);
         }
-        
+
         const userStats = await accountManager.getUserStatistics(auth.currentUser.uid);
         updateProfileStatsUI(userStats);
-        
+
         await loadUserAds();
         await loadUserBookings();
         await loadUserReviews();
         await loadUserFavorites();
-        
-        // ========== FIX: Load Reviews Properly ==========
-        // Use reviewsManager to render reviews
+
         if (typeof reviewsManager !== 'undefined' && reviewsManager) {
             setTimeout(() => {
                 reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
             }, 500);
         }
-        
+
     } catch (error) {
         showToast('Error loading account data', 'error');
     }
@@ -404,35 +400,34 @@ async function loadUserAccountData() {
 
 async function loadUserAds() {
     if (!auth.currentUser) return;
-    
+
     try {
         const ads = await accountManager.getUserAds(auth.currentUser.uid);
-        
+
         let adsContainer = document.getElementById('user-ads-container');
         if (!adsContainer) {
             adsContainer = document.createElement('div');
             adsContainer.id = 'user-ads-container';
             adsContainer.className = 'user-items-container';
-            
+
             const accountTab = document.getElementById('account-tab');
             const modules = accountTab.querySelectorAll('.module-card');
             if (modules.length > 0) {
                 modules[0].appendChild(adsContainer);
             }
         }
-        
+
         if (ads.length === 0) {
             adsContainer.innerHTML = '<div class="no-items">You haven\'t posted any ads yet</div>';
             return;
         }
-        
+
         adsContainer.innerHTML = '';
         ads.forEach(ad => {
             const adElement = createUserAdElement(ad);
             adsContainer.appendChild(adElement);
         });
     } catch (error) {
-        // Silent fail
     }
 }
 
@@ -459,28 +454,28 @@ function createUserAdElement(ad) {
 
 async function loadUserBookings() {
     if (!auth.currentUser) return;
-    
+
     try {
         const bookings = await accountManager.getUserBookings(auth.currentUser.uid);
-        
+
         let bookingsContainer = document.getElementById('user-bookings-container');
         if (!bookingsContainer) {
             bookingsContainer = document.createElement('div');
             bookingsContainer.id = 'user-bookings-container';
             bookingsContainer.className = 'user-items-container';
-            
+
             const accountTab = document.getElementById('account-tab');
             const modules = accountTab.querySelectorAll('.module-card');
             if (modules.length > 1) {
                 modules[1].appendChild(bookingsContainer);
             }
         }
-        
+
         if (bookings.length === 0) {
             bookingsContainer.innerHTML = '<div class="no-items">You don\'t have any bookings yet</div>';
             return;
         }
-        
+
         bookingsContainer.innerHTML = '';
         bookings.forEach(booking => {
             const bookingElement = createUserBookingElement(booking);
@@ -512,38 +507,35 @@ function createUserBookingElement(booking) {
 
 async function loadUserReviews() {
     if (!auth.currentUser) return;
-    
+
     try {
         const reviews = await accountManager.getUserReviews(auth.currentUser.uid);
-        
+
         let reviewsContainer = document.getElementById('user-reviews-container');
         if (!reviewsContainer) {
             reviewsContainer = document.createElement('div');
             reviewsContainer.id = 'user-reviews-container';
             reviewsContainer.className = 'user-items-container';
-            
+
             const accountTab = document.getElementById('account-tab');
             const modules = accountTab.querySelectorAll('.module-card');
             if (modules.length > 2) {
                 modules[2].appendChild(reviewsContainer);
             }
         }
-        
-        // ========== FIX: Check if we should use reviewsManager ==========
+
         if (typeof reviewsManager !== 'undefined' && reviewsManager) {
-            // Use the reviewsManager to render properly
             setTimeout(() => {
                 reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
             }, 100);
             return;
         }
-        
-        // Fallback to manual rendering
+
         if (reviews.length === 0) {
             reviewsContainer.innerHTML = '<div class="no-items">You don\'t have any reviews yet</div>';
             return;
         }
-        
+
         reviewsContainer.innerHTML = '';
         reviews.forEach(review => {
             const reviewElement = createUserReviewElement(review);
@@ -551,7 +543,6 @@ async function loadUserReviews() {
         });
     } catch (error) {
         console.error('Error loading user reviews:', error);
-        // Fallback: show empty state
         const reviewsContainer = document.getElementById('user-reviews-container');
         if (reviewsContainer) {
             reviewsContainer.innerHTML = '<div class="no-items">No reviews yet</div>';
@@ -580,28 +571,28 @@ function createUserReviewElement(review) {
 
 async function loadUserFavorites() {
     if (!auth.currentUser) return;
-    
+
     try {
         const favorites = await accountManager.getUserFavorites(auth.currentUser.uid);
-        
+
         let favoritesContainer = document.getElementById('user-favorites-container');
         if (!favoritesContainer) {
             favoritesContainer = document.createElement('div');
             favoritesContainer.id = 'user-favorites-container';
             favoritesContainer.className = 'user-items-container';
-            
+
             const accountTab = document.getElementById('account-tab');
             const modules = accountTab.querySelectorAll('.module-card');
             if (modules.length > 3) {
                 modules[3].appendChild(favoritesContainer);
             }
         }
-        
+
         if (favorites.length === 0) {
             favoritesContainer.innerHTML = '<div class="no-items">You haven\'t favorited any ads yet</div>';
             return;
         }
-        
+
         favoritesContainer.innerHTML = '';
         favorites.forEach(favorite => {
             const favoriteElement = createUserFavoriteElement(favorite);
@@ -639,19 +630,18 @@ function updateProfileUI(userProfile) {
     const profileLocation = document.getElementById('profile-location');
     const profileBio = document.getElementById('profile-bio');
     const profileRole = document.getElementById('profile-role');
-    
+
     if (profileName) profileName.textContent = userProfile.displayName || 'User';
     if (profileEmail) profileEmail.textContent = userProfile.email || '';
     if (profileLocation) profileLocation.textContent = userProfile.location || 'No location set';
     if (profileBio) profileBio.textContent = userProfile.bio || 'No bio yet';
-    
-    // Display user role with badge
+
     if (profileRole) {
         const role = userProfile.role || 'general-user';
         const roleDisplay = getRoleDisplay(role);
         profileRole.innerHTML = roleDisplay;
     }
-    
+
     if (profileAvatar) {
         if (userProfile.profilePicture) {
             profileAvatar.innerHTML = `<img src="${userProfile.profilePicture}" alt="Profile" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
@@ -661,29 +651,26 @@ function updateProfileUI(userProfile) {
             profileAvatar.style.backgroundColor = getColorFromInitial(initial);
         }
     }
-    
-    // Check if user is founder and update badge
+
     if (userProfile.role === 'founder') {
         document.body.classList.add('founder');
     } else {
         document.body.classList.remove('founder');
     }
-    
-    // ========== FIX: Ensure reviews container exists ==========
+
     let reviewsContainer = document.getElementById('user-reviews-container');
     if (!reviewsContainer) {
         reviewsContainer = document.createElement('div');
         reviewsContainer.id = 'user-reviews-container';
         reviewsContainer.className = 'user-items-container';
-        
+
         const accountTab = document.getElementById('account-tab');
         const modules = accountTab.querySelectorAll('.module-card');
         if (modules.length > 2) {
             modules[2].appendChild(reviewsContainer);
         }
     }
-    
-    // Load reviews if user is logged in
+
     if (auth.currentUser) {
         setTimeout(() => {
             if (typeof reviewsManager !== 'undefined' && reviewsManager) {
@@ -695,7 +682,6 @@ function updateProfileUI(userProfile) {
     }
 }
 
-// ========== GET ROLE DISPLAY WITH BADGE ==========
 function getRoleDisplay(role) {
     const roleMap = {
         'founder': '<span class="role-badge founder"><i class="fas fa-crown"></i> Founder</span>',
@@ -709,7 +695,7 @@ function getRoleDisplay(role) {
 
 function getColorFromInitial(initial) {
     const colors = [
-        '#2E86DE', '#341f97', '#27ae60', '#f39c12', 
+        '#2E86DE', '#341f97', '#27ae60', '#f39c12',
         '#e74c3c', '#9b59b6', '#16a085', '#d35400'
     ];
     const index = initial.charCodeAt(0) % colors.length;
@@ -719,29 +705,29 @@ function getColorFromInitial(initial) {
 function updateProfileStatsUI(userStats) {
     const statsGrid = document.querySelector('.profile-stats');
     if (!statsGrid) return;
-    
+
     statsGrid.innerHTML = `
         <div class="profile-stat">
             <div class="profile-stat-value">${userStats.ads}</div>
             <div class="profile-stat-label">Active Ads</div>
         </div>
-        
+
         <div class="profile-stat">
             <div class="profile-stat-value">${userStats.bookings}</div>
             <div class="profile-stat-label">Bookings</div>
         </div>
-        
+
         <div class="profile-stat">
             <div class="profile-stat-value">${userStats.reviews}</div>
             <div class="profile-stat-label">Reviews</div>
         </div>
-        
+
         <div class="profile-stat">
             <div class="profile-stat-value">${userStats.favorites}</div>
             <div class="profile-stat-label">Favorites</div>
         </div>
     `;
-    
+
     const ratingElement = document.getElementById('profile-rating');
     if (ratingElement) {
         ratingElement.innerHTML = generateStarRating(userStats.rating);
@@ -756,7 +742,7 @@ function showEditProfileForm() {
         }
         return;
     }
-    
+
     accountManager.getUserProfile(auth.currentUser.uid).then(userProfile => {
         const formContent = `
             <div class="edit-profile-form" style="padding: 10px;">
@@ -783,7 +769,7 @@ function showEditProfileForm() {
                 </div>
             </div>
         `;
-        
+
         if (typeof showModalWithContent === 'function') {
             showModalWithContent('edit-profile-modal', formContent);
         } else if (typeof showModal === 'function') {
@@ -797,9 +783,8 @@ function showEditProfileForm() {
             console.error('No modal function available');
             showToast('Form not available', 'error');
         }
-        
+
         setTimeout(() => {
-            // ========== FIX: Close button for modal ==========
             const closeBtn = document.querySelector('#edit-profile-modal .close-modal-btn');
             if (closeBtn) {
                 const newCloseBtn = closeBtn.cloneNode(true);
@@ -819,7 +804,7 @@ function showEditProfileForm() {
                     }
                 });
             }
-            
+
             const saveBtn = document.getElementById('save-profile-edit');
             if (saveBtn) {
                 const newSaveBtn = saveBtn.cloneNode(true);
@@ -830,7 +815,7 @@ function showEditProfileForm() {
                     }
                 });
             }
-            
+
             const cancelBtn = document.getElementById('cancel-profile-edit');
             if (cancelBtn) {
                 const newCancelBtn = cancelBtn.cloneNode(true);
@@ -853,7 +838,7 @@ function showEditProfileForm() {
                 });
             }
         }, 100);
-        
+
     }).catch(error => {
         console.error('Error loading profile:', error);
         if (typeof showToast === 'function') {
@@ -864,36 +849,36 @@ function showEditProfileForm() {
 
 async function updateProfile() {
     if (!auth.currentUser) return;
-    
+
     if (typeof showToast !== 'function') {
         console.error('showToast function not available');
         alert('Please refresh the page and try again');
         return;
     }
-    
+
     try {
         const displayName = document.getElementById('profile-displayname')?.value;
         const location = document.getElementById('profile-location')?.value;
         const bio = document.getElementById('profile-bio')?.value;
         const profilePicture = document.getElementById('profile-picture')?.files[0];
-        
+
         const updates = {};
         if (displayName) updates.displayName = displayName;
         if (location) updates.location = location;
         if (bio) updates.bio = bio;
-        
+
         if (Object.keys(updates).length === 0 && !profilePicture) {
             showToast('No changes to update', 'info');
             return;
         }
-        
+
         const result = await accountManager.updateUserProfile(auth.currentUser.uid, updates);
-        
+
         if (result.success) {
             if (profilePicture) {
                 await accountManager.uploadProfilePicture(auth.currentUser.uid, profilePicture);
             }
-            
+
             showToast('Profile updated successfully', 'success');
             if (typeof closeModal === 'function') {
                 closeModal();
@@ -912,7 +897,7 @@ async function updateProfile() {
 
 async function removeFavorite(adId) {
     if (!auth.currentUser) return;
-    
+
     try {
         const result = await accountManager.removeFromFavorites(auth.currentUser.uid, adId);
         if (result.success) {
@@ -931,10 +916,10 @@ async function toggleFavorite(adId) {
         showToast('Please sign in to add favorites', 'warning');
         return;
     }
-    
+
     try {
         const isFavorited = await accountManager.isAdFavorited(auth.currentUser.uid, adId);
-        
+
         if (isFavorited) {
             await accountManager.removeFromFavorites(auth.currentUser.uid, adId);
             showToast('Removed from favorites', 'success');

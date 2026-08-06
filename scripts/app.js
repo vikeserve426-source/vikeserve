@@ -6,7 +6,7 @@
             window._pendingTabSwitch = tabId;
         }
     };
-    
+
     window.openMoreMenu = function() {
         if (window.app && typeof window.app.openMoreMenu === 'function') {
             window.app.openMoreMenu();
@@ -14,7 +14,7 @@
             window._pendingMoreMenu = true;
         }
     };
-    
+
     window.closeMoreMenu = function() {
         if (window.app && typeof window.app.closeMoreMenu === 'function') {
             window.app.closeMoreMenu();
@@ -22,17 +22,15 @@
             window._pendingCloseMoreMenu = true;
         }
     };
-    
+
     window.getCurrentLocation = function() {
         if (window.app && typeof window.app.getCurrentLocation === 'function') {
             return window.app.getCurrentLocation();
         }
         return { country: '', state: '', city: '', fullAddress: '' };
     };
-    
+
     window.showToast = window.showToast || function(msg, type, duration = 3000) {
-    console.log(`${type}: ${msg}`);
-    
     let toast = document.getElementById('toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -40,22 +38,22 @@
         toast.className = 'toast';
         document.body.appendChild(toast);
     }
-    
+
     if (window._toastTimeout) clearTimeout(window._toastTimeout);
-    
+
     let icon = 'fa-info-circle';
     if (type === 'success') icon = 'fa-check-circle';
     else if (type === 'error') icon = 'fa-exclamation-circle';
     else if (type === 'warning') icon = 'fa-exclamation-triangle';
-    
+
     toast.innerHTML = `<i class="fas ${icon}"></i><div class="toast-message">${msg}</div>`;
     toast.className = `toast toast-${type}`;
     toast.classList.add('show');
-    
+
     window._toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
     }, duration);
-    
+
     setTimeout(() => {
         if (typeof window._realShowToast === 'function') {
             window._realShowToast(msg, type);
@@ -81,7 +79,6 @@ class VikeServeApp {
     async init() {
         this.applyGlobalFixes();
         this.setupEventListeners();
-        // ADDED: Setup close buttons after app initializes
         setTimeout(() => this.setupCloseButtons(), 300);
         this.setupNavigation();
         this.setupQuickActions();
@@ -96,13 +93,11 @@ class VikeServeApp {
         this.handleInitialTabFromURL();
     }
 
-    // ========== LOAD STATS COUNTS (UPDATED - Hide Total Users from Non-Founders) ==========
     async loadStatsCounts() {
         try {
-            // Check if current user is founder
             let isFounder = false;
             let userRole = 'user';
-            
+
             if (this.currentUser) {
                 try {
                     const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
@@ -111,54 +106,45 @@ class VikeServeApp {
                         isFounder = userRole === 'founder';
                     }
                 } catch (e) {
-                    console.warn('Could not fetch user role:', e);
-                }
+                    }
             }
-            
-            // Count active services/jobs
+
             const servicesSnapshot = await firebase.firestore()
                 .collection('services')
                 .where('status', '==', 'active')
                 .get();
             const activeServices = servicesSnapshot.size;
-            
-            // Count verified workers (users with role 'service_provider' or 'verified')
+
             const workersSnapshot = await firebase.firestore()
                 .collection('users')
                 .where('role', 'in', ['service_provider', 'verified', 'provider'])
                 .get();
-            
+
             let verifiedWorkers = workersSnapshot.size;
-            
-            // If no verified role exists, fallback to count all users
+
             if (verifiedWorkers === 0) {
                 const allUsersSnapshot = await firebase.firestore().collection('users').get();
                 verifiedWorkers = allUsersSnapshot.size;
             }
-            
-            // Count total users (ONLY if founder)
+
             let totalUsers = 0;
             if (isFounder) {
                 const totalUsersSnapshot = await firebase.firestore().collection('users').get();
                 totalUsers = totalUsersSnapshot.size;
             }
-            
-            // Count marketplace items
+
             const marketplaceSnapshot = await firebase.firestore()
                 .collection('marketplace_items')
                 .where('status', '==', 'active')
                 .get();
             const marketplaceItems = marketplaceSnapshot.size;
-            
-            // Count total bookings
+
             const bookingsSnapshot = await firebase.firestore().collection('bookings').get();
             const totalBookings = bookingsSnapshot.size;
-            
-            // Count reviews
+
             const reviewsSnapshot = await firebase.firestore().collection('reviews').get();
             const totalReviews = reviewsSnapshot.size;
-            
-            // Update stats - hide total users if not founder
+
             const statsElements = {
                 'active-jobs-count': activeServices,
                 'verified-workers-count': verifiedWorkers,
@@ -166,18 +152,16 @@ class VikeServeApp {
                 'total-bookings-count': totalBookings,
                 'reviews-count': totalReviews
             };
-            
-            // Only update total-users-count if founder
+
             if (isFounder) {
                 statsElements['total-users-count'] = totalUsers;
             }
-            
+
             Object.entries(statsElements).forEach(([id, value]) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             });
-            
-            // Hide the "Total Users" stat card from non-founders
+
             const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
             if (totalUsersContainer) {
                 if (!isFounder) {
@@ -186,18 +170,15 @@ class VikeServeApp {
                     totalUsersContainer.style.display = 'block';
                 }
             }
-            
-            console.log(`📊 Stats: ${activeServices} jobs, ${verifiedWorkers} workers, ${isFounder ? totalUsers : 'hidden'} users, ${marketplaceItems} items, ${totalBookings} bookings, ${totalReviews} reviews`);
+
             return { activeServices, verifiedWorkers, totalUsers, marketplaceItems, totalBookings, totalReviews };
         } catch (error) {
             console.error('Error loading stats:', error);
-            // Show fallback values (all 0)
             const ids = ['active-jobs-count', 'verified-workers-count', 'marketplace-items-count', 'total-bookings-count', 'reviews-count'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '0';
             });
-            // Hide total users on error too
             const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
             if (totalUsersContainer) totalUsersContainer.style.display = 'none';
             return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
@@ -221,24 +202,24 @@ class VikeServeApp {
 
     setupNavigation() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item');
-        
+
         navItems.forEach((item) => {
             const newItem = item.cloneNode(true);
             item.parentNode.replaceChild(newItem, item);
-            
+
             newItem.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const tabId = newItem.getAttribute('data-tab');
-                
+
                 if (!tabId) return;
-                
+
                 if (tabId === 'more-tab') {
                     this.openMoreMenu();
                     return;
                 }
-                
+
                 this.closeMoreMenu();
                 this.switchTab(tabId);
                 this.updateURLHash(tabId);
@@ -247,10 +228,8 @@ class VikeServeApp {
     }
 
     switchTab(tabId) {
-        console.log('🔄 Switching to tab:', tabId);
         this.currentTab = tabId;
-        
-        // Update bottom nav
+
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -258,81 +237,67 @@ class VikeServeApp {
         if (activeNav) {
             activeNav.classList.add('active');
         }
-        
-        // Update tab content
+
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
-        
+
         const targetTab = document.getElementById(tabId);
         if (targetTab) {
             targetTab.classList.add('active');
             this.loadTabContent(tabId);
-            console.log('✅ Tab activated:', tabId);
-        } else {
-            console.warn('⚠️ Tab not found:', tabId);
-        }
-        
-        // Close any open menus
+            } else {
+            }
+
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
             userMenu.classList.remove('show');
         }
-        
-        // Close more menu if open
+
         if (tabId !== 'more-tab') {
             this.closeMoreMenu();
         }
-        
-        // Dispatch event for other components
-        window.dispatchEvent(new CustomEvent('tabChanged', { 
-            detail: { tabId: tabId } 
+
+        window.dispatchEvent(new CustomEvent('tabChanged', {
+            detail: { tabId: tabId }
         }));
     }
 
     openMoreMenu() {
-        console.log('🔓 Opening More Menu...');
-        
         const moreSection = document.getElementById('more-section');
         const overlay = document.getElementById('more-overlay');
         const mainNav = document.querySelector('.bottom-nav');
         const moreBottomNav = document.querySelector('.more-bottom-nav');
-        
-        // Show overlay
+
         if (overlay) {
             overlay.style.display = 'block';
             setTimeout(() => {
                 overlay.classList.add('active');
             }, 10);
         }
-        
-        // Show more section
+
         if (moreSection) {
             moreSection.style.display = 'flex';
             setTimeout(() => {
                 moreSection.classList.add('active');
             }, 10);
         }
-        
-        // Hide main nav, show more nav
+
         if (mainNav) mainNav.style.display = 'none';
         if (moreBottomNav) moreBottomNav.style.display = 'flex';
-        
-        // Add class to body to blur background
+
         document.body.classList.add('more-open');
-        
-        // Update nav item
+
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
         });
         const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
         if (moreNav) moreNav.classList.add('active');
-        
-        // Trigger more menu manager
+
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
             window.moreMenuManager.onMenuOpen();
         }
-        
+
         if (window.moreMenuManager) {
             if (typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab('education');
@@ -340,7 +305,7 @@ class VikeServeApp {
         } else {
             const defaultTab = document.getElementById('education-content');
             if (defaultTab) defaultTab.classList.add('active');
-            
+
             if (typeof MoreMenuManager !== 'undefined' && !window.moreMenuManager) {
                 window.moreMenuManager = new MoreMenuManager();
             }
@@ -348,36 +313,30 @@ class VikeServeApp {
     }
 
     closeMoreMenu() {
-        console.log('🔒 Closing More Menu...');
-        
         const moreSection = document.getElementById('more-section');
         const overlay = document.getElementById('more-overlay');
         const mainNav = document.querySelector('.bottom-nav');
         const moreBottomNav = document.querySelector('.more-bottom-nav');
-        
-        // Hide overlay
+
         if (overlay) {
             overlay.classList.remove('active');
             setTimeout(() => {
                 overlay.style.display = 'none';
             }, 300);
         }
-        
-        // Hide more section with animation
+
         if (moreSection) {
             moreSection.classList.remove('active');
             setTimeout(() => {
                 moreSection.style.display = 'none';
             }, 300);
         }
-        
-        // Show main nav, hide more nav
+
         if (mainNav) mainNav.style.display = 'flex';
         if (moreBottomNav) moreBottomNav.style.display = 'none';
-        
-        // Remove body class
+
         document.body.classList.remove('more-open');
-        
+
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
             window.moreMenuManager.onMenuClose();
         }
@@ -396,7 +355,7 @@ class VikeServeApp {
 
     applyGlobalFixes() {
         const modalsToMove = [];
-        
+
         const fixModals = () => {
             const modals = document.querySelectorAll('.modal');
             modals.forEach(modal => {
@@ -409,7 +368,7 @@ class VikeServeApp {
                 }
             });
         };
-        
+
         const restoreModals = () => {
             modalsToMove.forEach(item => {
                 if (item.originalParent && item.originalParent.contains(item.modal)) {
@@ -417,7 +376,7 @@ class VikeServeApp {
                 }
             });
         };
-        
+
         const fixBottomNav = () => {
             const nav = document.querySelector('.bottom-nav');
             if (nav) {
@@ -429,13 +388,13 @@ class VikeServeApp {
                 nav.style.maxWidth = '480px';
             }
         };
-        
+
         const timeoutId1 = setTimeout(fixModals, 100);
         const timeoutId2 = setTimeout(fixBottomNav, 100);
         this.timeouts.push(timeoutId1, timeoutId2);
-        
+
         window.addEventListener('resize', fixBottomNav);
-        
+
         this.cleanupModals = restoreModals;
     }
 
@@ -453,7 +412,7 @@ class VikeServeApp {
                 return true;
             }
         } catch(e) {}
-        
+
         this.currentLocation = { country: '', state: '', city: '', fullAddress: '' };
         this.updateLocationDisplay();
         return false;
@@ -494,7 +453,6 @@ class VikeServeApp {
     setupLocationSelector() {
         const locationSelector = document.getElementById('location-selector');
         if (locationSelector) {
-            // Remove existing listener by cloning
             const newSelector = locationSelector.cloneNode(true);
             locationSelector.parentNode.replaceChild(newSelector, locationSelector);
             newSelector.addEventListener('click', () => this.openLocationModal());
@@ -531,7 +489,7 @@ class VikeServeApp {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('location-modal', modalContent);
         } else {
@@ -546,25 +504,25 @@ class VikeServeApp {
             modal.style.display = 'flex';
             modal.style.zIndex = '10001';
         }
-        
+
         setTimeout(() => {
             const countryInput = document.getElementById('location-country-input');
             const stateInput = document.getElementById('location-state-input');
             const cityInput = document.getElementById('location-city-input');
-            
+
             if (countryInput) countryInput.value = this.currentLocation.country || '';
             if (stateInput) stateInput.value = this.currentLocation.state || '';
             if (cityInput) cityInput.value = this.currentLocation.city || '';
-            
+
             this.updateManualLocationPreview();
-            
+
             const saveBtn = document.getElementById('save-location-btn');
             if (saveBtn) {
                 const newSaveBtn = saveBtn.cloneNode(true);
                 saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
                 newSaveBtn.addEventListener('click', () => this.saveManualLocation());
             }
-            
+
             const cancelBtn = document.getElementById('cancel-location-btn');
             if (cancelBtn) {
                 const newCancelBtn = cancelBtn.cloneNode(true);
@@ -578,7 +536,7 @@ class VikeServeApp {
                     }
                 });
             }
-            
+
             const closeBtn = document.querySelector('#location-modal .close-modal-btn');
             if (closeBtn) {
                 const newCloseBtn = closeBtn.cloneNode(true);
@@ -592,7 +550,7 @@ class VikeServeApp {
                     }
                 });
             }
-            
+
             const inputs = ['location-country-input', 'location-state-input', 'location-city-input'];
             inputs.forEach(id => {
                 const input = document.getElementById(id);
@@ -607,17 +565,17 @@ class VikeServeApp {
         const country = document.getElementById('location-country-input')?.value || '';
         const state = document.getElementById('location-state-input')?.value || '';
         const city = document.getElementById('location-city-input')?.value || '';
-        
+
         const previewSpan = document.getElementById('location-preview-text');
         const previewDiv = document.getElementById('location-preview');
-        
+
         if (previewSpan && previewDiv) {
             let previewText = '';
             if (city && state) previewText = `${city}, ${state}, ${country}`;
             else if (city && country) previewText = `${city}, ${country}`;
             else if (state && country) previewText = `${state}, ${country}`;
             else if (country) previewText = country;
-            
+
             if (previewText) {
                 previewSpan.textContent = previewText;
                 previewDiv.style.display = 'flex';
@@ -631,36 +589,36 @@ class VikeServeApp {
         const country = document.getElementById('location-country-input')?.value.trim();
         const state = document.getElementById('location-state-input')?.value.trim();
         const city = document.getElementById('location-city-input')?.value.trim();
-        
+
         if (!country) {
             if (typeof window.showToast === 'function') {
                 window.showToast('Please enter your country', 'warning');
             }
             return;
         }
-        
+
         this.currentLocation = {
             country: country,
             state: state || '',
             city: city || '',
             fullAddress: this.getFullAddress()
         };
-        
+
         this.saveLocationToStorage();
         this.updateLocationDisplay();
-        
+
         if (typeof window.closeModal === 'function') {
             window.closeModal('location-modal');
         } else {
             const modal = document.getElementById('location-modal');
             if (modal) modal.style.display = 'none';
         }
-        
+
         const displayText = this.getLocationDisplayText();
         if (typeof window.showToast === 'function') {
             window.showToast(`📍 Location set to ${displayText || country}`, 'success');
         }
-        
+
         window.dispatchEvent(new CustomEvent('locationUpdated', { detail: this.currentLocation }));
     }
 
@@ -670,17 +628,17 @@ class VikeServeApp {
 
     setupQuickActions() {
         const quickActions = document.querySelectorAll('.quick-action');
-        
+
         quickActions.forEach(action => {
             const newAction = action.cloneNode(true);
             action.parentNode.replaceChild(newAction, action);
-            
+
             const actionType = newAction.getAttribute('data-action');
-            
+
             newAction.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 if (typeof window.quickActionsManager?.handleQuickAction === 'function') {
                     window.quickActionsManager.handleQuickAction(actionType);
                 } else if (typeof window.showToast === 'function') {
@@ -703,12 +661,11 @@ class VikeServeApp {
             firebase.auth().onAuthStateChanged(async (user) => {
                 this.currentUser = user;
                 this.updateUIForAuthState();
-                
-                // Reload stats to update founder view
+
                 if (user) {
                     setTimeout(() => this.loadStatsCounts(), 500);
                 }
-                
+
                 if (user && window.pendingPromotionCallback) {
                     const callback = window.pendingPromotionCallback;
                     window.pendingPromotionCallback = null;
@@ -722,36 +679,34 @@ class VikeServeApp {
 
     updateUIForAuthState() {
         const isLoggedIn = !!this.currentUser;
-        
+
         const authBtn = document.getElementById('auth-button');
         const profileBtn = document.getElementById('profile-button');
         const logoutBtn = document.getElementById('logout-button');
-        
+
         if (authBtn) authBtn.style.display = isLoggedIn ? 'none' : 'flex';
         if (profileBtn) profileBtn.style.display = isLoggedIn ? 'flex' : 'none';
         if (logoutBtn) logoutBtn.style.display = isLoggedIn ? 'flex' : 'none';
-        
+
         const guestMessage = document.getElementById('guest-message');
         const authContent = document.getElementById('authenticated-content');
-        
+
         if (guestMessage) guestMessage.style.display = isLoggedIn ? 'none' : 'block';
         if (authContent) authContent.style.display = isLoggedIn ? 'block' : 'none';
-        
-        // Update founder status on body
+
         if (isLoggedIn) {
             this.updateFounderBodyClass();
         } else {
             document.body.classList.remove('founder');
         }
     }
-    
-    // ========== UPDATE FOUNDER BODY CLASS ==========
+
     async updateFounderBodyClass() {
         if (!this.currentUser) {
             document.body.classList.remove('founder');
             return;
         }
-        
+
         try {
             const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
             if (userDoc.exists) {
@@ -766,11 +721,10 @@ class VikeServeApp {
             console.error('Error updating founder body class:', error);
         }
     }
-    
-    // ========== CHECK IF USER IS FOUNDER ==========
+
     async isUserFounder() {
         if (!this.currentUser) return false;
-        
+
         try {
             const userDoc = await firebase.firestore().collection('users').doc(this.currentUser.uid).get();
             if (userDoc.exists) {
@@ -794,7 +748,7 @@ class VikeServeApp {
 
     loadTabContent(tabId) {
         const currentLocation = this.getCurrentLocation();
-        
+
         switch(tabId) {
             case 'home-tab':
                 if (typeof window.loadUrgentJobs === 'function') window.loadUrgentJobs();
@@ -817,7 +771,7 @@ class VikeServeApp {
                 document.body.style.overflow = '';
             }
         });
-        
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal').forEach(modal => {
@@ -827,21 +781,18 @@ class VikeServeApp {
                 document.body.style.overflow = '';
             }
         });
-        
+
         const userProfile = document.getElementById('user-profile');
         if (userProfile) {
             const newUserProfile = userProfile.cloneNode(true);
             userProfile.parentNode.replaceChild(newUserProfile, userProfile);
-            
+
             newUserProfile.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🖱️ User profile clicked');
-                
                 const isLoggedIn = this.currentUser !== null;
-                
+
                 if (!isLoggedIn) {
-                    console.log('🔓 User not logged in, opening auth modal');
                     if (typeof window.openAuthModal === 'function') {
                         window.openAuthModal();
                     } else if (typeof window.showAuthModal === 'function') {
@@ -851,27 +802,25 @@ class VikeServeApp {
                         if (authModal) authModal.style.display = 'flex';
                     }
                 } else {
-                    console.log('👤 User logged in, toggling user menu');
-                    // Force toggle the user menu
                     this.toggleUserMenu();
                 }
             });
         }
-        
+
         document.addEventListener('click', (e) => {
             const userMenu = document.getElementById('user-menu');
             const userProfile = document.getElementById('user-profile');
-            
+
             if (userMenu && userMenu.classList.contains('show')) {
                 const clickedInsideMenu = userMenu.contains(e.target);
                 const clickedProfile = userProfile && userProfile.contains(e.target);
-                
+
                 if (!clickedInsideMenu && !clickedProfile) {
                     userMenu.classList.remove('show');
                 }
             }
         });
-        
+
         const moreCloseBtn = document.querySelector('.more-close');
         if (moreCloseBtn) {
             const newMoreCloseBtn = moreCloseBtn.cloneNode(true);
@@ -879,17 +828,15 @@ class VikeServeApp {
             newMoreCloseBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🖱️ More menu close clicked');
                 this.closeMoreMenu();
             });
         }
 
-// ========== FIX: Home Tab Search ==========
-        const homeSearchInput = document.querySelector('#home-tab .search-input');
+const homeSearchInput = document.querySelector('#home-tab .search-input');
         if (homeSearchInput) {
             const newInput = homeSearchInput.cloneNode(true);
             homeSearchInput.parentNode.replaceChild(newInput, homeSearchInput);
-            
+
             let timeout;
             newInput.addEventListener('input', (e) => {
                 clearTimeout(timeout);
@@ -903,29 +850,22 @@ class VikeServeApp {
         }
     }
 
-    // ========== FIX: Global Close Button Handler ==========
     setupCloseButtons() {
-        console.log('🔧 Setting up global close buttons...');
-        
-        // Close all modals when clicking ×
         document.querySelectorAll('.close-modal-btn').forEach(btn => {
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             newBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                // Find the closest modal
+
                 const modal = this.closest('.modal');
                 if (modal) {
                     modal.style.display = 'none';
                     document.body.style.overflow = '';
-                    console.log('✅ Modal closed:', modal.id);
-                }
+                    }
             });
         });
-        
-        // Also handle modal background clicks
+
         document.querySelectorAll('.modal').forEach(modal => {
             const newModal = modal.cloneNode(true);
             modal.parentNode.replaceChild(newModal, modal);
@@ -933,8 +873,7 @@ class VikeServeApp {
                 if (e.target === this) {
                     this.style.display = 'none';
                     document.body.style.overflow = '';
-                    console.log('✅ Modal closed by background click:', this.id);
-                }
+                    }
             });
         });
     }
@@ -942,12 +881,8 @@ class VikeServeApp {
     toggleUserMenu() {
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
-            // Toggle the 'show' class
             userMenu.classList.toggle('show');
-            console.log('🔄 User menu toggled:', userMenu.classList.contains('show') ? 'open' : 'closed');
-            console.log('📋 User menu classes:', userMenu.className);
-            console.log('📋 User menu display:', userMenu.style.display);
-        } else {
+            } else {
             console.error('❌ User menu element not found');
         }
     }
@@ -987,7 +922,7 @@ class VikeServeApp {
                 }
             }
         };
-        
+
         const viewPackagesBtn = document.getElementById('view-packages-btn');
         if (viewPackagesBtn) {
             const newBtn = viewPackagesBtn.cloneNode(true);
@@ -998,7 +933,7 @@ class VikeServeApp {
                 handlePromotionClick();
             });
         }
-        
+
         const postAdBtn = document.getElementById('post-ad-btn');
         if (postAdBtn) {
             const newBtn = postAdBtn.cloneNode(true);
@@ -1015,37 +950,32 @@ class VikeServeApp {
         window.addEventListener('remoteConfigReady', () => {
             this.applyFeatureToggles();
         });
-        
+
         setTimeout(() => {
             this.applyFeatureToggles();
         }, 500);
-        
+
         document.addEventListener('tabChanged', () => {
             setTimeout(() => this.applyFeatureToggles(), 100);
         });
     }
 
     applyFeatureToggles() {
-        // Check if Remote Config is available
-        const isFeatureEnabled = typeof window.isFeatureEnabled === 'function' 
-            ? window.isFeatureEnabled 
+        const isFeatureEnabled = typeof window.isFeatureEnabled === 'function'
+            ? window.isFeatureEnabled
             : () => {
-                console.warn('⚠️ isFeatureEnabled not available, using defaults');
                 return false;
             };
-        
+
         try {
             const isAdPromotionEnabled = isFeatureEnabled('feature_adPromotion');
             const isWifiConnectEnabled = isFeatureEnabled('feature_wifiConnect');
             const showComingSoon = isFeatureEnabled('feature_showComingSoon');
-            
-            console.log('🔧 Feature Toggles - Ad Promotion:', isAdPromotionEnabled, 'WiFi Connect:', isWifiConnectEnabled);
-            
-            // ========== HANDLE AD PROMOTION BUTTONS ==========
+
             const promoteButtons = document.querySelectorAll(
                 '.ad-cta, .btn-promote, .promote-service-btn, .promote-ad-btn, #view-packages-btn, #post-ad-btn'
             );
-            
+
             promoteButtons.forEach(el => {
                 if (!isAdPromotionEnabled) {
                     el.disabled = true;
@@ -1053,7 +983,7 @@ class VikeServeApp {
                     el.style.cursor = 'not-allowed';
                     el.style.pointerEvents = 'none';
                     el.style.position = 'relative';
-                    
+
                     if (showComingSoon && !el.querySelector('.coming-soon-badge')) {
                         const badge = document.createElement('span');
                         badge.className = 'coming-soon-badge';
@@ -1078,13 +1008,12 @@ class VikeServeApp {
                     el.style.opacity = '1';
                     el.style.cursor = 'pointer';
                     el.style.pointerEvents = 'auto';
-                    
+
                     const badge = el.querySelector('.coming-soon-badge');
                     if (badge) badge.remove();
                 }
             });
-            
-            // ========== HANDLE WIFI CONNECT QUICK ACTION ==========
+
             const wifiAction = document.querySelector('.quick-action[data-action="wifi"]');
             if (wifiAction) {
                 if (!isWifiConnectEnabled) {
@@ -1092,7 +1021,7 @@ class VikeServeApp {
                     wifiAction.style.cursor = 'not-allowed';
                     wifiAction.style.pointerEvents = 'none';
                     wifiAction.style.position = 'relative';
-                    
+
                     if (showComingSoon && !wifiAction.querySelector('.coming-soon-badge')) {
                         const badge = document.createElement('span');
                         badge.className = 'coming-soon-badge';
@@ -1115,36 +1044,28 @@ class VikeServeApp {
                     wifiAction.style.opacity = '1';
                     wifiAction.style.cursor = 'pointer';
                     wifiAction.style.pointerEvents = 'auto';
-                    
+
                     const badge = wifiAction.querySelector('.coming-soon-badge');
                     if (badge) badge.remove();
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Error applying feature toggles:', error);
-        }
+            }
     }
 
     destroy() {
         this.timeouts.forEach(timeoutId => clearTimeout(timeoutId));
         this.timeouts = [];
-        
+
         if (typeof this.cleanupModals === 'function') {
             this.cleanupModals();
         }
-        
-        console.log('App destroyed, cleaned up timeouts and listeners');
-    }
+
+        }
 }
 
-// ========================================
-// FIX: Modal Button Handlers (Re-attach after DOM changes)
-// ========================================
 
 function setupAllModalHandlers() {
-    console.log('🔧 Setting up ALL modal button handlers...');
-    
-    // ========== SERVICES TAB ==========
     const serviceBtn = document.getElementById('service-post-btn');
     if (serviceBtn) {
         const newBtn = serviceBtn.cloneNode(true);
@@ -1152,7 +1073,6 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Service post button clicked');
             if (typeof window.showServicePostModal === 'function') {
                 window.showServicePostModal();
             } else {
@@ -1162,9 +1082,8 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Service post button handler attached');
-    }
-    
+        }
+
     const jobBtn = document.getElementById('job-post-btn');
     if (jobBtn) {
         const newBtn = jobBtn.cloneNode(true);
@@ -1172,7 +1091,6 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Job post button clicked');
             if (typeof window.showJobPostModal === 'function') {
                 window.showJobPostModal();
             } else {
@@ -1182,10 +1100,8 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Job post button handler attached');
-    }
-    
-    // ========== MARKETPLACE TAB ==========
+        }
+
     const marketBtn = document.getElementById('marketplace-post-btn');
     if (marketBtn) {
         const newBtn = marketBtn.cloneNode(true);
@@ -1193,7 +1109,6 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Marketplace post button clicked');
             if (typeof window.showMarketplacePostModal === 'function') {
                 window.showMarketplacePostModal();
             } else {
@@ -1203,9 +1118,8 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Marketplace post button handler attached');
-    }
-    
+        }
+
     const gasBtn = document.getElementById('gas-refill-post-btn');
     if (gasBtn) {
         const newBtn = gasBtn.cloneNode(true);
@@ -1213,14 +1127,12 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Gas refill button clicked');
             if (typeof window.showGasRefillPostModal === 'function') {
                 window.showGasRefillPostModal();
             }
         });
-        console.log('✅ Gas refill button handler attached');
-    }
-    
+        }
+
     const waterBtn = document.getElementById('water-delivery-post-btn');
     if (waterBtn) {
         const newBtn = waterBtn.cloneNode(true);
@@ -1228,14 +1140,12 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Water delivery button clicked');
             if (typeof window.showWaterDeliveryPostModal === 'function') {
                 window.showWaterDeliveryPostModal();
             }
         });
-        console.log('✅ Water delivery button handler attached');
-    }
-    
+        }
+
     const hotelBtn = document.getElementById('hotel-post-btn');
     if (hotelBtn) {
         const newBtn = hotelBtn.cloneNode(true);
@@ -1243,14 +1153,12 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Hotel button clicked');
             if (typeof window.showHotelPostModal === 'function') {
                 window.showHotelPostModal();
             }
         });
-        console.log('✅ Hotel button handler attached');
-    }
-    
+        }
+
     const propertyBtn = document.getElementById('property-post-btn');
     if (propertyBtn) {
         const newBtn = propertyBtn.cloneNode(true);
@@ -1258,14 +1166,12 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Property button clicked');
             if (typeof window.showPropertyPostModal === 'function') {
                 window.showPropertyPostModal();
             }
         });
-        console.log('✅ Property button handler attached');
-    }
-    
+        }
+
     const landBtn = document.getElementById('land-post-btn');
     if (landBtn) {
         const newBtn = landBtn.cloneNode(true);
@@ -1273,32 +1179,26 @@ function setupAllModalHandlers() {
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🖱️ Land button clicked');
             if (typeof window.showLandPostModal === 'function') {
                 window.showLandPostModal();
             }
         });
-        console.log('✅ Land button handler attached');
-    }
-    
-    console.log('✅ All modal button handlers setup complete');
-}
+        }
 
-// Call on DOM ready
+    }
+
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new VikeServeApp();
-    
+
     window.switchTab = (tabId) => window.app?.switchTab(tabId);
     window.openMoreMenu = () => window.app?.openMoreMenu();
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
-    
-    // Expose founder check
+
     window.isUserFounder = () => window.app?.isUserFounder();
-    
-    // Setup modal handlers after app initializes
+
     setTimeout(setupAllModalHandlers, 500);
-    
+
     window.addEventListener('beforeunload', () => {
         if (window.app && typeof window.app.destroy === 'function') {
             window.app.destroy();
@@ -1306,11 +1206,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Also call when tab changes
 document.addEventListener('tabChanged', function(e) {
-    console.log('🔄 Tab changed, reattaching modal handlers...');
     setTimeout(setupAllModalHandlers, 300);
 });
 
-// Expose to window
 window.setupAllModalHandlers = setupAllModalHandlers;

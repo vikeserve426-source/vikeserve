@@ -1,5 +1,3 @@
-// ========== SEARCH MANAGER - COMPLETE FIXED VERSION ==========
-// Supports pagination, search history, and optimized Firestore queries
 
 class SearchManager {
     constructor() {
@@ -16,12 +14,10 @@ class SearchManager {
     }
 
     async init() {
-        console.log("Search Manager initializing...");
         this.setupSearchListeners();
         await this.loadSearchData();
     }
 
-    // Load search history from localStorage
     loadSearchHistory() {
         try {
             const saved = localStorage.getItem('vikeserve_search_history');
@@ -31,29 +27,24 @@ class SearchManager {
         }
     }
 
-    // Save search term to history
     saveToSearchHistory(term) {
         if (!term || term.length < 2) return;
-        
-        // Remove duplicate if exists
+
         const existingIndex = this.searchHistory.indexOf(term);
         if (existingIndex !== -1) {
             this.searchHistory.splice(existingIndex, 1);
         }
-        
-        // Add to beginning
+
         this.searchHistory.unshift(term);
-        
-        // Keep only last 10 searches
+
         if (this.searchHistory.length > 10) {
             this.searchHistory.pop();
         }
-        
+
         localStorage.setItem('vikeserve_search_history', JSON.stringify(this.searchHistory));
         this.displaySearchHistory();
     }
 
-    // Clear search history
     clearSearchHistory() {
         this.searchHistory = [];
         localStorage.removeItem('vikeserve_search_history');
@@ -63,10 +54,9 @@ class SearchManager {
         }
     }
 
-    // Display search history in results container
     displaySearchHistory() {
         if (this.searchHistory.length === 0) return;
-        
+
         const historyHTML = `
             <div class="search-history-section">
                 <div class="search-history-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--grey);">
@@ -83,13 +73,12 @@ class SearchManager {
                 </div>
             </div>
         `;
-        
+
         const resultsContainer = document.getElementById('search-results-container');
         if (resultsContainer && this.searchHistory.length > 0 && !this.lastSearchTerm) {
             resultsContainer.innerHTML = historyHTML;
             resultsContainer.style.display = 'block';
-            
-            // Add click handlers for history items
+
             document.querySelectorAll('.search-history-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const term = item.getAttribute('data-term');
@@ -100,7 +89,7 @@ class SearchManager {
                     }
                 });
             });
-            
+
             const clearBtn = document.querySelector('.clear-history-btn');
             if (clearBtn) {
                 clearBtn.addEventListener('click', () => this.clearSearchHistory());
@@ -108,12 +97,8 @@ class SearchManager {
         }
     }
 
-    // Load data from Firebase collections with pagination
     async loadSearchData() {
         try {
-            console.log("Loading search data from Firebase...");
-            
-            // Load limited data for initial search index
             const [servicesSnapshot, jobsSnapshot, marketplaceSnapshot] = await Promise.all([
                 collections.services().limit(50).get(),
                 collections.serviceRequests().where('type', '==', 'job').limit(50).get(),
@@ -122,7 +107,6 @@ class SearchManager {
 
             this.searchData = [];
 
-            // Process services and generate searchKeywords
             servicesSnapshot.forEach(doc => {
                 const service = doc.data();
                 const searchKeywords = this.generateSearchKeywords(service.title, service.category, service.location, service.description);
@@ -141,7 +125,6 @@ class SearchManager {
                 });
             });
 
-            // Process jobs
             jobsSnapshot.forEach(doc => {
                 const job = doc.data();
                 const searchKeywords = this.generateSearchKeywords(job.title, job.category, job.location, job.description);
@@ -159,7 +142,6 @@ class SearchManager {
                 });
             });
 
-            // Process marketplace items
             marketplaceSnapshot.forEach(doc => {
                 const item = doc.data();
                 const searchKeywords = this.generateSearchKeywords(item.title, item.category, item.location, item.description);
@@ -177,7 +159,6 @@ class SearchManager {
                 });
             });
 
-            console.log(`Loaded ${this.searchData.length} items for search`);
             this.buildSearchIndex();
 
         } catch (error) {
@@ -186,18 +167,14 @@ class SearchManager {
         }
     }
 
-    // Generate search keywords for a document
     generateSearchKeywords(title, category, location, description) {
         const text = `${title} ${category} ${location} ${description || ''}`.toLowerCase();
         const words = text.split(/\s+/);
-        // Remove duplicates and short words, take unique keywords
         const uniqueWords = [...new Set(words)];
         return uniqueWords.filter(word => word.length > 2).slice(0, 20);
     }
 
-    // Fallback sample data
     async loadSampleData() {
-        console.log("Loading sample search data...");
         this.searchData = [
             { id: '1', type: 'service', title: 'Boda Boda Transport', category: 'transport', location: 'Nairobi', rating: 4.5, price: 100, searchKeywords: ['boda', 'transport', 'nairobi'] },
             { id: '2', type: 'service', title: 'Plumbing Services', category: 'home-services', location: 'Nairobi', rating: 4.2, price: 500, searchKeywords: ['plumbing', 'home', 'services', 'nairobi'] },
@@ -207,7 +184,6 @@ class SearchManager {
         this.buildSearchIndex();
     }
 
-    // Build search index for faster searching
     buildSearchIndex() {
         this.searchIndex = {};
         this.searchData.forEach(item => {
@@ -221,10 +197,8 @@ class SearchManager {
                 }
             });
         });
-        console.log("Search index built with", Object.keys(this.searchIndex).length, "unique words");
-    }
+        }
 
-    // Split text into searchable tokens
     tokenize(text) {
         return text.toLowerCase()
             .replace(/[^\w\s]/g, ' ')
@@ -232,28 +206,24 @@ class SearchManager {
             .filter(word => word.length > 2);
     }
 
-    // Setup search input listeners
     setupSearchListeners() {
         const searchInputs = document.querySelectorAll('.search-input');
-        
+
         searchInputs.forEach(input => {
-            // Remove old listeners by cloning
             const newInput = input.cloneNode(true);
             input.parentNode.replaceChild(newInput, input);
-            
+
             let timeout;
             newInput.addEventListener('input', (e) => {
                 const value = e.target.value;
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
-                    // Determine which tab is active
                     const activeTab = document.querySelector('.tab-content.active');
                     let tabId = 'home-tab';
                     if (activeTab) {
                         tabId = activeTab.id;
                     }
-                    
-                    // If in services or marketplace, use tab-specific search
+
                     if (tabId === 'services-tab') {
                         this.searchServices(value);
                     } else if (tabId === 'marketplace-tab') {
@@ -272,7 +242,7 @@ class SearchManager {
                     if (activeTab) {
                         tabId = activeTab.id;
                     }
-                    
+
                     if (tabId === 'services-tab') {
                         this.searchServices(value);
                     } else if (tabId === 'marketplace-tab') {
@@ -291,7 +261,6 @@ class SearchManager {
         });
     }
 
-    // Handle search query
     async handleSearch(query) {
         if (!query || query.trim().length < 2) {
             this.hideSearchResults();
@@ -311,25 +280,20 @@ class SearchManager {
         }
     }
 
-    // Perform search with optimized queries
     async search(query) {
-        // First try local search (fast)
         let results = this.performLocalSearch(query);
-        
-        // If few results, search Firestore directly
+
         if (results.length < 10) {
             try {
                 const firebaseResults = await this.searchFirebase(query);
                 results = this.mergeAndDeduplicateResults(results, firebaseResults);
             } catch (error) {
-                console.warn("Firebase search failed:", error);
-            }
+                }
         }
 
         return results;
     }
 
-    // Local search implementation
     performLocalSearch(query) {
         const tokens = this.tokenize(query);
         const resultIds = new Set();
@@ -354,7 +318,6 @@ class SearchManager {
         return scoredResults.sort((a, b) => b.score - a.score).slice(0, 30);
     }
 
-    // Search Firebase directly with pagination
     async searchFirebase(query) {
         const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2);
         const results = [];
@@ -366,7 +329,7 @@ class SearchManager {
         ];
 
         const collectionsResults = await Promise.allSettled(searchPromises);
-        
+
         collectionsResults.forEach(result => {
             if (result.status === 'fulfilled') {
                 results.push(...result.value);
@@ -376,13 +339,11 @@ class SearchManager {
         return results;
     }
 
-    // Search a specific Firestore collection
     async searchCollection(collectionRef, searchTerms, type) {
         const results = [];
-        
+
         for (const term of searchTerms) {
             try {
-                // Use array-contains on searchKeywords field
                 const snapshot = await collectionRef
                     .where('searchKeywords', 'array-contains', term)
                     .limit(10)
@@ -396,14 +357,13 @@ class SearchManager {
                     }
                 });
             } catch (error) {
-                // Fallback to title search if array-contains fails
                 try {
                     const snapshot = await collectionRef
                         .where('title', '>=', term)
                         .where('title', '<=', term + '\uf8ff')
                         .limit(5)
                         .get();
-                    
+
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         const item = this.formatFirebaseItem(doc.id, data, type);
@@ -412,15 +372,13 @@ class SearchManager {
                         }
                     });
                 } catch (fallbackError) {
-                    console.warn(`Search in ${type} failed:`, fallbackError);
-                }
+                    }
             }
         }
 
         return results;
     }
 
-    // Format Firebase document for search results
     formatFirebaseItem(id, data, type) {
         const baseItem = {
             id: id,
@@ -458,7 +416,6 @@ class SearchManager {
         }
     }
 
-    // Merge and deduplicate results
     mergeAndDeduplicateResults(localResults, firebaseResults) {
         const merged = [...localResults];
         const localIds = new Set(localResults.map(r => r.id));
@@ -472,7 +429,6 @@ class SearchManager {
         return merged.sort((a, b) => b.score - a.score).slice(0, 30);
     }
 
-    // Calculate relevance score for sorting
     calculateRelevanceScore(item, query, tokens) {
         let score = 0;
         const searchText = (item.title + ' ' + item.category + ' ' + item.location + ' ' + (item.description || '')).toLowerCase();
@@ -497,17 +453,16 @@ class SearchManager {
         return score;
     }
 
-    // Generate star rating HTML (fixes half-star logic)
     generateStars(rating) {
         if (!rating) return '<span class="no-rating">No ratings</span>';
-        
+
         let stars = '';
         const fullStars = Math.floor(rating);
         const decimal = rating - fullStars;
         let hasHalfStar = decimal >= 0.3 && decimal <= 0.7;
         let hasQuarterStar = decimal > 0 && decimal < 0.3;
         let hasThreeQuarterStar = decimal > 0.7 && decimal < 1;
-        
+
         for (let i = 1; i <= 5; i++) {
             if (i <= fullStars) {
                 stars += '<i class="fas fa-star"></i>';
@@ -524,7 +479,6 @@ class SearchManager {
         return stars;
     }
 
-    // Show loading state
     showSearchLoading() {
         const loadingHTML = `
             <div class="search-results-loading" style="text-align: center; padding: 40px;">
@@ -535,7 +489,6 @@ class SearchManager {
         this.showSearchResults(loadingHTML);
     }
 
-    // Show search error
     showSearchError(message) {
         const errorHTML = `
             <div class="search-results-error" style="text-align: center; padding: 40px;">
@@ -545,21 +498,19 @@ class SearchManager {
             </div>
         `;
         this.showSearchResults(errorHTML);
-        
+
         const retryBtn = document.querySelector('.retry-search-btn');
         if (retryBtn) {
             retryBtn.addEventListener('click', () => this.retrySearch());
         }
     }
 
-    // Retry last search
     retrySearch() {
         if (this.lastSearchTerm) {
             this.handleSearch(this.lastSearchTerm);
         }
     }
 
-    // Display search results
     displaySearchResults(results, query) {
         this.hideSearchResults();
 
@@ -573,7 +524,6 @@ class SearchManager {
         this.showSearchResults(searchResultsHTML);
     }
 
-    // Generate HTML for search results
     generateSearchResultsHTML(results, query) {
         const groupedResults = {
             service: results.filter(r => r.type === 'service'),
@@ -604,7 +554,6 @@ class SearchManager {
         return html;
     }
 
-    // Generate HTML for a results section
     generateSectionHTML(title, items, type) {
         return `
             <div class="search-results-section" style="padding: 15px; border-bottom: 1px solid var(--grey);">
@@ -619,7 +568,6 @@ class SearchManager {
         `;
     }
 
-    // Get icon for section type
     getSectionIcon(type) {
         switch (type) {
             case 'service': return 'fa-concierge-bell';
@@ -629,7 +577,6 @@ class SearchManager {
         }
     }
 
-    // Generate HTML for individual search result item
     generateItemHTML(item, type) {
         const baseHTML = `
             <div class="search-result-item ${type}-item" data-id="${item.id}" data-type="${type}" style="display: flex; padding: 10px; cursor: pointer; border-bottom: 1px solid var(--grey);">
@@ -675,7 +622,6 @@ class SearchManager {
         }
     }
 
-    // Show "no results" message
     showNoResults(query) {
         const noResultsHTML = `
             <div class="search-no-results" style="text-align: center; padding: 60px 20px;">
@@ -695,16 +641,15 @@ class SearchManager {
         this.showSearchResults(noResultsHTML);
     }
 
-    // Display search results container
     showSearchResults(html) {
         let resultsContainer = document.getElementById('search-results-container');
-        
+
         if (!resultsContainer) {
             resultsContainer = document.createElement('div');
             resultsContainer.id = 'search-results-container';
             resultsContainer.className = 'search-results-container';
             resultsContainer.style.cssText = 'position: absolute; top: 100%; left: 0; right: 0; background: var(--background-color); border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-height: 400px; overflow-y: auto; z-index: 1000; display: none;';
-            
+
             const firstSearchBar = document.querySelector('.search-bar');
             if (firstSearchBar) {
                 firstSearchBar.style.position = 'relative';
@@ -715,7 +660,6 @@ class SearchManager {
         resultsContainer.innerHTML = html;
         resultsContainer.style.display = 'block';
 
-        // Add click handlers to result items
         document.querySelectorAll('.search-result-item').forEach(item => {
             item.addEventListener('click', () => {
                 const id = item.getAttribute('data-id');
@@ -724,19 +668,16 @@ class SearchManager {
             });
         });
 
-        // Add close button handler
         const closeBtn = document.querySelector('.search-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.hideSearchResults());
         }
 
-        // Click outside to close
         setTimeout(() => {
             document.addEventListener('click', this.handleClickOutside.bind(this));
         }, 100);
     }
 
-    // Hide search results
     hideSearchResults() {
         const resultsContainer = document.getElementById('search-results-container');
         if (resultsContainer) {
@@ -745,25 +686,21 @@ class SearchManager {
         document.removeEventListener('click', this.handleClickOutside.bind(this));
     }
 
-        // ========== SERVICES TAB SEARCH ==========
-    searchServices(query) {
+        searchServices(query) {
         if (!query || query.trim().length < 2) {
-            // Reload services
             if (typeof window.loadServices === 'function') {
                 window.loadServices();
             }
             this.hideSearchResults();
             return;
         }
-        
+
         this.lastSearchTerm = query.trim();
         this.saveToSearchHistory(this.lastSearchTerm);
-        
-        // Search only services and jobs
+
         const allResults = this.performLocalSearch(query);
         const serviceResults = allResults.filter(r => r.type === 'service' || r.type === 'job');
-        
-        // Display in services container instead of dropdown
+
         const container = document.getElementById('services-list-container');
         if (container) {
             if (serviceResults.length === 0) {
@@ -783,25 +720,21 @@ class SearchManager {
         }
     }
 
-    // ========== MARKETPLACE TAB SEARCH ==========
     searchMarketplace(query) {
         if (!query || query.trim().length < 2) {
-            // Reload marketplace
             if (typeof window.loadMarketplaceItems === 'function') {
                 window.loadMarketplaceItems('all');
             }
             this.hideSearchResults();
             return;
         }
-        
+
         this.lastSearchTerm = query.trim();
         this.saveToSearchHistory(this.lastSearchTerm);
-        
-        // Search only marketplace items
+
         const allResults = this.performLocalSearch(query);
         const marketplaceResults = allResults.filter(r => r.type === 'marketplace');
-        
-        // Display in marketplace container instead of dropdown
+
         const container = document.getElementById('marketplace-items-container');
         if (container) {
             if (marketplaceResults.length === 0) {
@@ -821,15 +754,14 @@ class SearchManager {
         }
     }
 
-    // ========== CREATE SERVICE RESULT ELEMENT ==========
     createServiceResultElement(item) {
         const div = document.createElement('div');
         div.className = 'service-card';
         div.style.cssText = 'width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;';
-        
+
         const isJob = item.type === 'job';
         const typeBadge = isJob ? '<span class="job-tag job-type">Job</span>' : '<span class="job-tag service-type">Service</span>';
-        
+
         div.innerHTML = `
             <div class="service-header">
                 <div class="service-title">${this.escapeHtml(item.title)}</div>
@@ -847,25 +779,24 @@ class SearchManager {
                 </button>
             </div>
         `;
-        
+
         const viewBtn = div.querySelector('.view-search-result-btn');
         if (viewBtn) {
             viewBtn.addEventListener('click', () => {
                 this.selectResult(item.id, item.type);
             });
         }
-        
+
         return div;
     }
 
-    // ========== CREATE MARKETPLACE RESULT ELEMENT ==========
     createMarketplaceResultElement(item) {
         const div = document.createElement('div');
         div.className = 'market-item';
         div.style.cssText = 'width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; overflow: hidden !important;';
-        
+
         const icon = getCategoryIcon ? getCategoryIcon(item.category) : 'fas fa-box';
-        
+
         div.innerHTML = `
             <div class="market-item-img">
                 <i class="${icon}" style="font-size: 2rem;"></i>
@@ -884,30 +815,28 @@ class SearchManager {
                 </div>
             </div>
         `;
-        
+
         const viewBtn = div.querySelector('.view-search-result-btn');
         if (viewBtn) {
             viewBtn.addEventListener('click', () => {
                 this.selectResult(item.id, 'marketplace');
             });
         }
-        
+
         return div;
     }
 
-    // Handle clicks outside search results
     handleClickOutside(event) {
         const searchContainer = document.querySelector('.search-bar');
         const resultsContainer = document.getElementById('search-results-container');
-        
-        if (resultsContainer && 
-            !resultsContainer.contains(event.target) && 
+
+        if (resultsContainer &&
+            !resultsContainer.contains(event.target) &&
             !searchContainer.contains(event.target)) {
             this.hideSearchResults();
         }
     }
 
-    // Handle result selection
     async selectResult(itemId, itemType) {
         this.hideSearchResults();
 
@@ -943,7 +872,6 @@ class SearchManager {
         }
     }
 
-    // Refresh search data
     async refreshSearchData() {
         await this.loadSearchData();
         if (typeof window.showToast === 'function') {
@@ -951,7 +879,6 @@ class SearchManager {
         }
     }
 
-    // Escape HTML
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -960,11 +887,9 @@ class SearchManager {
     }
 }
 
-// Initialize search manager
 function initializeSearchManager() {
     window.search = new SearchManager();
-    console.log("✅ Search manager initialized");
-}
+    }
 
 if (typeof db !== 'undefined' && db) {
     initializeSearchManager();
@@ -974,4 +899,3 @@ if (typeof db !== 'undefined' && db) {
 
 window.SearchManager = SearchManager;
 
-console.log('✅ Search.js fully loaded with all fixes');

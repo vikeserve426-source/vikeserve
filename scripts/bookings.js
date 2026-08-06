@@ -42,15 +42,15 @@ class BookingsManager {
 
             if (bookingData.providerId && bookingData.date && bookingData.time) {
                 const isAvailable = await this.checkProviderAvailability(
-                    bookingData.providerId, 
-                    bookingData.date, 
+                    bookingData.providerId,
+                    bookingData.date,
                     bookingData.time
                 );
-                
+
                 if (!isAvailable) {
-                    return { 
-                        success: false, 
-                        error: 'Provider is not available at the selected time' 
+                    return {
+                        success: false,
+                        error: 'Provider is not available at the selected time'
                     };
                 }
             }
@@ -72,7 +72,7 @@ class BookingsManager {
             }
 
             await this.createBookingChat(docRef.id, [user.uid, bookingData.providerId]);
-            
+
             return { success: true, id: docRef.id };
         } catch (error) {
             console.error('Error creating booking:', error);
@@ -88,11 +88,11 @@ class BookingsManager {
                 .where('time', '==', time)
                 .where('status', 'in', ['pending', 'confirmed', 'in_progress'])
                 .get();
-            
+
             if (!snapshot.empty) {
                 return false;
             }
-            
+
             return true;
         } catch (error) {
             console.error('Error checking provider availability:', error);
@@ -103,53 +103,53 @@ class BookingsManager {
     async getUserBookings(userId, filters = {}, limit = 20, startAfter = null) {
         try {
             let query;
-            
+
             if (filters.role === 'customer') {
                 query = this.bookingsCollection
                     .where('customerId', '==', userId)
                     .orderBy('createdAt', 'desc');
-                    
+
                 if (filters.status) {
                     query = query.where('status', '==', filters.status);
                 }
-                
+
                 if (startAfter) {
                     query = query.startAfter(startAfter);
                 }
-                
+
                 const snapshot = await query.limit(limit).get();
                 const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-                const bookings = snapshot.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
-                    role: 'customer' 
+                const bookings = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    role: 'customer'
                 }));
-                
+
                 return { bookings, lastVisible };
-                
+
             } else if (filters.role === 'provider') {
                 query = this.bookingsCollection
                     .where('providerId', '==', userId)
                     .orderBy('createdAt', 'desc');
-                    
+
                 if (filters.status) {
                     query = query.where('status', '==', filters.status);
                 }
-                
+
                 if (startAfter) {
                     query = query.startAfter(startAfter);
                 }
-                
+
                 const snapshot = await query.limit(limit).get();
                 const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-                const bookings = snapshot.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(), 
-                    role: 'provider' 
+                const bookings = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    role: 'provider'
                 }));
-                
+
                 return { bookings, lastVisible };
-                
+
             } else {
                 const [customerBookings, providerBookings] = await Promise.all([
                     this.bookingsCollection
@@ -163,18 +163,18 @@ class BookingsManager {
                         .limit(limit)
                         .get()
                 ]);
-                
+
                 const allBookings = [
                     ...customerBookings.docs.map(doc => ({ id: doc.id, ...doc.data(), role: 'customer' })),
                     ...providerBookings.docs.map(doc => ({ id: doc.id, ...doc.data(), role: 'provider' }))
                 ];
-                
+
                 allBookings.sort((a, b) => {
                     const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
                     const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
                     return dateB - dateA;
                 });
-                
+
                 let filteredBookings = allBookings;
                 if (filters.status) {
                     filteredBookings = allBookings.filter(b => b.status === filters.status);
@@ -183,7 +183,7 @@ class BookingsManager {
                 if (limit && filteredBookings.length > limit) {
                     filteredBookings = filteredBookings.slice(0, limit);
                 }
-                
+
                 return { bookings: filteredBookings, lastVisible: null };
             }
         } catch (error) {
@@ -198,23 +198,23 @@ class BookingsManager {
             if (!bookingDoc.exists) {
                 throw new Error('Booking not found');
             }
-            
+
             const booking = { id: bookingDoc.id, ...bookingDoc.data() };
-            
+
             if (booking.customerId) {
                 const customerDoc = await this.usersCollection.doc(booking.customerId).get();
                 if (customerDoc.exists) {
                     booking.customer = customerDoc.data();
                 }
             }
-            
+
             if (booking.providerId) {
                 const providerDoc = await this.usersCollection.doc(booking.providerId).get();
                 if (providerDoc.exists) {
                     booking.provider = providerDoc.data();
                 }
             }
-            
+
             return booking;
         } catch (error) {
             console.error('Error getting booking details:', error);
@@ -233,7 +233,7 @@ class BookingsManager {
             }
 
             const booking = bookingDoc.data();
-            
+
             if (booking.customerId !== user.uid && booking.providerId !== user.uid) {
                 throw new Error('You do not have permission to update this booking');
             }
@@ -242,7 +242,7 @@ class BookingsManager {
                 status,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
+
             if (notes) {
                 updates.notes = notes;
                 updates.lastNoteBy = user.uid;
@@ -263,20 +263,20 @@ class BookingsManager {
                 updates.cancelledBy = user.uid;
                 updates.cancellationReason = notes || 'No reason provided';
             }
-            
+
             await this.bookingsCollection.doc(bookingId).update(updates);
-            
+
             if (status === 'confirmed') {
                 await this.notifyCustomer(booking.customerId, bookingId, 'confirmed');
             } else if (status === 'cancelled') {
-                const notifyUserId = user.uid === booking.customerId ? 
+                const notifyUserId = user.uid === booking.customerId ?
                     booking.providerId : booking.customerId;
                 await this.notifyUser(notifyUserId, bookingId, 'cancelled');
             } else if (status === 'completed') {
                 await this.notifyCustomer(booking.customerId, bookingId, 'completed');
                 await this.requestReview(bookingId);
             }
-            
+
             return { success: true };
         } catch (error) {
             console.error('Error updating booking status:', error);
@@ -295,22 +295,22 @@ class BookingsManager {
                 }, { merge: true });
                 return { success: true, rating: newRating, count: 1 };
             }
-            
+
             const providerData = providerDoc.data();
             const currentSum = providerData.ratingSum || 0;
             const currentCount = providerData.ratingCount || 0;
-            
+
             const newSum = currentSum + newRating;
             const newCount = currentCount + 1;
             const newAverage = newSum / newCount;
-            
+
             await this.usersCollection.doc(providerId).update({
                 ratingSum: firebase.firestore.FieldValue.increment(newRating),
                 ratingCount: firebase.firestore.FieldValue.increment(1),
                 averageRating: newAverage,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             return { success: true, rating: newAverage, count: newCount };
         } catch (error) {
             console.error('Error updating provider rating:', error);
@@ -327,12 +327,12 @@ class BookingsManager {
             if (booking.customerId !== user.uid) {
                 throw new Error('Only the customer can submit reviews');
             }
-            
+
             const existingReview = await this.reviewsCollection
                 .where('bookingId', '==', bookingId)
                 .where('customerId', '==', user.uid)
                 .get();
-            
+
             if (!existingReview.empty) {
                 throw new Error('You have already reviewed this booking');
             }
@@ -357,11 +357,11 @@ class BookingsManager {
             };
 
             await this.reviewsCollection.add(reviewData);
-            
+
             await this.updateProviderRating(booking.providerId, rating);
-            
+
             await this.markReviewAsCompleted(bookingId);
-            
+
             return { success: true };
         } catch (error) {
             console.error('Error submitting review:', error);
@@ -373,11 +373,11 @@ class BookingsManager {
         try {
             const fileExtension = file.name.split('.').pop();
             const filename = `review-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-            
+
             const storageRef = this.storage.ref(`review-photos/${bookingId}/${filename}`);
             const snapshot = await storageRef.put(file);
             const downloadURL = await snapshot.ref.getDownloadURL();
-            
+
             return { success: true, url: downloadURL };
         } catch (error) {
             console.error('Error uploading review photo:', error);
@@ -407,7 +407,7 @@ class BookingsManager {
     async requestReview(bookingId) {
         try {
             const booking = await this.getBookingDetails(bookingId);
-            
+
             const reviewRequest = {
                 bookingId: bookingId,
                 customerId: booking.customerId,
@@ -416,11 +416,11 @@ class BookingsManager {
                 requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 status: 'pending'
             };
-            
+
             await this.reviewRequestsCollection.add(reviewRequest);
 
             await this.notifyCustomer(booking.customerId, bookingId, 'review_request');
-            
+
             return true;
         } catch (error) {
             console.error('Error requesting review:', error);
@@ -439,11 +439,11 @@ class BookingsManager {
                 read: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
+
             await this.notificationsCollection.add(notificationData);
-            
+
             await this.sendPushNotification(providerId, 'New Booking', 'You have a new booking request');
-            
+
             return true;
         } catch (error) {
             console.error('Error notifying provider:', error);
@@ -454,7 +454,7 @@ class BookingsManager {
     async notifyCustomer(customerId, bookingId, status) {
         try {
             let title, message;
-            
+
             switch (status) {
                 case 'confirmed':
                     title = 'Booking Confirmed';
@@ -476,7 +476,7 @@ class BookingsManager {
                     title = 'Booking Update';
                     message = 'Your booking status has been updated';
             }
-            
+
             const notificationData = {
                 userId: customerId,
                 type: 'booking_update',
@@ -486,10 +486,10 @@ class BookingsManager {
                 read: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
+
             await this.notificationsCollection.add(notificationData);
             await this.sendPushNotification(customerId, title, message);
-            
+
             return true;
         } catch (error) {
             console.error('Error notifying customer:', error);
@@ -508,10 +508,10 @@ class BookingsManager {
                 read: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            
+
             await this.notificationsCollection.add(notificationData);
             await this.sendPushNotification(userId, notificationData.title, notificationData.message);
-            
+
             return true;
         } catch (error) {
             console.error('Error notifying user:', error);
@@ -523,18 +523,16 @@ class BookingsManager {
         try {
             const userDoc = await this.usersCollection.doc(userId).get();
             const fcmToken = userDoc.exists ? userDoc.data().fcmToken : null;
-            
+
             if (fcmToken && typeof firebase.messaging !== 'undefined') {
-                console.log(`📱 Push notification to ${userId}: ${title} - ${message}`);
-            }
+                }
 
             window.dispatchEvent(new CustomEvent('newNotification', {
                 detail: { userId, title, message, timestamp: new Date() }
             }));
         } catch (error) {
-            console.log('Push notification not sent (FCM not configured):', error.message);
-        }
-        
+            }
+
         return { success: true };
     }
 
@@ -582,14 +580,14 @@ const bookingsManager = new BookingsManager();
 
 async function loadUserBookings(filters = {}) {
     if (!auth.currentUser) return;
-    
+
     const bookingsContainer = document.getElementById('user-bookings-container');
     if (!bookingsContainer) return;
-    
+
     bookingsContainer.innerHTML = '<div class="loading-spinner">Loading bookings...</div>';
-    
+
     const result = await bookingsManager.getUserBookings(auth.currentUser.uid, filters, 20);
-    
+
     if (result.bookings.length === 0) {
         bookingsContainer.innerHTML = `
             <div class="no-bookings" style="text-align: center; padding: 40px;">
@@ -600,13 +598,13 @@ async function loadUserBookings(filters = {}) {
         `;
         return;
     }
-    
+
     bookingsContainer.innerHTML = '';
     result.bookings.forEach(booking => {
         const bookingElement = createBookingElement(booking);
         bookingsContainer.appendChild(bookingElement);
     });
-    
+
     window.lastBooking = result.lastVisible;
 }
 
@@ -614,7 +612,7 @@ function createBookingElement(booking) {
     const statusOptions = bookingsManager.getStatusOptions();
     const status = statusOptions.find(s => s.id === booking.status) || statusOptions[0];
     const isProvider = booking.role === 'provider';
-    
+
     const div = document.createElement('div');
     div.className = 'booking-item';
     div.setAttribute('data-booking-id', booking.id);
@@ -642,8 +640,8 @@ function createBookingElement(booking) {
         <div class="booking-with">
             <i class="fas ${isProvider ? 'fa-user' : 'fa-tools'}"></i>
             <strong>${isProvider ? 'Customer' : 'Provider'}:</strong>
-            ${isProvider ? 
-                (booking.customerName || 'Unknown') : 
+            ${isProvider ?
+                (booking.customerName || 'Unknown') :
                 (booking.provider?.displayName || booking.providerName || 'Unknown')}
         </div>
         <div class="booking-actions">
@@ -675,43 +673,43 @@ function createBookingElement(booking) {
             ` : ''}
         </div>
     `;
-    
+
     const detailBtn = div.querySelector('.view-booking-detail-btn');
     if (detailBtn) {
         detailBtn.addEventListener('click', () => viewBookingDetails(booking.id));
     }
-    
+
     const confirmBtn = div.querySelector('.confirm-booking-btn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', () => confirmBooking(booking.id));
     }
-    
+
     const rejectBtn = div.querySelector('.reject-booking-btn');
     if (rejectBtn) {
         rejectBtn.addEventListener('click', () => rejectBooking(booking.id));
     }
-    
+
     const startBtn = div.querySelector('.start-booking-btn');
     if (startBtn) {
         startBtn.addEventListener('click', () => startBooking(booking.id));
     }
-    
+
     const completeBtn = div.querySelector('.complete-booking-btn');
     if (completeBtn) {
         completeBtn.addEventListener('click', () => completeBooking(booking.id));
     }
-    
+
     const cancelBtn = div.querySelector('.cancel-booking-btn');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => cancelBooking(booking.id));
     }
-    
+
     return div;
 }
 
 function formatDate(dateString) {
     if (!dateString) return 'Date not set';
-    
+
     try {
         let date;
         if (typeof dateString === 'object' && dateString.toDate) {
@@ -719,9 +717,9 @@ function formatDate(dateString) {
         } else {
             date = new Date(dateString);
         }
-        
+
         if (isNaN(date.getTime())) return 'Date not set';
-        
+
         return date.toLocaleDateString('en-KE', {
             weekday: 'short',
             year: 'numeric',
@@ -778,11 +776,11 @@ function showReasonModal(title, callback) {
             </div>
         </div>
     `;
-    
+
     if (typeof window.showModalWithContent === 'function') {
         window.showModalWithContent('reason-modal', modalContent);
     }
-    
+
     setTimeout(() => {
         const submitBtn = document.getElementById('submit-reason-btn');
         if (submitBtn) {
@@ -794,7 +792,7 @@ function showReasonModal(title, callback) {
                 if (callback) callback(reason);
             });
         }
-        
+
         const closeBtns = document.querySelectorAll('#reason-modal .close-modal-btn');
         closeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -873,7 +871,7 @@ async function viewBookingDetails(bookingId) {
     try {
         const booking = await bookingsManager.getBookingDetails(bookingId);
         const isProvider = booking.providerId === auth.currentUser?.uid;
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
@@ -891,7 +889,7 @@ async function viewBookingDetails(bookingId) {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('booking-details-modal', modalContent);
         }
@@ -922,67 +920,60 @@ function showReviewForm(bookingId) {
                 </div>
                 <div class="form-group">
                     <label for="review-photos">Photos (optional)</label>
-                    <input type="file" id="review-photos" class="form-input" multiple accept="image/*">
+                    <input type="file" id="review-photos" class="form-input" accept="image/*" multiple>
+                    <div id="review-photos-preview" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;"></div>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-outline close-modal-btn">Cancel</button>
-                    <button class="btn btn-primary" id="submit-review-btn">Submit Review</button>
+                    <button class="btn btn-primary" id="submit-review-btn" data-booking-id="${bookingId}">Submit Review</button>
                 </div>
             </div>
         </div>
     `;
-    
+
     if (typeof window.showModalWithContent === 'function') {
-        window.showModalWithContent('review-modal', formContent);
+        window.showModalWithContent('review-form-modal', formContent);
     }
-    
-    let selectedRating = 0;
-    const stars = document.querySelectorAll('#review-modal .rating-stars i');
-    stars.forEach(star => {
-        star.addEventListener('click', () => {
-            selectedRating = parseInt(star.getAttribute('data-rating'));
-            stars.forEach(s => {
-                const rating = parseInt(s.getAttribute('data-rating'));
-                if (rating <= selectedRating) {
-                    s.className = 'fas fa-star';
+
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submit-review-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const rating = document.querySelector('#review-form-modal .rating-stars .fas-star')?.getAttribute('data-rating') || 0;
+                const comment = document.getElementById('review-comment')?.value;
+                const photosInput = document.getElementById('review-photos');
+                const photos = photosInput?.files ? Array.from(photosInput.files) : [];
+
+                if (rating === 0) {
+                    showToast('Please select a rating', 'error');
+                    return;
+                }
+
+                const result = await bookingsManager.submitReview(bookingId, parseInt(rating), comment, photos);
+                if (result.success) {
+                    showToast('Review submitted successfully!', 'success');
+                    if (typeof window.closeModal === 'function') {
+                        window.closeModal('review-form-modal');
+                    }
+                    loadUserBookings();
                 } else {
-                    s.className = 'far fa-star';
+                    showToast('Error submitting review: ' + result.error, 'error');
                 }
             });
-        });
-    });
-    
-    const submitBtn = document.getElementById('submit-review-btn');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', async () => {
-            if (selectedRating === 0) {
-                showToast('Please select a rating', 'error');
-                return;
-            }
-            const comment = document.getElementById('review-comment')?.value || '';
-            const photoInput = document.getElementById('review-photos');
-            const photos = photoInput?.files ? Array.from(photoInput.files) : [];
-            
-            const result = await bookingsManager.submitReview(bookingId, selectedRating, comment, photos);
-            if (result.success) {
-                showToast('Review submitted successfully!', 'success');
-                if (typeof window.closeModal === 'function') {
-                    window.closeModal('review-modal');
-                }
-                loadUserBookings();
-            } else {
-                showToast('Error: ' + result.error, 'error');
-            }
-        });
-    }
-}
+        }
 
-window.bookingsManager = bookingsManager;
-window.loadUserBookings = loadUserBookings;
-window.viewBookingDetails = viewBookingDetails;
-window.showReviewForm = showReviewForm;
-window.confirmBooking = confirmBooking;
-window.startBooking = startBooking;
-window.completeBooking = completeBooking;
-window.cancelBooking = cancelBooking;
-window.rejectBooking = rejectBooking;
+        const stars = document.querySelectorAll('#review-form-modal .rating-stars i');
+        stars.forEach(star => {
+            star.addEventListener('click', function() {
+                const rating = parseInt(this.getAttribute('data-rating'));
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.className = 'fas fa-star';
+                    } else {
+                        s.className = 'far fa-star';
+                    }
+                });
+            });
+        });
+    }, 100);
+}

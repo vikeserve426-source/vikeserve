@@ -1,6 +1,4 @@
-// utils.js - MASTER UTILITY FILE (UPDATED)
 
-// ========== HTML ESCAPING ==========
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -8,7 +6,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ========== TIME FORMATTING ==========
 function formatTimeAgo(timestamp) {
     if (!timestamp) return 'Recently';
     try {
@@ -22,10 +19,10 @@ function formatTimeAgo(timestamp) {
         } else {
             date = new Date(timestamp);
         }
-        
+
         const now = new Date();
         const diff = now - date;
-        
+
         if (diff < 60000) return 'Just now';
         if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
@@ -36,12 +33,9 @@ function formatTimeAgo(timestamp) {
     }
 }
 
-// ========== TOAST NOTIFICATIONS (UPDATED - WITH TIMEOUT MANAGEMENT) ==========
 let activeToastTimeout = null;
 
 function showToast(message, type = 'info') {
-    console.log(`🔔 [${type}]: ${message}`);
-    
     let toast = document.getElementById('toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -53,17 +47,14 @@ function showToast(message, type = 'info') {
         `;
         document.body.appendChild(toast);
     }
-    
-    // Clear any existing timeout to prevent conflicts
+
     if (activeToastTimeout) {
         clearTimeout(activeToastTimeout);
         activeToastTimeout = null;
     }
-    
-    // Remove show class first to reset animation
+
     toast.classList.remove('show');
-    
-    // Small delay to ensure CSS transition resets
+
     setTimeout(() => {
         const toastIcon = toast.querySelector('.toast-icon');
         if (toastIcon) {
@@ -74,20 +65,18 @@ function showToast(message, type = 'info') {
             else if (type === 'warning') toastIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
             else toastIcon.innerHTML = '<i class="fas fa-info-circle"></i>';
         }
-        
+
         const toastMessage = toast.querySelector('.toast-message');
         if (toastMessage) toastMessage.textContent = message;
-        
+
         toast.className = `toast toast-${type}`;
         toast.classList.add('show');
-        
-        // Auto-hide after 3 seconds
+
         activeToastTimeout = setTimeout(() => {
             toast.classList.remove('show');
             activeToastTimeout = null;
         }, 3000);
-        
-        // Also hide when clicked (good UX)
+
         toast.onclick = () => {
             toast.classList.remove('show');
             if (activeToastTimeout) {
@@ -98,7 +87,6 @@ function showToast(message, type = 'info') {
     }, 10);
 }
 
-// ========== MODAL MANAGEMENT ==========
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -140,8 +128,7 @@ function showModalWithContent(modalId, content) {
         padding: 20px !important;
         box-sizing: border-box !important;
     `;
-    
-    // Ensure modal-content inside also respects max-width
+
     const modalContent = modal.querySelector('.modal-content');
     if (modalContent) {
         modalContent.style.cssText = `
@@ -151,8 +138,7 @@ function showModalWithContent(modalId, content) {
             box-sizing: border-box !important;
         `;
     }
-    
-    // ========== FIX: Setup close button ==========
+
     setTimeout(() => {
         const closeBtn = modal.querySelector('.close-modal-btn');
         if (closeBtn) {
@@ -170,8 +156,7 @@ function showModalWithContent(modalId, content) {
                 }, 300);
             });
         }
-        
-        // Close on background click
+
         modal.addEventListener('click', function(e) {
             if (e.target === this) {
                 this.style.display = 'none';
@@ -186,7 +171,6 @@ function showModalWithContent(modalId, content) {
     }, 100);
 }
 
-// ========== STAR RATING ==========
 function generateStarRating(rating) {
     if (!rating) rating = 0;
     let stars = '';
@@ -202,7 +186,6 @@ function generateStarRating(rating) {
     return stars;
 }
 
-// ========== FORMAT PRICE ==========
 function formatPrice(amount, currency = 'KES') {
     const symbols = {
         'KES': 'KSh', 'UGX': 'USh', 'TZS': 'TSh', 'NGN': '₦', 'GHS': '₵', 'ZAR': 'R', 'USD': '$', 'EUR': '€', 'GBP': '£'
@@ -211,7 +194,6 @@ function formatPrice(amount, currency = 'KES') {
     return `${symbol} ${parseInt(amount || 0).toLocaleString()}`;
 }
 
-// ========== GET CATEGORY ICON ==========
 function getCategoryIcon(category) {
     const icons = {
         'electronics': 'fas fa-tv',
@@ -239,21 +221,17 @@ function getCategoryIcon(category) {
     return icons[category] || 'fas fa-box';
 }
 
-// ========== AUTH MODAL (UPDATED) ==========
 function openAuthModal() {
-    // Close more section first
     const moreSection = document.getElementById('more-section');
     if (moreSection) {
         moreSection.style.display = 'none';
         moreSection.classList.remove('active');
     }
-    // Show main bottom nav
     const mainBottomNav = document.querySelector('.bottom-nav');
     if (mainBottomNav) mainBottomNav.style.display = 'flex';
-    // Hide more bottom nav
     const moreBottomNav = document.querySelector('.more-bottom-nav');
     if (moreBottomNav) moreBottomNav.style.display = 'none';
-    
+
     const authModal = document.getElementById('auth-modal');
     if (authModal) {
         authModal.style.display = 'block';
@@ -267,7 +245,6 @@ function quickAuthModal() {
     openAuthModal();
 }
 
-// ========== DARK MODE ==========
 function initDarkMode() {
     const savedDarkMode = localStorage.getItem('darkMode');
     if (savedDarkMode === 'enabled') {
@@ -290,12 +267,11 @@ function toggleDarkMode() {
         localStorage.setItem('darkMode', 'enabled');
         showToast('Dark mode enabled', 'success');
     }
-    
+
     const darkModeSwitch = document.getElementById('settings-dark-mode-switch');
     if (darkModeSwitch) darkModeSwitch.checked = !isDark;
 }
 
-// ========== FILE SIZE ==========
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -304,7 +280,6 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// ========== COPY TO CLIPBOARD ==========
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
         showToast('Copied to clipboard!', 'success');
@@ -313,12 +288,10 @@ function copyToClipboard(text) {
     });
 }
 
-// ========== GENERATE UNIQUE ID ==========
 function generateUniqueId(prefix = 'id') {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-// ========== DEBOUNCE ==========
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -331,7 +304,6 @@ function debounce(func, wait) {
     };
 }
 
-// ========== EXPORT ALL FUNCTIONS ==========
 window.escapeHtml = escapeHtml;
 window.formatTimeAgo = formatTimeAgo;
 window.showToast = showToast;
@@ -350,9 +322,7 @@ window.copyToClipboard = copyToClipboard;
 window.generateUniqueId = generateUniqueId;
 window.debounce = debounce;
 
-// ========== POINTS SYSTEM CONFIGURATION ==========
 const POINTS_CONFIG = {
-    // Points earned per star rating
     ratingPoints: {
         5: 10,   // 5 stars = 10 points
         4: 6,    // 4 stars = 6 points
@@ -360,14 +330,11 @@ const POINTS_CONFIG = {
         2: 1,    // 2 stars = 1 point
         1: 0     // 1 star = 0 points
     },
-    
-    // Points can cover up to 30% of ad package cost
+
     maxPointsPercentage: 30,
-    
-    // 1 point = 1 KES value
+
     pointValue: 1,
-    
-    // Ad packages with their max points allowed (30% of price)
+
     adPackages: [
         { id: 'basic', name: 'Basic Boost', price: 100, days: 3, maxPoints: 30 },
         { id: 'premium', name: 'Premium Reach', price: 250, days: 7, maxPoints: 75 },
@@ -376,19 +343,17 @@ const POINTS_CONFIG = {
     ]
 };
 
-// Helper function to get points for a rating
 function getPointsForRating(rating) {
     const stars = Math.floor(rating);
     return POINTS_CONFIG.ratingPoints[stars] || 0;
 }
 
-// Calculate points discount for a package
 function calculatePointsDiscount(packagePrice, userPoints) {
     const maxPointsAllowed = Math.floor(packagePrice * POINTS_CONFIG.maxPointsPercentage / 100);
     const pointsToUse = Math.min(userPoints, maxPointsAllowed);
     const discount = pointsToUse * POINTS_CONFIG.pointValue;
     const finalAmount = Math.max(0, packagePrice - discount);
-    
+
     return {
         pointsToUse: pointsToUse,
         discount: discount,
@@ -399,15 +364,10 @@ function calculatePointsDiscount(packagePrice, userPoints) {
     };
 }
 
-// Export points functions
 window.POINTS_CONFIG = POINTS_CONFIG;
 window.getPointsForRating = getPointsForRating;
 window.calculatePointsDiscount = calculatePointsDiscount;
 
-console.log('✅ Points system configured');
-console.log('✅ utils.js loaded');
-
-// ========== ROLE DISPLAY ==========
 function getRoleDisplay(role) {
     const roleMap = {
         'founder': '<span class="role-badge founder"><i class="fas fa-crown"></i> Founder</span>',
@@ -419,7 +379,6 @@ function getRoleDisplay(role) {
     return roleMap[role] || roleMap['general-user'];
 }
 
-// Helper to get role name without HTML
 function getRoleName(role) {
     const roleMap = {
         'founder': 'Founder',
@@ -431,8 +390,6 @@ function getRoleName(role) {
     return roleMap[role] || 'User';
 }
 
-// Export role functions
 window.getRoleDisplay = getRoleDisplay;
 window.getRoleName = getRoleName;
 
-console.log('✅ Role display functions loaded');

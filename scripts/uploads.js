@@ -1,5 +1,3 @@
-// ========== UPLOAD MANAGER - COMPLETE FIXED VERSION ==========
-// Handles file uploads to Firebase Storage with compression and progress tracking
 
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
@@ -12,7 +10,7 @@ if (typeof window.showModalWithContent !== 'function') {
         modal.innerHTML = content;
         document.body.appendChild(modal);
         modal.style.display = 'block';
-        
+
         const closeBtn = modal.querySelector('.close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -34,18 +32,16 @@ class UploadManager {
         this.db = db;
         this.auth = auth;
         this.currentUploads = new Map();
-        
-        // FIXED: Use propertyListings instead of housing
+
         this.fileUploadsCollection = collections.fileUploads ? collections.fileUploads() : null;
         this.usersCollection = collections.users();
         this.propertyCollection = collections.propertyListings(); // FIXED
         this.marketplaceCollection = collections.marketplaceItems();
-        
+
         this.init();
     }
 
     init() {
-        console.log('Upload Manager initialized with Firebase Storage');
         this.setupUploadListeners();
     }
 
@@ -99,16 +95,15 @@ class UploadManager {
         input.type = 'file';
         input.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
         input.multiple = options.multiple || false;
-        
+
         input.onchange = (e) => {
             const files = Array.from(e.target.files);
             this.handleFileUpload(files, type, options);
         };
-        
+
         input.click();
     }
 
-    // Compress image before upload
     async compressImage(file, maxWidth = 1024, maxHeight = 1024, quality = 0.8) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -119,7 +114,7 @@ class UploadManager {
                 img.onload = () => {
                     let width = img.width;
                     let height = img.height;
-                    
+
                     if (width > maxWidth) {
                         height = (height * maxWidth) / width;
                         width = maxWidth;
@@ -128,13 +123,13 @@ class UploadManager {
                         width = (width * maxHeight) / height;
                         height = maxHeight;
                     }
-                    
+
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    
+
                     canvas.toBlob((blob) => {
                         const compressedFile = new File([blob], file.name, {
                             type: file.type,
@@ -156,12 +151,10 @@ class UploadManager {
             return;
         }
 
-        // Validate files
         const validFiles = [];
         for (const file of files) {
             const validation = this.validateFile(file, type);
             if (validation.valid) {
-                // Compress image before adding to valid files
                 if (file.type.startsWith('image/')) {
                     try {
                         const compressed = await this.compressImage(file);
@@ -177,20 +170,19 @@ class UploadManager {
                 this.showToast(validation.message, 'error');
             }
         }
-        
+
         if (validFiles.length === 0) return;
 
-        // Show upload progress
         this.showUploadProgress(validFiles, type);
 
         try {
-            const uploadPromises = validFiles.map((file, index) => 
+            const uploadPromises = validFiles.map((file, index) =>
                 this.uploadFile(file, type, options, index)
             );
 
             const results = await Promise.all(uploadPromises);
             const successfulUploads = results.filter(result => result.success);
-            
+
             if (successfulUploads.length > 0) {
                 this.handleUploadSuccess(successfulUploads, type, options);
             }
@@ -247,25 +239,24 @@ class UploadManager {
     async uploadFile(file, type, options = {}, index = 0) {
         const user = this.auth.currentUser;
         const uploadId = `${type}_${Date.now()}_${index}`;
-        
+
         try {
             const fileExtension = file.name.split('.').pop();
             const filename = `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-            
-            // FIXED: Include userId in temp path to avoid collisions
+
             const storagePath = this.getStoragePath(type, user.uid, filename, options);
-            
+
             const storageRef = this.storage.ref(storagePath);
-            
+
             if (options.multiple) {
                 this.simulateProgress(uploadId, file.name);
             } else {
                 this.updateSingleFileProgress(0, file.name);
             }
-            
+
             const snapshot = await storageRef.put(file);
             const downloadURL = await snapshot.ref.getDownloadURL();
-            
+
             const fileData = {
                 name: file.name,
                 url: downloadURL,
@@ -287,7 +278,7 @@ class UploadManager {
             } else {
                 this.updateSingleFileProgress(100, file.name);
             }
-            
+
             return { success: true, data: fileData, file: file };
 
         } catch (error) {
@@ -316,13 +307,13 @@ class UploadManager {
             `;
             document.body.appendChild(container);
         }
-        
+
         const progressFill = document.querySelector('#single-upload-progress .progress-fill');
         const progressText = document.querySelector('#single-upload-progress .progress-text');
         const filenameSpan = document.getElementById('upload-filename');
-        
+
         if (filenameSpan) filenameSpan.textContent = fileName;
-        
+
         if (progress === -1) {
             if (progressFill) progressFill.style.background = 'var(--danger)';
             if (progressText) progressText.textContent = 'Failed';
@@ -354,12 +345,11 @@ class UploadManager {
                 this.updateUploadProgress(uploadId, progress, fileName);
             }
         }, 200);
-        
+
         this.currentUploads.set(uploadId, interval);
     }
 
     getStoragePath(type, userId, filename, options) {
-        // FIXED: Include userId in all paths to avoid collisions
         const paths = {
             'profile': `users/${userId}/profile-pictures/${filename}`,
             'property': `properties/${options.propertyId || `temp_${userId}`}/images/${filename}`,
@@ -460,7 +450,7 @@ class UploadManager {
             clearInterval(interval);
         });
         this.currentUploads.clear();
-        
+
         const modal = document.getElementById('upload-progress-modal');
         if (modal) {
             modal.remove();
@@ -495,7 +485,7 @@ class UploadManager {
     async handleProfilePictureUpload(fileData) {
         try {
             const user = this.auth.currentUser;
-            
+
             await user.updateProfile({
                 photoURL: fileData.url
             });
@@ -562,8 +552,7 @@ class UploadManager {
 
     handleGenericUpload(files, type) {
         this.storeTemporaryImages(files, type);
-        console.log(`Generic upload completed for ${type}:`, files);
-    }
+        }
 
     storeTemporaryImages(files, type) {
         const key = `temp_${type}_images`;
@@ -594,7 +583,7 @@ class UploadManager {
             userMenuAvatar.style.backgroundSize = 'cover';
             userMenuAvatar.style.backgroundPosition = 'center';
         }
-        
+
         const profileAvatar = document.getElementById('profile-picture-upload');
         if (profileAvatar) {
             const span = profileAvatar.querySelector('span');
@@ -606,7 +595,7 @@ class UploadManager {
             profileAvatar.style.backgroundSize = 'cover';
             profileAvatar.style.backgroundPosition = 'center';
         }
-        
+
         const profileAvatarText = document.getElementById('profile-avatar');
         if (profileAvatarText) {
             profileAvatarText.textContent = '';
@@ -615,7 +604,7 @@ class UploadManager {
             profileAvatarText.style.backgroundPosition = 'center';
             profileAvatarText.style.color = 'transparent';
         }
-        
+
         const avatarElements = document.querySelectorAll('.user-avatar, .profile-avatar');
         avatarElements.forEach(avatar => {
             if (avatar.id !== 'profile-picture-upload' && avatar.id !== 'user-menu-picture-upload') {
@@ -652,13 +641,11 @@ class UploadManager {
         }
     }
 
-    // FIXED: Delete image and remove from Firestore
     async deletePropertyImage(imageUrl) {
         try {
             const storageRef = this.storage.refFromURL(imageUrl);
             await storageRef.delete();
-            
-            // Also remove from Firestore if associated with a property
+
             const propertyId = this.getCurrentPropertyId();
             if (propertyId) {
                 const propertyRef = this.propertyCollection.doc(propertyId);
@@ -673,15 +660,15 @@ class UploadManager {
                     this.updatePropertyImagesInUI(updatedImages);
                 }
             }
-            
+
             this.showToast('Image deleted successfully', 'success');
-            
+
             const imageElements = document.querySelectorAll(`img[src="${imageUrl}"]`);
             imageElements.forEach(img => {
                 const container = img.closest('.image-preview-item');
                 if (container) container.remove();
             });
-            
+
         } catch (error) {
             console.error('Error deleting image:', error);
             this.showToast('Error deleting image: ' + error.message, 'error');
@@ -692,7 +679,7 @@ class UploadManager {
         try {
             const storageRef = this.storage.refFromURL(imageUrl);
             await storageRef.delete();
-            
+
             const itemId = this.getCurrentMarketplaceId();
             if (itemId) {
                 const itemRef = this.marketplaceCollection.doc(itemId);
@@ -707,15 +694,15 @@ class UploadManager {
                     this.updateMarketplaceImagesInUI(updatedImages);
                 }
             }
-            
+
             this.showToast('Image deleted successfully', 'success');
-            
+
             const imageElements = document.querySelectorAll(`img[src="${imageUrl}"]`);
             imageElements.forEach(img => {
                 const container = img.closest('.image-preview-item');
                 if (container) container.remove();
             });
-            
+
         } catch (error) {
             console.error('Error deleting image:', error);
             this.showToast('Error deleting image: ' + error.message, 'error');
@@ -786,8 +773,7 @@ class UploadManager {
         if (typeof window.showToast === 'function') {
             window.showToast(message, type);
         } else {
-            console.log(`${type}: ${message}`);
-        }
+            }
     }
 
     escapeHtml(text) {
@@ -798,14 +784,11 @@ class UploadManager {
     }
 }
 
-// Initialize upload manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     const uploadManager = new UploadManager();
     window.uploadManager = uploadManager;
-    console.log('✅ Upload Manager initialized and ready');
-});
+    });
 
-// Global functions for HTML onclick
 function uploadPropertyImages() {
     if (window.uploadManager) {
         window.uploadManager.openImageUploader('property', { multiple: true });
@@ -828,4 +811,3 @@ window.uploadPropertyImages = uploadPropertyImages;
 window.uploadProfilePicture = uploadProfilePicture;
 window.uploadMarketplaceImages = uploadMarketplaceImages;
 
-console.log('✅ Uploads.js fully loaded with all fixes');

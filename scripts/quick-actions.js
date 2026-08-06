@@ -11,12 +11,12 @@ class QuickActionsManager {
     setupEventListeners() {
         const setup = () => {
             const quickActions = document.querySelectorAll('.quick-action');
-            
+
             quickActions.forEach(action => {
                 const newAction = action.cloneNode(true);
                 action.parentNode.replaceChild(newAction, action);
                 const actionType = newAction.getAttribute('data-action');
-                
+
                 newAction.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -24,7 +24,7 @@ class QuickActionsManager {
                 });
             });
         };
-        
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', setup);
         } else {
@@ -37,7 +37,7 @@ class QuickActionsManager {
             this.openMoreMenuAndSwitchTo('education');
             return true;
         }
-        
+
         if (typeof window.switchTab === 'function') {
             window.switchTab(tabId);
             return true;
@@ -50,7 +50,7 @@ class QuickActionsManager {
             });
             const targetTab = document.getElementById(tabId);
             if (targetTab) targetTab.classList.add('active');
-            
+
             document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
                 item.classList.remove('active');
             });
@@ -91,28 +91,28 @@ class QuickActionsManager {
     handleQuickAction(actionType, buttonElement) {
         const originalIcon = buttonElement.querySelector('i')?.className;
         const originalText = buttonElement.querySelector('.action-name')?.textContent;
-        
+
         this.showButtonLoading(buttonElement, originalText);
-        
+
         const servicesActions = ['boda', 'construction', 'daily', 'farm', 'electricity', 'house', 'phone'];
         const marketplaceActions = ['Marketplace', 'marketplace', 'gas', 'water'];
         const educationActions = ['education', 'teachers', 'internships', 'attachments', 'training'];
         const alertsActions = ['alerts', 'report', 'community-alerts'];
         const wifiActions = ['wifi', 'wificonnect', 'vikeserve-connect'];
-        
+
         if (servicesActions.includes(actionType)) {
             this.switchToTab('services-tab');
             if (typeof window.showToast === 'function') {
                 window.showToast(`Opening ${this.getServiceTitle(actionType)}`, 'info');
             }
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
-            
+
         } else if (marketplaceActions.includes(actionType)) {
             this.switchToTab('marketplace-tab');
-            
+
             let categoryFilter = 'all';
             let categoryMessage = 'Opening Marketplace';
-            
+
             if (actionType === 'gas') {
                 categoryFilter = 'gas-refill';
                 categoryMessage = 'Opening Gas Refill listings';
@@ -120,54 +120,53 @@ class QuickActionsManager {
                 categoryFilter = 'water-delivery';
                 categoryMessage = 'Opening Water Delivery listings';
             }
-            
+
             if (typeof window.showToast === 'function') {
                 window.showToast(categoryMessage, 'info');
             }
-            
+
             setTimeout(() => {
                 this.applyMarketplaceFilter(categoryFilter);
             }, 300);
-            
+
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
-            
+
         } else if (wifiActions.includes(actionType)) {
-            // VikeServe Connect - Coming Soon
             if (typeof window.showToast === 'function') {
                 window.showToast('🌐 VikeServe Connect - Coming Soon!', 'info');
             }
             this.showWifiComingSoonModal();
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
-            
+
         } else if (educationActions.includes(actionType)) {
             this.openMoreMenuAndSwitchTo('education');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Education Hub', 'info');
             }
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
-            
+
         } else if (alertsActions.includes(actionType)) {
             this.openMoreMenuAndSwitchTo('alerts');
             if (typeof window.showToast === 'function') {
                 window.showToast('Opening Community Alerts', 'info');
             }
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
-            
+
         } else {
             this.openMoreMenuAndSwitchTo('education');
             setTimeout(() => this.resetButton(buttonElement, originalIcon, originalText), 500);
         }
     }
-    
+
     applyMarketplaceFilter(category) {
         if (typeof window.loadMarketplaceItems === 'function') {
             window.loadMarketplaceItems(category);
             return;
         }
-        
+
         const filterBtns = document.querySelectorAll('.filter-btn');
         let filterApplied = false;
-        
+
         filterBtns.forEach(btn => {
             const btnCategory = btn.getAttribute('data-category');
             if (btnCategory === category) {
@@ -177,7 +176,7 @@ class QuickActionsManager {
                 filterApplied = true;
             }
         });
-        
+
         if (!filterApplied && category !== 'all') {
             const itemsContainer = document.getElementById('marketplace-items-container');
             if (itemsContainer) {
@@ -203,7 +202,7 @@ class QuickActionsManager {
             const moreSection = document.getElementById('more-section');
             const mainNav = document.querySelector('.bottom-nav');
             const moreBottomNav = document.querySelector('.more-bottom-nav');
-            
+
             if (moreSection) {
                 moreSection.style.display = 'block';
                 moreSection.classList.add('active');
@@ -211,7 +210,7 @@ class QuickActionsManager {
             if (mainNav) mainNav.style.display = 'none';
             if (moreBottomNav) moreBottomNav.style.display = 'flex';
         }
-        
+
         setTimeout(() => {
             if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
                 window.moreMenuManager.switchMoreTab(tabId);
@@ -243,7 +242,6 @@ class QuickActionsManager {
         return titles[actionType] || 'Services';
     }
 
-    // ========== WIFI CONNECT COMING SOON MODAL ==========
     showWifiComingSoonModal() {
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; text-align: center;">
@@ -280,7 +278,7 @@ class QuickActionsManager {
                 </div>
             </div>
         `;
-        
+
         if (typeof window.showModalWithContent === 'function') {
             window.showModalWithContent('wifi-coming-soon-modal', modalContent);
         } else {
@@ -295,7 +293,7 @@ class QuickActionsManager {
             modal.style.display = 'flex';
             modal.style.zIndex = '10001';
         }
-        
+
         setTimeout(() => {
             const closeBtns = document.querySelectorAll('#wifi-coming-soon-modal .close-modal-btn');
             closeBtns.forEach(btn => {

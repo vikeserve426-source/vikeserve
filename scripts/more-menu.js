@@ -11,10 +11,8 @@ class MoreMenuManager {
         this.pendingMessage = null;
         this.init();
     }
-    
+
     async init() {
-        console.log('More Menu Manager initializing with Firestore...');
-        
         this.auth.onAuthStateChanged((user) => {
             this.currentUser = user;
             if (user) {
@@ -22,18 +20,17 @@ class MoreMenuManager {
                 this.loadDataFromFirestore();
             }
         });
-        
+
         await this.initializeFirestoreData();
         this.replaceAllTabContent();
         this.setupEventListeners();
         await this.loadDataFromFirestore();
-        console.log('✅ More Menu Manager ready with Firestore');
-    }
-    
+        }
+
     async initializeFirestoreData() {
         const founderRef = this.db.collection('system_settings').doc('founder');
         const founderDoc = await founderRef.get();
-        
+
         if (!founderDoc.exists) {
             await founderRef.set({
                 name: 'VikeServe',
@@ -51,7 +48,7 @@ class MoreMenuManager {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
-        
+
         const announcementsSnapshot = await this.db.collection('announcements').limit(1).get();
         if (announcementsSnapshot.empty) {
             const defaultAnnouncements = [
@@ -72,12 +69,12 @@ class MoreMenuManager {
                     isGlobal: true
                 }
             ];
-            
+
             for (const announcement of defaultAnnouncements) {
                 await this.db.collection('announcements').add(announcement);
             }
         }
-        
+
         const termsRef = this.db.collection('system_settings').doc('terms');
         const termsDoc = await termsRef.get();
         if (!termsDoc.exists) {
@@ -86,7 +83,7 @@ class MoreMenuManager {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
-        
+
         const packagesRef = this.db.collection('ad_packages');
         const packagesSnapshot = await packagesRef.limit(1).get();
         if (packagesSnapshot.empty) {
@@ -101,7 +98,7 @@ class MoreMenuManager {
             }
         }
     }
-    
+
     getDefaultTermsContent() {
         return `
             <h4>1. Acceptance of Terms</h4>
@@ -116,7 +113,7 @@ class MoreMenuManager {
             <p>For questions, contact vikeserve426@gmail.com</p>
         `;
     }
-    
+
     async checkIfUserHasRated() {
         if (!this.currentUser) return;
         const ratingSnapshot = await this.db.collection('ratings')
@@ -124,34 +121,32 @@ class MoreMenuManager {
             .get();
         this.hasRated = !ratingSnapshot.empty;
     }
-    
+
     async replaceAllTabContent() {
-        console.log('Replacing all more tab content...');
-        
         const educationContent = document.getElementById('education-content');
         if (educationContent) {
             educationContent.innerHTML = this.getEducationHTML();
             educationContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
         }
-        
+
         const alertsContent = document.getElementById('alerts-content');
         if (alertsContent) {
             alertsContent.innerHTML = this.getAlertsHTML();
             alertsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
         }
-        
+
         const messagesContent = document.getElementById('messages-content');
         if (messagesContent) {
             messagesContent.innerHTML = this.getMessagesHTML();
             messagesContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
         }
-        
+
         const safetyContent = document.getElementById('safety-content');
         if (safetyContent) {
             safetyContent.innerHTML = this.getSafetyHTML();
             safetyContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
         }
-        
+
         const settingsContent = document.getElementById('settings-content');
         if (settingsContent) {
             const settingsHTML = await this.getSettingsHTML();
@@ -159,7 +154,7 @@ class MoreMenuManager {
             settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
         }
     }
-    
+
     getEducationHTML() {
         return `
             <div class="section-title"><i class="fas fa-graduation-cap"></i> Education & Skills</div>
@@ -169,28 +164,28 @@ class MoreMenuManager {
                 <button class="offer-attachment-btn btn btn-outline" style="flex: 1; padding: 12px;"><i class="fas fa-user-graduate"></i> Offer Attachment</button>
                 <button class="post-training-btn btn btn-outline" style="flex: 1; padding: 12px;"><i class="fas fa-tools"></i> Offer Training</button>
             </div>
-            
+
             <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-chalkboard-teacher"></i> Teachers Available</h3>
                 <div id="teachers-list-container" class="teachers-list">
                     <div class="loading-spinner">Loading teachers...</div>
                 </div>
             </div>
-            
+
             <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-briefcase"></i> Internship Opportunities</h3>
                 <div id="internships-list-container" class="internships-list">
                     <div class="loading-spinner">Loading internships...</div>
                 </div>
             </div>
-            
+
             <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-user-graduate"></i> Attachment Positions</h3>
                 <div id="attachments-list-container" class="attachments-list">
                     <div class="loading-spinner">Loading attachments...</div>
                 </div>
             </div>
-            
+
             <div class="education-section" style="margin-bottom: 25px;">
                 <h3 style="margin-bottom: 10px;"><i class="fas fa-tools"></i> Training Programs</h3>
                 <div id="training-list-container" class="training-list">
@@ -199,7 +194,7 @@ class MoreMenuManager {
             </div>
         `;
     }
-    
+
     getAlertsHTML() {
         return `
             <div class="section-title"><i class="fas fa-bell"></i> Community Alerts</div>
@@ -218,7 +213,7 @@ class MoreMenuManager {
             </div>
         `;
     }
-    
+
     getMessagesHTML() {
         return `
             <div class="messages-container" style="display: flex; flex-direction: column; height: 100%; min-height: 400px;">
@@ -235,7 +230,7 @@ class MoreMenuManager {
             </div>
         `;
     }
-    
+
     getSafetyHTML() {
         return `
             <div class="section-title"><i class="fas fa-shield-alt"></i> Safety Information</div>
@@ -247,7 +242,7 @@ class MoreMenuManager {
                 <button class="safety-cat-btn" data-cat="online" style="padding: 10px 15px; background: var(--light); border: none; border-radius: 20px;"><i class="fas fa-laptop"></i> Online Safety</button>
                 <button class="safety-cat-btn" data-cat="emergency" style="padding: 10px 15px; background: var(--light); border: none; border-radius: 20px;"><i class="fas fa-phone-alt"></i> Emergency Contacts</button>
             </div>
-            
+
             <div data-safety-content="payment" class="safety-content-active">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> DO: Meet in person before payment</strong>
@@ -258,7 +253,7 @@ class MoreMenuManager {
                     <p style="margin-top: 5px;">Avoid sending money to personal accounts without proper verification.</p>
                 </div>
             </div>
-            
+
             <div data-safety-content="personal" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Meet in public places</strong>
@@ -269,28 +264,28 @@ class MoreMenuManager {
                     <p style="margin-top: 5px;">Always inform a friend or family member about your meeting plans.</p>
                 </div>
             </div>
-            
+
             <div data-safety-content="home" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Verify service providers</strong>
                     <p style="margin-top: 5px;">Always check credentials, reviews, and ratings before allowing anyone into your home.</p>
                 </div>
             </div>
-            
+
             <div data-safety-content="transport" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Use registered services</strong>
                     <p style="margin-top: 5px;">Only use registered transport providers with verified credentials.</p>
                 </div>
             </div>
-            
+
             <div data-safety-content="online" style="display: none;">
                 <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
                     <strong><i class="fas fa-check-circle" style="color: #27ae60;"></i> Use strong passwords</strong>
                     <p style="margin-top: 5px;">Create unique, strong passwords for your VikeServe account.</p>
                 </div>
             </div>
-            
+
             <div data-safety-content="emergency" style="display: none;">
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                     <h4 style="margin-bottom: 15px; color: var(--emergency);"><i class="fas fa-phone-alt"></i> Emergency Contacts (Kenya)</h4>
@@ -316,14 +311,14 @@ class MoreMenuManager {
             </div>
         `;
     }
-    
+
     async getSettingsHTML() {
         const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-        const founder = founderDoc.exists ? founderDoc.data() : { 
-            name: 'VikeServe', 
-            totalStars: 0, 
-            ratingCount: 0, 
-            averageRating: 5.0, 
+        const founder = founderDoc.exists ? founderDoc.data() : {
+            name: 'VikeServe',
+            totalStars: 0,
+            ratingCount: 0,
+            averageRating: 5.0,
             portfolioUrl: 'https://vike-store.netlify.app/',
             county: 'Bungoma',
             country: 'Kenya',
@@ -331,10 +326,10 @@ class MoreMenuManager {
             achievements: 'TIE experience',
             bio: 'Telecommunication and information engineer.'
         };
-        
+
         return `
             <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
-            
+
             <!-- ========== APP PREFERENCES ========== -->
             <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-palette"></i> App Preferences</h4>
@@ -347,7 +342,7 @@ class MoreMenuManager {
                     <label class="switch"><input type="checkbox" class="notifications-toggle" checked><span class="slider round"></span></label>
                 </div>
             </div>
-            
+
             <!-- ========== RATE VIKESERVE ========== -->
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
                 <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
@@ -359,7 +354,7 @@ class MoreMenuManager {
                         <p style="margin: 0; opacity: 0.9;">Help us improve</p>
                     </div>
                 </div>
-                
+
                 <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 15px;">
                     <div style="font-size: 2.5rem; font-weight: bold;">${(founder.totalStars || 0).toLocaleString()}</div>
                     <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Total Stars Received ⭐</div>
@@ -367,7 +362,7 @@ class MoreMenuManager {
                     <div style="font-size: 0.75rem;">⭐ Average Rating: ${(founder.averageRating || 5.0).toFixed(1)} ⭐</div>
                     <div style="font-size: 0.7rem; margin-top: 5px;">Based on ${(founder.ratingCount || 0).toLocaleString()} ratings</div>
                 </div>
-                
+
                 <div style="display: flex; gap: 10px;">
                     <button class="btn rate-founder-btn" style="flex: 1; background: white; color: #764ba2;" ${this.hasRated ? 'disabled' : ''}>
                         <i class="fas fa-star"></i> ${this.hasRated ? 'Already Rated' : 'Rate VikeServe'}
@@ -377,7 +372,7 @@ class MoreMenuManager {
                     </button>
                 </div>
             </div>
-            
+
             <!-- ========== POINTS SECTION ========== -->
             <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
                 <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
@@ -389,26 +384,26 @@ class MoreMenuManager {
                         <p style="margin: 0; opacity: 0.9;">Earn points from reviews</p>
                     </div>
                 </div>
-                
+
                 <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.15); border-radius: 12px; margin-bottom: 15px;">
                     <div style="font-size: 3rem; font-weight: bold;" id="user-points-display">0</div>
                     <div style="font-size: 0.8rem; opacity: 0.9;">⭐ Available Points ⭐</div>
                     <div style="margin: 10px 0; font-size: 0.75rem;">1 point = KES 1 discount on ad promotions (max 30% off)</div>
                 </div>
-                
+
                 <div style="font-size: 0.7rem; text-align: center; opacity: 0.8; margin-bottom: 15px;">
                     <i class="fas fa-info-circle"></i> Earn 10 points for 5-star reviews, 6 for 4-star, 3 for 3-star, 1 for 2-star
                 </div>
-                
+
                 <button class="btn" id="view-points-history-btn" style="width: 100%; background: white; color: #27ae60; margin-top: 5px;">
                     <i class="fas fa-history"></i> View Points History
                 </button>
             </div>
-            
+
             <!-- ========== FAQ SECTION ========== -->
             <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4 style="margin-bottom: 10px;"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h4>
-                
+
                 <!-- FAQ 1: Post a Service -->
                 <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
                     <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
@@ -427,7 +422,7 @@ class MoreMenuManager {
                         <p style="margin-top: 8px;">✅ Your service will be visible to all users immediately after posting.</p>
                     </div>
                 </div>
-                
+
                 <!-- FAQ 2: Promote Ad (Coming Soon) -->
                 <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
                     <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
@@ -450,7 +445,7 @@ class MoreMenuManager {
                         <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
                     </div>
                 </div>
-                
+
                 <!-- FAQ 3: Payment Security -->
                 <div class="faq-item">
                     <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
@@ -471,7 +466,7 @@ class MoreMenuManager {
                     </div>
                 </div>
             </div>
-            
+
             <!-- ========== QUICK LINKS ========== -->
             <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-link"></i> Quick Links</h4>
@@ -488,7 +483,7 @@ class MoreMenuManager {
                     <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
                 </div>
             </div>
-            
+
             <!-- ========== SHARE & SUPPORT ========== -->
             <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                 <h4><i class="fas fa-share-alt"></i> Share & Support</h4>
@@ -497,7 +492,7 @@ class MoreMenuManager {
                     <i class="fas fa-chevron-right" style="color: var(--text-tertiary);"></i>
                 </div>
             </div>
-            
+
             <!-- ========== FOOTER ========== -->
             <div style="text-align: center; margin-top: 20px; padding: 15px; color: var(--text-tertiary);">
                 <div>VikeServe v1.0.0</div>
@@ -508,7 +503,7 @@ class MoreMenuManager {
             </div>
         `;
     }
-    
+
     generateStarRatingHTML(rating) {
         const fullStars = Math.floor(rating);
         const halfStar = rating % 1 >= 0.5;
@@ -524,7 +519,7 @@ class MoreMenuManager {
         }
         return stars;
     }
-    
+
     setupEventListeners() {
         document.querySelectorAll('.more-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -532,7 +527,7 @@ class MoreMenuManager {
                 this.switchMoreTab(tabId);
             });
         });
-        
+
         document.querySelectorAll('.more-bottom-nav .nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 let tabId = item.getAttribute('data-tab');
@@ -542,43 +537,43 @@ class MoreMenuManager {
                 }
             });
         });
-        
+
         const closeBtn = document.querySelector('.more-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 if (window.app && window.app.closeMoreMenu) window.app.closeMoreMenu();
             });
         }
-        
+
         document.getElementById('more-section')?.addEventListener('click', async (e) => {
             if (e.target.closest('.post-teacher-btn')) this.showSubmitModal('teacher');
             if (e.target.closest('.post-internship-btn')) this.showSubmitModal('internship');
             if (e.target.closest('.offer-attachment-btn')) this.showSubmitModal('attachment');
             if (e.target.closest('.post-training-btn')) this.showSubmitModal('training');
-            
+
             if (e.target.closest('.view-founder-profile-btn')) {
                 this.showFounderProfile();
                 return;
             }
-            
+
             if (e.target.closest('.report-alert-btn')) this.showSubmitModal('alert');
             if (e.target.closest('.new-chat-btn')) this.startNewChat();
-            
+
             if (e.target.closest('.emergency-call-btn')) {
                 const number = e.target.closest('.emergency-call-btn').getAttribute('data-number');
                 if (number) window.location.href = `tel:${number}`;
             }
-            
+
             if (e.target.closest('.vikeserve-support-btn')) {
                 this.showToast('Contact support: vikeserve426@gmail.com', 'info');
                 return;
             }
-            
+
             if (e.target.closest('.filter-alert-btn')) {
                 const filter = e.target.closest('.filter-alert-btn').getAttribute('data-filter');
                 this.filterAlerts(filter);
             }
-            
+
             if (e.target.closest('.rate-founder-btn') && !this.hasRated) {
                 this.showRatingModal();
                 return;
@@ -593,12 +588,12 @@ class MoreMenuManager {
                 this.showPointsHistory();
                 return;
             }
-            
+
             if (e.target.closest('.faq-question')) {
                 const question = e.target.closest('.faq-question');
                 const answer = question.nextElementSibling;
                 const icon = question.querySelector('.faq-icon');
-                
+
                 if (answer.style.display === 'none') {
                     answer.style.display = 'block';
                     icon.classList.remove('fa-chevron-down');
@@ -610,34 +605,34 @@ class MoreMenuManager {
                 }
                 return;
             }
-            
+
             if (e.target.closest('.dark-mode-toggle-settings')) {
                 this.toggleDarkMode(e.target.closest('.dark-mode-toggle-settings').checked);
             }
-            
+
             if (e.target.closest('.support-option')) {
                 const action = e.target.closest('.support-option').getAttribute('data-action');
                 this.handleSettingsAction(action);
             }
-            
+
             if (e.target.closest('.notifications-toggle')) {
                 const isChecked = e.target.closest('.notifications-toggle').checked;
                 this.showToast(isChecked ? 'Notifications enabled' : 'Notifications disabled', 'info');
             }
-            
+
             if (e.target.closest('.safety-cat-btn')) {
                 const cat = e.target.closest('.safety-cat-btn').getAttribute('data-cat');
                 this.switchSafetyCategory(cat);
             }
         });
-        
+
         const searchInput = document.getElementById('message-search-input');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 this.filterConversations(e.target.value);
             });
         }
-        
+
         this.loadTeachers();
         this.loadInternships();
         this.loadAttachments();
@@ -645,15 +640,15 @@ class MoreMenuManager {
         this.loadAlerts();
         this.loadConversations();
     }
-    
+
     filterConversations(searchTerm) {
         const conversationItems = document.querySelectorAll('#conversations-list-container .conversation-item');
         const term = searchTerm.toLowerCase();
-        
+
         conversationItems.forEach(item => {
             const title = item.querySelector('.conversation-title')?.innerText.toLowerCase() || '';
             const lastMessage = item.querySelector('.conversation-last-message')?.innerText.toLowerCase() || '';
-            
+
             if (title.includes(term) || lastMessage.includes(term)) {
                 item.style.display = 'flex';
             } else {
@@ -661,16 +656,16 @@ class MoreMenuManager {
             }
         });
     }
-    
+
     async showSubmitModal(type) {
         if (!this.currentUser) {
             this.showToast('Please sign in to post', 'warning');
             if (typeof window.openAuthModal === 'function') window.openAuthModal();
             return;
         }
-        
+
         let title = '', fields = '', collection = '';
-        
+
         switch(type) {
             case 'teacher':
                 title = 'Post Teaching Position';
@@ -733,7 +728,7 @@ class MoreMenuManager {
                 collection = 'community_alerts';
                 break;
         }
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
                 <div class="modal-header">
@@ -749,9 +744,9 @@ class MoreMenuManager {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent(`${type}-modal`, modalContent);
-        
+
         setTimeout(() => {
             const submitBtn = document.querySelector(`#${type}-modal .submit-post-btn`);
             if (submitBtn) {
@@ -759,11 +754,11 @@ class MoreMenuManager {
             }
         }, 100);
     }
-    
+
     async submitPostToFirestore(type, collection) {
         const modal = document.getElementById(`${type}-modal`);
         const inputs = modal.querySelectorAll('input, select, textarea');
-        
+
         let isValid = true;
         inputs.forEach(input => {
             if (input.hasAttribute('required') && !input.value.trim()) {
@@ -773,12 +768,12 @@ class MoreMenuManager {
                 input.style.borderColor = '';
             }
         });
-        
+
         if (!isValid) {
             this.showToast('Please fill in all required fields', 'error');
             return;
         }
-        
+
         const data = {};
         inputs.forEach(input => {
             if (input.id) {
@@ -789,18 +784,18 @@ class MoreMenuManager {
                 data[fieldName] = input.value;
             }
         });
-        
+
         data.userId = this.currentUser.uid;
         data.userName = this.currentUser.displayName || this.currentUser.email;
         data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
         data.status = 'active';
-        
+
         try {
             const collectionRef = this.db.collection(collection);
             await collectionRef.add(data);
             this.showToast(`${type} posted successfully!`, 'success');
             this.closeModal(`${type}-modal`);
-            
+
             setTimeout(() => {
                 switch(type) {
                     case 'teacher': this.loadTeachers(); break;
@@ -815,31 +810,31 @@ class MoreMenuManager {
             this.showToast('Error posting: ' + error.message, 'error');
         }
     }
-    
+
     async loadCollection(collectionName, containerId, typeName) {
         const container = document.getElementById(containerId);
         if (!container) return;
-        
+
         try {
             const snapshot = await this.db.collection(collectionName)
                 .where('status', '==', 'active')
                 .orderBy('createdAt', 'desc')
                 .limit(20)
                 .get();
-            
+
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             if (items.length === 0) {
                 container.innerHTML = `<div class="empty-state">No ${typeName}s available yet.</div>`;
                 return;
             }
-            
+
             container.innerHTML = items.map(item => {
                 const posterName = item.userName || item.name || item.company || item.school || item.organization || item.provider || 'Anonymous';
                 const posterInitial = posterName.charAt(0).toUpperCase();
                 const posterEmail = item.email || item.contactEmail || '';
                 const posterPhone = item.phone || item.contactPhone || '';
-                
+
                 return `
                     <div class="list-item" style="background: var(--light); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
                         <div class="poster-info" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -852,42 +847,42 @@ class MoreMenuManager {
                                 ${posterPhone ? `<div class="poster-phone" style="font-size: 0.7rem; color: var(--grey-dark);"><i class="fas fa-phone"></i> ${this.escapeHtml(posterPhone)}</div>` : ''}
                             </div>
                         </div>
-                        
+
                         <div class="list-item-title" style="font-weight: 600; font-size: 1rem; margin-bottom: 8px;">
                             ${this.escapeHtml(item.title || item.name || item.company || item.school || item.position || 'Untitled')}
                         </div>
-                        
+
                         <div class="list-item-subtitle" style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">
                             ${this.escapeHtml(item.company || item.organization || item.provider || item.school || '')}
                         </div>
-                        
+
                         <div class="list-item-description" style="font-size: 0.75rem; color: #666; margin-top: 5px;">
                             ${this.escapeHtml((item.description || '').substring(0, 100))}${(item.description || '').length > 100 ? '...' : ''}
                         </div>
-                        
+
                         <div class="list-item-meta" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.7rem; color: var(--grey-dark);">
                             ${item.duration ? `<span><i class="fas fa-clock"></i> ${this.escapeHtml(item.duration)}</span>` : ''}
                             ${item.price ? `<span><i class="fas fa-money-bill-wave"></i> KES ${item.price}</span>` : ''}
                             ${item.location ? `<span><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(item.location)}</span>` : ''}
                         </div>
-                        
+
                         <div class="list-item-date" style="font-size: 0.7rem; color: #999; margin-top: 5px;">
                             Posted: ${this.formatDate(item.createdAt)}
                         </div>
-                        
-                        <button class="btn btn-primary contact-poster-btn" 
-                            data-poster-id="${item.userId || ''}" 
-                            data-poster-name="${this.escapeHtml(posterName)}" 
-                            data-poster-email="${this.escapeHtml(posterEmail)}" 
-                            data-poster-phone="${this.escapeHtml(posterPhone)}" 
-                            data-item-title="${this.escapeHtml(item.title || item.name || item.company || '')}" 
+
+                        <button class="btn btn-primary contact-poster-btn"
+                            data-poster-id="${item.userId || ''}"
+                            data-poster-name="${this.escapeHtml(posterName)}"
+                            data-poster-email="${this.escapeHtml(posterEmail)}"
+                            data-poster-phone="${this.escapeHtml(posterPhone)}"
+                            data-item-title="${this.escapeHtml(item.title || item.name || item.company || '')}"
                             style="margin-top: 12px; width: 100%;">
                             <i class="fas fa-comment"></i> Contact Poster
                         </button>
                     </div>
                 `;
             }).join('');
-            
+
             document.querySelectorAll(`#${containerId} .contact-poster-btn`).forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -899,20 +894,20 @@ class MoreMenuManager {
                     this.showContactPosterOptions(posterId, posterName, posterEmail, posterPhone, itemTitle);
                 });
             });
-            
+
         } catch (error) {
             console.error(`Error loading ${collectionName}:`, error);
             container.innerHTML = `<div class="error-state">Error loading ${typeName}s</div>`;
         }
     }
-    
+
     showContactPosterOptions(posterId, posterName, posterEmail, posterPhone, itemTitle) {
         if (!this.currentUser) {
             this.showToast('Please sign in to contact poster', 'warning');
             if (typeof window.openAuthModal === 'function') window.openAuthModal();
             return;
         }
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002;">
                 <div class="modal-header">
@@ -923,36 +918,36 @@ class MoreMenuManager {
                     <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px;">
                         <div style="font-weight: 600;">Regarding: ${this.escapeHtml(itemTitle)}</div>
                     </div>
-                    
+
                     <div class="contact-options" style="display: flex; flex-direction: column; gap: 10px;">
                         ${posterPhone ? `
                             <button class="contact-option-call btn btn-primary" data-phone="${this.escapeHtml(posterPhone)}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i class="fas fa-phone"></i> Call ${this.escapeHtml(posterPhone)}
                             </button>
                         ` : ''}
-                        
+
                         ${posterEmail ? `
                             <button class="contact-option-email btn btn-outline" data-email="${this.escapeHtml(posterEmail)}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i class="fas fa-envelope"></i> Send Email
                             </button>
                         ` : ''}
-                        
+
                         ${posterId ? `
                             <button class="contact-option-chat btn btn-outline" data-user-id="${posterId}" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i class="fas fa-comments"></i> Send Message (In-App)
                             </button>
                         ` : ''}
                     </div>
-                    
+
                     <div class="form-actions" style="margin-top: 20px;">
                         <button class="btn btn-outline close-modal-btn" style="width: 100%;">Cancel</button>
                     </div>
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('contact-poster-modal', modalContent);
-        
+
         setTimeout(() => {
             const callBtn = document.querySelector('#contact-poster-modal .contact-option-call');
             if (callBtn) {
@@ -962,7 +957,7 @@ class MoreMenuManager {
                     this.closeModal('contact-poster-modal');
                 });
             }
-            
+
             const emailBtn = document.querySelector('#contact-poster-modal .contact-option-email');
             if (emailBtn) {
                 emailBtn.addEventListener('click', () => {
@@ -971,7 +966,7 @@ class MoreMenuManager {
                     this.closeModal('contact-poster-modal');
                 });
             }
-            
+
             const chatBtn = document.querySelector('#contact-poster-modal .contact-option-chat');
             if (chatBtn) {
                 chatBtn.addEventListener('click', () => {
@@ -983,34 +978,34 @@ class MoreMenuManager {
             }
         }, 100);
     }
-    
+
     async loadTeachers() { await this.loadCollection('teachers', 'teachers-list-container', 'teacher'); }
     async loadInternships() { await this.loadCollection('internships', 'internships-list-container', 'internship'); }
     async loadAttachments() { await this.loadCollection('attachments', 'attachments-list-container', 'attachment'); }
     async loadTraining() { await this.loadCollection('training_courses', 'training-list-container', 'training'); }
-    
+
     async loadAlerts() {
         const container = document.getElementById('alerts-list-container');
         if (!container) return;
-        
+
         try {
             const snapshot = await this.db.collection('community_alerts')
                 .orderBy('createdAt', 'desc')
                 .limit(30)
                 .get();
-            
+
             const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             if (alerts.length === 0) {
                 container.innerHTML = '<div class="empty-state">No alerts reported yet.</div>';
                 return;
             }
-            
+
             container.innerHTML = alerts.map(alert => {
                 const posterName = alert.userName || 'Anonymous User';
                 const posterInitial = posterName.charAt(0).toUpperCase();
                 const isOwnAlert = this.currentUser && alert.userId === this.currentUser.uid;
-                
+
                 return `
                     <div class="alert-card" data-alert-id="${alert.id}" data-type="${alert.type || 'info'}" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${alert.type === 'emergency' ? '#e74c3c' : '#f39c12'};">
                         <div class="alert-poster-info" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -1025,20 +1020,20 @@ class MoreMenuManager {
                             </div>
                             ${alert.type === 'emergency' ? '<span style="margin-left: auto; background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem;">EMERGENCY</span>' : ''}
                         </div>
-                        
+
                         <div class="alert-title" style="font-weight: 600; font-size: 1rem; margin-bottom: 8px;">
                             <i class="fas ${alert.type === 'emergency' ? 'fa-skull-crossbones' : alert.type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
                             ${this.escapeHtml(alert.title)}
                         </div>
-                        
+
                         <div class="alert-content" style="font-size: 0.85rem; margin: 8px 0; color: var(--dark);">
                             ${this.escapeHtml(alert.description)}
                         </div>
-                        
+
                         <div class="alert-location" style="font-size: 0.75rem; margin-bottom: 12px;">
                             <i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(alert.location || 'Unknown location')}
                         </div>
-                        
+
                         <div class="alert-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
                             ${this.currentUser && !isOwnAlert ? `
                                 <button class="btn btn-sm btn-primary reply-to-alert-btn" data-reporter-id="${alert.userId}" data-alert-title="${this.escapeHtml(alert.title)}" data-alert-id="${alert.id}" style="flex: 1; padding: 8px;">
@@ -1062,7 +1057,7 @@ class MoreMenuManager {
                     </div>
                 `;
             }).join('');
-            
+
             document.querySelectorAll('.reply-to-alert-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const reporterId = btn.getAttribute('data-reporter-id');
@@ -1071,7 +1066,7 @@ class MoreMenuManager {
                     this.replyToAlert(reporterId, alertTitle, alertId);
                 });
             });
-            
+
             document.querySelectorAll('.report-alert-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const alertId = btn.getAttribute('data-alert-id');
@@ -1079,7 +1074,7 @@ class MoreMenuManager {
                     this.reportAlertToAdmin(alertId, alertTitle);
                 });
             });
-            
+
             document.querySelectorAll('.delete-alert-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const alertId = btn.getAttribute('data-alert-id');
@@ -1090,28 +1085,28 @@ class MoreMenuManager {
                     }
                 });
             });
-            
+
             document.querySelectorAll('.signin-to-reply-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     if (typeof window.openAuthModal === 'function') window.openAuthModal();
                 });
             });
-            
+
         } catch (error) {
             console.error('Error loading alerts:', error);
             container.innerHTML = '<div class="error-state">Error loading alerts</div>';
         }
     }
-    
+
     async replyToAlert(reporterId, alertTitle, alertId) {
         if (!this.currentUser) {
             this.showToast('Please sign in to reply', 'warning');
             if (typeof window.openAuthModal === 'function') window.openAuthModal();
             return;
         }
-        
+
         const replyMessage = `Regarding your alert: "${alertTitle}"\n\n`;
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002;">
                 <div class="modal-header">
@@ -1123,12 +1118,12 @@ class MoreMenuManager {
                         <div style="font-weight: 600;">Alert: ${this.escapeHtml(alertTitle)}</div>
                         <div style="font-size: 0.8rem; color: var(--grey-dark);">Your reply will be sent as a direct message.</div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label class="form-label">Your Message</label>
                         <textarea id="reply-message" class="form-input" rows="4" placeholder="Type your reply here...">${this.escapeHtml(replyMessage)}</textarea>
                     </div>
-                    
+
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn btn-outline close-modal-btn">Cancel</button>
                         <button class="btn btn-primary" id="send-reply-btn">Send Reply</button>
@@ -1136,9 +1131,9 @@ class MoreMenuManager {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('reply-modal', modalContent);
-        
+
         setTimeout(() => {
             const sendBtn = document.getElementById('send-reply-btn');
             if (sendBtn) {
@@ -1148,7 +1143,7 @@ class MoreMenuManager {
                         this.showToast('Please enter a message', 'error');
                         return;
                     }
-                    
+
                     await this.startChatWithUser(reporterId, message);
                     this.closeModal('reply-modal');
                     this.showToast('Reply sent!', 'success');
@@ -1156,14 +1151,14 @@ class MoreMenuManager {
             }
         }, 100);
     }
-    
+
     async reportAlertToAdmin(alertId, alertTitle) {
         if (!this.currentUser) {
             this.showToast('Please sign in to report', 'warning');
             if (typeof window.openAuthModal === 'function') window.openAuthModal();
             return;
         }
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002;">
                 <div class="modal-header">
@@ -1174,7 +1169,7 @@ class MoreMenuManager {
                     <div style="background: var(--light); padding: 12px; border-radius: 10px; margin-bottom: 15px;">
                         <div style="font-weight: 600;">Alert: ${this.escapeHtml(alertTitle)}</div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label class="form-label">Reason for Report *</label>
                         <select id="report-reason" class="form-input" required>
@@ -1186,12 +1181,12 @@ class MoreMenuManager {
                             <option value="other">Other</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label class="form-label">Additional Details</label>
                         <textarea id="report-details" class="form-input" rows="3" placeholder="Provide more information..."></textarea>
                     </div>
-                    
+
                     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn btn-outline close-modal-btn">Cancel</button>
                         <button class="btn btn-danger" id="submit-report-btn">Submit Report</button>
@@ -1199,24 +1194,24 @@ class MoreMenuManager {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('report-modal', modalContent);
-        
+
         setTimeout(() => {
             const submitBtn = document.getElementById('submit-report-btn');
             if (submitBtn) {
                 submitBtn.addEventListener('click', async () => {
                     const reason = document.getElementById('report-reason')?.value;
                     const details = document.getElementById('report-details')?.value;
-                    
+
                     if (!reason) {
                         this.showToast('Please select a reason', 'error');
                         return;
                     }
-                    
+
                     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
                     const founderEmail = founderDoc.exists ? founderDoc.data().email : 'vikeserve426@gmail.com';
-                    
+
                     await this.db.collection('alert_reports').add({
                         alertId: alertId,
                         alertTitle: alertTitle,
@@ -1227,47 +1222,44 @@ class MoreMenuManager {
                         reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
                         status: 'pending'
                     });
-                    
-                    console.log('Alert reported:', { alertTitle, reason, details, reporter: this.currentUser.email });
-                    
+
                     this.showToast('Report submitted to admin. Thank you!', 'success');
                     this.closeModal('report-modal');
                 });
             }
         }, 100);
     }
-    
+
     async loadConversations() {
         const container = document.getElementById('conversations-list-container');
         if (!container) return;
-        
+
         if (!this.currentUser) {
             container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
             return;
         }
-        
+
         try {
             const snapshot = await this.db.collection('chats')
                 .where('participants', 'array-contains', this.currentUser.uid)
                 .orderBy('lastMessageAt', 'desc')
                 .limit(50)
                 .get();
-            
+
             const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
+
             if (conversations.length === 0) {
                 container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
                 return;
             }
-            
-            // Fetch user names for all participants
+
             const userIds = new Set();
             conversations.forEach(conv => {
                 conv.participants.forEach(p => {
                     if (p !== this.currentUser.uid) userIds.add(p);
                 });
             });
-            
+
             const userNames = {};
             await Promise.all([...userIds].map(async (uid) => {
                 try {
@@ -1282,8 +1274,7 @@ class MoreMenuManager {
                     userNames[uid] = 'User';
                 }
             }));
-            
-            // Get unread counts
+
             const unreadCounts = {};
             for (const conv of conversations) {
                 try {
@@ -1296,14 +1287,14 @@ class MoreMenuManager {
                     unreadCounts[conv.id] = 0;
                 }
             }
-            
+
             container.innerHTML = conversations.map(conv => {
                 const isGroup = conv.isGroup === true;
                 const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
-                
+
                 let displayName = 'User';
                 let avatarInitial = 'U';
-                
+
                 if (isGroup) {
                     displayName = conv.groupName || 'Group Chat';
                     avatarInitial = '👥';
@@ -1318,13 +1309,13 @@ class MoreMenuManager {
                     }
                     avatarInitial = displayName.charAt(0).toUpperCase();
                 }
-                
+
                 const unreadCount = unreadCounts[conv.id] || 0;
                 const hasUnread = unreadCount > 0;
                 const lastMessage = conv.lastMessage || 'No messages';
                 const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
                 const time = this.formatDate(conv.lastMessageAt);
-                
+
                 return `
                     <div class="conversation-item-wrapper" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--grey);">
                         <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; flex: 1; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1); border-radius: 8px;' : ''}">
@@ -1348,8 +1339,7 @@ class MoreMenuManager {
                     </div>
                 `;
             }).join('');
-            
-            // Add click handlers for conversation items
+
             document.querySelectorAll('.conversation-item').forEach(item => {
                 const newItem = item.cloneNode(true);
                 item.parentNode.replaceChild(newItem, item);
@@ -1357,8 +1347,7 @@ class MoreMenuManager {
                     this.openChat(newItem.getAttribute('data-chat-id'));
                 });
             });
-            
-            // Add click handlers for delete buttons
+
             document.querySelectorAll('.delete-chat-btn').forEach(btn => {
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
@@ -1370,14 +1359,13 @@ class MoreMenuManager {
                     this.confirmDeleteChat(chatId, chatName, isGroup);
                 });
             });
-            
+
         } catch (error) {
             console.error('Error loading conversations:', error);
             container.innerHTML = '<div class="error-state">Error loading messages</div>';
         }
     }
-    
-    // ========== CONFIRM DELETE CHAT ==========
+
     confirmDeleteChat(chatId, chatName, isGroup) {
         const chatType = isGroup ? 'group' : 'conversation';
         const modalContent = `
@@ -1404,9 +1392,9 @@ class MoreMenuManager {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('confirm-delete-modal', modalContent);
-        
+
         setTimeout(() => {
             const deleteBtn = document.getElementById('confirm-delete-chat-btn');
             if (deleteBtn) {
@@ -1417,21 +1405,19 @@ class MoreMenuManager {
             }
         }, 100);
     }
-    
-    // ========== DELETE CHAT ==========
+
     async deleteChat(chatId, isGroup) {
         try {
             const chatRef = this.db.collection('chats').doc(chatId);
             const chatDoc = await chatRef.get();
-            
+
             if (!chatDoc.exists) {
                 this.showToast('Chat not found', 'error');
                 return;
             }
-            
+
             const chatData = chatDoc.data();
-            
-            // If group, check if user is admin
+
             if (isGroup) {
                 const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
                 if (!isAdmin) {
@@ -1439,107 +1425,94 @@ class MoreMenuManager {
                     return;
                 }
             }
-            
-            // Check if user is participant
+
             if (!chatData.participants || !chatData.participants.includes(this.currentUser.uid)) {
                 this.showToast('You are not a participant of this chat', 'error');
                 return;
             }
-            
-            // If group and admin, delete the entire group
+
             if (isGroup && chatData.admins && chatData.admins.includes(this.currentUser.uid)) {
-                // Delete all messages in the group
                 const messagesSnapshot = await chatRef.collection('messages').get();
                 const batch = this.db.batch();
                 messagesSnapshot.forEach(doc => {
                     batch.delete(doc.ref);
                 });
                 await batch.commit();
-                
-                // Delete the group document
+
                 await chatRef.delete();
                 this.showToast('Group deleted successfully', 'success');
             } else {
-                // For individual chat or non-admin group member: remove user from participants
                 const participants = chatData.participants || [];
                 const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
-                
+
                 if (newParticipants.length === 0) {
-                    // If no participants left, delete the chat
                     await chatRef.delete();
                     this.showToast('Chat deleted successfully', 'success');
                 } else {
-                    // Remove user from participants
                     const participantNames = chatData.participantNames || {};
                     delete participantNames[this.currentUser.uid];
-                    
+
                     await chatRef.update({
                         participants: newParticipants,
                         participantNames: participantNames
                     });
-                    
-                    // If user was admin, remove from admins
+
                     if (chatData.admins) {
                         const admins = chatData.admins.filter(uid => uid !== this.currentUser.uid);
                         await chatRef.update({ admins: admins });
                     }
-                    
+
                     this.showToast('Removed from chat', 'success');
                 }
             }
-            
-            // Close chat window if open
+
             this.closeChatWindow();
-            
-            // Refresh conversations
+
             await this.loadConversations();
-            
+
         } catch (error) {
             console.error('Error deleting chat:', error);
             this.showToast('Error deleting chat: ' + error.message, 'error');
         }
     }
-    
-    // ========== CLEAR CHAT HISTORY ==========
+
     async clearChatHistory(chatId) {
         try {
             const chatRef = this.db.collection('chats').doc(chatId);
             const chatDoc = await chatRef.get();
-            
+
             if (!chatDoc.exists) {
                 this.showToast('Chat not found', 'error');
                 return;
             }
-            
-            // Delete all messages
+
             const messagesSnapshot = await chatRef.collection('messages').get();
             const batch = this.db.batch();
             messagesSnapshot.forEach(doc => {
                 batch.delete(doc.ref);
             });
             await batch.commit();
-            
-            // Update last message
+
             await chatRef.update({
                 lastMessage: 'Chat history cleared',
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
                 lastMessageBy: this.currentUser.uid
             });
-            
+
             this.showToast('Chat history cleared', 'success');
             this.loadChatMessages(chatId);
             this.loadConversations();
-            
+
         } catch (error) {
             console.error('Error clearing chat history:', error);
             this.showToast('Error clearing chat history', 'error');
         }
     }
-    
+
     async openChat(chatId) {
         await this.loadChat(chatId);
     }
-    
+
     async loadChat(chatId) {
         try {
             const chatDoc = await this.db.collection('chats').doc(chatId).get();
@@ -1547,10 +1520,10 @@ class MoreMenuManager {
                 this.showToast('Chat not found', 'error');
                 return;
             }
-            
+
             const chatData = chatDoc.data();
             const otherParticipantId = chatData.participants.find(p => p !== this.currentUser?.uid);
-            
+
             let otherParticipant = null;
             if (otherParticipantId) {
                 const userDoc = await this.db.collection('users').doc(otherParticipantId).get();
@@ -1560,27 +1533,27 @@ class MoreMenuManager {
                     otherParticipant = { displayName: 'User', email: 'user@example.com' };
                 }
             }
-            
+
             this.showChatWindow(chatId, chatData, otherParticipant);
             await this.markMessagesAsRead(chatId);
             this.setupChatListener(chatId);
-            
+
         } catch (error) {
             console.error('Error loading chat:', error);
             this.showToast('Error loading chat', 'error');
         }
     }
-    
+
     showChatWindow(chatId, chatData, otherParticipant) {
         const existingContainer = document.getElementById('chat-window-container');
         if (existingContainer) {
             existingContainer.remove();
         }
-        
+
         const isGroup = chatData.isGroup === true;
         let displayName = 'User';
         let avatarInitial = 'U';
-        
+
         if (isGroup) {
             displayName = chatData.groupName || 'Group Chat';
             avatarInitial = '👥';
@@ -1596,12 +1569,12 @@ class MoreMenuManager {
                 }
             }
         }
-        
+
         let memberCount = '';
         if (isGroup && chatData.participants) {
             memberCount = `${chatData.participants.length} members`;
         }
-        
+
         const messagesContent = document.getElementById('messages-content');
         if (messagesContent) {
             messagesContent.innerHTML = '';
@@ -1610,7 +1583,7 @@ class MoreMenuManager {
             messagesContent.style.flexDirection = 'column';
             messagesContent.style.height = '100%';
             messagesContent.style.maxHeight = '80vh';
-            
+
             messagesContent.innerHTML = `
                 <div id="chat-window-container" style="display: flex; flex-direction: column; height: 100%; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--primary); color: white; flex-shrink: 0;">
@@ -1636,11 +1609,11 @@ class MoreMenuManager {
                             </button>
                         </div>
                     </div>
-                    
+
                     <div id="chat-messages-area" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-tertiary); min-height: 0; max-height: 60vh;">
                         <div class="loading-spinner">Loading messages...</div>
                     </div>
-                    
+
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: var(--bg-secondary); border-top: 1px solid var(--border-color); flex-shrink: 0;">
                         <button id="chat-attach-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--grey-dark); padding: 8px;">
                             <i class="fas fa-paperclip"></i>
@@ -1653,7 +1626,7 @@ class MoreMenuManager {
                 </div>
             `;
         }
-        
+
         setTimeout(() => {
             const input = document.getElementById('chat-message-input');
             const sendBtn = document.getElementById('chat-send-btn');
@@ -1663,7 +1636,7 @@ class MoreMenuManager {
             const clearHistoryBtn = document.getElementById('chat-clear-history-btn');
             const deleteChatBtn = document.getElementById('chat-delete-btn');
             const headerClick = document.getElementById('chat-header-click');
-            
+
             if (input) {
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1671,12 +1644,12 @@ class MoreMenuManager {
                         this.sendChatMessage(chatId);
                     }
                 });
-                
+
                 input.addEventListener('input', function() {
                     this.style.height = 'auto';
                     this.style.height = Math.min(this.scrollHeight, 100) + 'px';
                 });
-                
+
                 let typingTimeout;
                 input.addEventListener('input', () => {
                     this.sendTypingIndicator(chatId, true);
@@ -1686,31 +1659,31 @@ class MoreMenuManager {
                     }, 1000);
                 });
             }
-            
+
             if (sendBtn) {
                 const newSendBtn = sendBtn.cloneNode(true);
                 sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
                 newSendBtn.addEventListener('click', () => this.sendChatMessage(chatId));
             }
-            
+
             if (attachBtn) {
                 const newAttachBtn = attachBtn.cloneNode(true);
                 attachBtn.parentNode.replaceChild(newAttachBtn, attachBtn);
                 newAttachBtn.addEventListener('click', () => this.uploadChatAttachment(chatId));
             }
-            
+
             if (backBtn) {
                 const newBackBtn = backBtn.cloneNode(true);
                 backBtn.parentNode.replaceChild(newBackBtn, backBtn);
                 newBackBtn.addEventListener('click', () => this.closeChatWindow());
             }
-            
+
             if (groupInfoBtn) {
                 groupInfoBtn.addEventListener('click', () => {
                     this.showGroupInfo(chatId);
                 });
             }
-            
+
             if (clearHistoryBtn) {
                 clearHistoryBtn.addEventListener('click', () => {
                     if (confirm('Are you sure you want to clear all messages in this chat?')) {
@@ -1718,7 +1691,7 @@ class MoreMenuManager {
                     }
                 });
             }
-            
+
             if (deleteChatBtn) {
                 deleteChatBtn.addEventListener('click', () => {
                     const isGroup = chatData.isGroup === true;
@@ -1726,7 +1699,7 @@ class MoreMenuManager {
                     this.confirmDeleteChat(chatId, chatName, isGroup);
                 });
             }
-            
+
             if (headerClick) {
                 headerClick.addEventListener('click', () => {
                     if (isGroup) {
@@ -1735,42 +1708,34 @@ class MoreMenuManager {
                 });
             }
         }, 100);
-        
+
         this.loadChatMessages(chatId);
     }
-    
-    // ========== SHOW GROUP INFO - FIXED ==========
-async showGroupInfo(chatId) {
+
+    async showGroupInfo(chatId) {
     try {
         const chatDoc = await this.db.collection('chats').doc(chatId).get();
         if (!chatDoc.exists) {
             this.showToast('Group not found', 'error');
             return;
         }
-        
+
         const chatData = chatDoc.data();
         if (!chatData.isGroup) {
             this.showToast('This is not a group chat', 'warning');
             return;
         }
-        
-        // ===== FIX: Determine if user is admin or creator =====
+
         const isCreator = chatData.adminId === this.currentUser.uid;
         const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
-        // User is admin if they are in admins array OR they are the creator
         const userIsAdmin = isAdmin || isCreator;
-        
+
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
-        
-        console.log('🔍 Group Info - isAdmin:', userIsAdmin, 'isCreator:', isCreator);
-        console.log('🔍 Group admins:', chatData.admins);
-        console.log('🔍 Current user:', this.currentUser.uid);
-        
-        // Build member list HTML with clickable names
+
         let membersHtml = await Promise.all(participants.map(async (uid) => {
             let name = participantNames[uid] || 'User';
-            
+
             if (!participantNames[uid] || participantNames[uid] === 'User') {
                 try {
                     const userDoc = await this.db.collection('users').doc(uid).get();
@@ -1780,19 +1745,18 @@ async showGroupInfo(chatId) {
                     }
                 } catch (e) {}
             }
-            
+
             const isMemberAdmin = chatData.admins && chatData.admins.includes(uid);
             const isMemberCreator = uid === chatData.adminId;
             const isCurrentUser = uid === this.currentUser.uid;
-            
+
             let badges = '';
             if (isMemberCreator) badges += '<span class="role-badge creator" style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👑 Creator</span>';
             if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin" style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
             if (isCurrentUser) badges += '<span class="role-badge you" style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
-            
-            // Can manage if current user is admin and this member is not the creator and not the current user
+
             const canManage = userIsAdmin && !isMemberCreator && uid !== this.currentUser.uid;
-            
+
             return `
                 <div class="member-item" data-user-id="${uid}" data-user-name="${this.escapeHtml(name)}" data-is-admin="${isMemberAdmin}" data-is-creator="${isMemberCreator}" data-can-manage="${canManage}" style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: ${canManage ? 'pointer' : 'default'};">
                     <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
@@ -1806,9 +1770,9 @@ async showGroupInfo(chatId) {
                 </div>
             `;
         }));
-        
+
         const membersListHtml = membersHtml.join('');
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -1828,18 +1792,18 @@ async showGroupInfo(chatId) {
                         <p style="color: var(--grey-dark); font-size: 0.8rem;">${participants.length} members</p>
                         ${userIsAdmin ? '<p style="font-size: 0.65rem; color: var(--grey-dark);">Tap group name to edit</p>' : ''}
                     </div>
-                    
+
                     <!-- MEMBERS LIST -->
                     <div style="margin-bottom: 15px;">
                         <h4 style="margin-bottom: 10px;">
-                            <i class="fas fa-user-friends"></i> Members 
+                            <i class="fas fa-user-friends"></i> Members
                             <span style="font-size: 0.7rem; color: var(--grey-dark);">(${participants.length})</span>
                         </h4>
                         <div style="max-height: 300px; overflow-y: auto;">
                             ${membersListHtml}
                         </div>
                     </div>
-                    
+
                     <!-- ADMIN CONTROLS -->
                     ${userIsAdmin ? `
                         <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-top: 10px;">
@@ -1874,12 +1838,10 @@ async showGroupInfo(chatId) {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('group-info-modal', modalContent);
-        
-        // ========== EVENT HANDLERS ==========
+
         setTimeout(() => {
-            // Click on group name to edit
             const groupNameClick = document.getElementById('group-name-click');
             if (groupNameClick && userIsAdmin) {
                 groupNameClick.addEventListener('click', () => {
@@ -1887,17 +1849,16 @@ async showGroupInfo(chatId) {
                     setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
                 });
             }
-            
-            // Click on member to show options
+
             document.querySelectorAll('.member-item').forEach(item => {
                 const userId = item.getAttribute('data-user-id');
                 const userName = item.getAttribute('data-user-name');
                 const isMemberAdmin = item.getAttribute('data-is-admin') === 'true';
                 const canManage = item.getAttribute('data-can-manage') === 'true';
                 const isCurrentUser = userId === this.currentUser.uid;
-                
+
                 if (isCurrentUser) return;
-                
+
                 item.addEventListener('click', () => {
                     if (canManage && userIsAdmin) {
                         this.showMemberOptionsModal(chatId, userId, userName, isMemberAdmin);
@@ -1906,8 +1867,7 @@ async showGroupInfo(chatId) {
                     }
                 });
             });
-            
-            // Edit Group Name button
+
             const editNameBtn = document.getElementById('edit-group-name-btn');
             if (editNameBtn) {
                 editNameBtn.addEventListener('click', () => {
@@ -1915,8 +1875,7 @@ async showGroupInfo(chatId) {
                     setTimeout(() => this.showEditGroupNameModal(chatId, chatData.groupName), 300);
                 });
             }
-            
-            // Add Members button
+
             const addMembersBtn = document.getElementById('add-group-members-btn');
             if (addMembersBtn) {
                 addMembersBtn.addEventListener('click', () => {
@@ -1924,8 +1883,7 @@ async showGroupInfo(chatId) {
                     setTimeout(() => this.showAddGroupMembersModal(chatId), 300);
                 });
             }
-            
-            // Leave Group button
+
             const leaveBtn = document.getElementById('leave-group-btn');
             if (leaveBtn) {
                 leaveBtn.addEventListener('click', () => {
@@ -1935,8 +1893,7 @@ async showGroupInfo(chatId) {
                     }
                 });
             }
-            
-            // Delete Group button (admin only)
+
             const deleteBtn = document.getElementById('delete-group-btn');
             if (deleteBtn && userIsAdmin) {
                 deleteBtn.addEventListener('click', () => {
@@ -1946,8 +1903,7 @@ async showGroupInfo(chatId) {
                     }
                 });
             }
-            
-            // Report Group button
+
             const reportGroupBtn = document.getElementById('report-group-btn');
             if (reportGroupBtn) {
                 reportGroupBtn.addEventListener('click', () => {
@@ -1955,16 +1911,15 @@ async showGroupInfo(chatId) {
                     setTimeout(() => this.showReportGroupModal(chatId, chatData.groupName), 300);
                 });
             }
-            
+
         }, 100);
-        
+
     } catch (error) {
         console.error('Error loading group info:', error);
         this.showToast('Error loading group info', 'error');
     }
 }
 
-// ========== SHOW MEMBER OPTIONS ==========
 showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     const modalContent = `
         <div class="modal-content" style="max-width: 360px; z-index: 20003;">
@@ -1994,11 +1949,10 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('member-options-modal', modalContent);
-    
+
     setTimeout(() => {
-        // Make Admin
         const makeAdminBtn = document.getElementById('member-make-admin-btn');
         if (makeAdminBtn) {
             makeAdminBtn.addEventListener('click', async () => {
@@ -2009,8 +1963,7 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
                 }
             });
         }
-        
-        // Remove Admin
+
         const removeAdminBtn = document.getElementById('member-remove-admin-btn');
         if (removeAdminBtn) {
             removeAdminBtn.addEventListener('click', async () => {
@@ -2021,8 +1974,7 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
                 }
             });
         }
-        
-        // Remove Member
+
         const removeBtn = document.getElementById('member-remove-btn');
         if (removeBtn) {
             removeBtn.addEventListener('click', async () => {
@@ -2033,8 +1985,7 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
                 }
             });
         }
-        
-        // Report Member
+
         const reportBtn = document.getElementById('member-report-btn');
         if (reportBtn) {
             reportBtn.addEventListener('click', () => {
@@ -2045,7 +1996,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     }, 100);
 }
 
-// ========== SHOW MEMBER REPORT ONLY (For non-admins) ==========
 showMemberReportOnlyModal(chatId, userId, userName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 360px; z-index: 20003;">
@@ -2076,21 +2026,21 @@ showMemberReportOnlyModal(chatId, userId, userName) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('report-member-only-modal', modalContent);
-    
+
     setTimeout(() => {
         const submitBtn = document.getElementById('submit-report-member-only-btn');
         if (submitBtn) {
             submitBtn.addEventListener('click', async () => {
                 const reason = document.getElementById('report-member-only-reason').value;
                 const details = document.getElementById('report-member-only-details').value;
-                
+
                 if (!reason) {
                     this.showToast('Please select a reason', 'warning');
                     return;
                 }
-                
+
                 await this.db.collection('member_reports').add({
                     chatId: chatId,
                     reportedUserId: userId,
@@ -2102,7 +2052,7 @@ showMemberReportOnlyModal(chatId, userId, userName) {
                     reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'pending'
                 });
-                
+
                 this.showToast('Member reported successfully!', 'success');
                 this.closeModal('report-member-only-modal');
             });
@@ -2110,7 +2060,6 @@ showMemberReportOnlyModal(chatId, userId, userName) {
     }, 100);
 }
 
-// ========== MAKE GROUP ADMIN ==========
 async makeGroupAdmin(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
@@ -2125,7 +2074,6 @@ async makeGroupAdmin(chatId, userId) {
     }
 }
 
-// ========== REMOVE GROUP ADMIN ==========
 async removeGroupAdmin(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
@@ -2140,7 +2088,6 @@ async removeGroupAdmin(chatId, userId) {
     }
 }
 
-// ========== REPORT GROUP ==========
 showReportGroupModal(chatId, groupName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20003;">
@@ -2171,21 +2118,21 @@ showReportGroupModal(chatId, groupName) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('report-group-modal', modalContent);
-    
+
     setTimeout(() => {
         const submitBtn = document.getElementById('submit-report-group-btn');
         if (submitBtn) {
             submitBtn.addEventListener('click', async () => {
                 const reason = document.getElementById('report-group-reason').value;
                 const details = document.getElementById('report-group-details').value;
-                
+
                 if (!reason) {
                     this.showToast('Please select a reason', 'warning');
                     return;
                 }
-                
+
                 await this.db.collection('group_reports').add({
                     chatId: chatId,
                     groupName: groupName,
@@ -2196,7 +2143,7 @@ showReportGroupModal(chatId, groupName) {
                     reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'pending'
                 });
-                
+
                 this.showToast('Group reported successfully! Our team will review it.', 'success');
                 this.closeModal('report-group-modal');
             });
@@ -2204,7 +2151,6 @@ showReportGroupModal(chatId, groupName) {
     }, 100);
 }
 
-// ========== REPORT MEMBER ==========
 showReportMemberModal(chatId, userId, userName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20003;">
@@ -2235,21 +2181,21 @@ showReportMemberModal(chatId, userId, userName) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('report-member-modal', modalContent);
-    
+
     setTimeout(() => {
         const submitBtn = document.getElementById('submit-report-member-btn');
         if (submitBtn) {
             submitBtn.addEventListener('click', async () => {
                 const reason = document.getElementById('report-member-reason').value;
                 const details = document.getElementById('report-member-details').value;
-                
+
                 if (!reason) {
                     this.showToast('Please select a reason', 'warning');
                     return;
                 }
-                
+
                 await this.db.collection('member_reports').add({
                     chatId: chatId,
                     reportedUserId: userId,
@@ -2261,7 +2207,7 @@ showReportMemberModal(chatId, userId, userName) {
                     reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'pending'
                 });
-                
+
                 this.showToast('Member reported successfully! Our team will review it.', 'success');
                 this.closeModal('report-member-modal');
             });
@@ -2269,7 +2215,6 @@ showReportMemberModal(chatId, userId, userName) {
     }, 100);
 }
 
-// ========== REMOVE MEMBER FROM GROUP ==========
 async showRemoveMemberModal(chatId) {
     try {
         const chatDoc = await this.db.collection('chats').doc(chatId).get();
@@ -2277,19 +2222,18 @@ async showRemoveMemberModal(chatId) {
             this.showToast('Group not found', 'error');
             return;
         }
-        
+
         const chatData = chatDoc.data();
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
-        
-        // Filter out the current user (can't remove self)
+
         const membersToRemove = participants.filter(uid => uid !== this.currentUser.uid);
-        
+
         if (membersToRemove.length === 0) {
             this.showToast('No other members to remove', 'info');
             return;
         }
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -2298,7 +2242,7 @@ async showRemoveMemberModal(chatId) {
                 </div>
                 <div style="padding: 20px;">
                     <p style="margin-bottom: 15px; color: var(--text-secondary);">Select a member to remove from this group:</p>
-                    
+
                     <div style="max-height: 300px; overflow-y: auto;">
                         ${membersToRemove.map(uid => {
                             const name = participantNames[uid] || 'User';
@@ -2321,23 +2265,23 @@ async showRemoveMemberModal(chatId) {
                             `;
                         }).join('')}
                     </div>
-                    
+
                     <div class="form-actions" style="margin-top: 20px;">
                         <button class="btn btn-outline" onclick="closeModalById('remove-member-modal')" style="width: 100%;">Cancel</button>
                     </div>
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('remove-member-modal', modalContent);
-        
+
         setTimeout(() => {
             document.querySelectorAll('.remove-member-confirm-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const userId = btn.getAttribute('data-user-id');
                     const userName = btn.getAttribute('data-user-name');
-                    
+
                     if (confirm(`Are you sure you want to remove ${userName} from this group?`)) {
                         await this.removeMemberFromGroup(chatId, userId);
                         this.closeModal('remove-member-modal');
@@ -2345,48 +2289,45 @@ async showRemoveMemberModal(chatId) {
                 });
             });
         }, 100);
-        
+
     } catch (error) {
         console.error('Error loading members for removal:', error);
         this.showToast('Error loading members', 'error');
     }
 }
 
-// ========== REMOVE MEMBER FROM GROUP ==========
 async removeMemberFromGroup(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
         const chatDoc = await chatRef.get();
         const chatData = chatDoc.data();
-        
-        // Can't remove admin/creator
+
         if (chatData.adminId === userId) {
             this.showToast('Cannot remove the group creator', 'warning');
             return;
         }
-        
+
         const participants = chatData.participants || [];
         const newParticipants = participants.filter(uid => uid !== userId);
-        
+
         const participantNames = chatData.participantNames || {};
         delete participantNames[userId];
-        
+
         await chatRef.update({
             participants: newParticipants,
             participantNames: participantNames
         });
-        
+
         this.showToast('Member removed from group', 'success');
         this.loadConversations();
         this.loadChat(chatId);
-        
+
     } catch (error) {
         console.error('Error removing member:', error);
         this.showToast('Error removing member', 'error');
     }
 }
 
-// ========== EDIT GROUP NAME ==========
 async showEditGroupNameModal(chatId, currentName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
@@ -2406,9 +2347,9 @@ async showEditGroupNameModal(chatId, currentName) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('edit-group-name-modal', modalContent);
-    
+
     setTimeout(() => {
         const saveBtn = document.getElementById('save-group-name-btn');
         if (saveBtn) {
@@ -2439,7 +2380,6 @@ async updateGroupName(chatId, newName) {
     }
 }
 
-// ========== ADD MEMBERS TO GROUP ==========
 async showAddGroupMembersModal(chatId) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
@@ -2462,18 +2402,17 @@ async showAddGroupMembersModal(chatId) {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('add-members-modal', modalContent);
-    
+
     const self = this;
     let allUsers = [];
     let selectedNewMembers = new Set();
-    
-    // Get current group members
+
     const chatDoc = await this.db.collection('chats').doc(chatId).get();
     const chatData = chatDoc.data();
     const currentParticipants = chatData.participants || [];
-    
+
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -2492,16 +2431,16 @@ async showAddGroupMembersModal(chatId) {
         const container = document.getElementById('add-member-results');
         if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
     }
-    
+
     function renderAddMemberResults(users) {
         const container = document.getElementById('add-member-results');
         if (!container) return;
-        
+
         if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users available to add</div>';
             return;
         }
-        
+
         container.innerHTML = users.map(user => {
             const isSelected = selectedNewMembers.has(user.id);
             return `
@@ -2519,7 +2458,7 @@ async showAddGroupMembersModal(chatId) {
                 </div>
             `;
         }).join('');
-        
+
         container.querySelectorAll('.add-member-item').forEach(item => {
             item.addEventListener('click', function() {
                 const userId = this.getAttribute('data-user-id');
@@ -2532,7 +2471,7 @@ async showAddGroupMembersModal(chatId) {
             });
         });
     }
-    
+
     setTimeout(() => {
         const searchInput = document.getElementById('add-member-search');
         if (searchInput) {
@@ -2542,14 +2481,14 @@ async showAddGroupMembersModal(chatId) {
                     renderAddMemberResults(allUsers);
                     return;
                 }
-                const filtered = allUsers.filter(user => 
+                const filtered = allUsers.filter(user =>
                     (user.displayName && user.displayName.toLowerCase().includes(query)) ||
                     (user.email && user.email.toLowerCase().includes(query))
                 );
                 renderAddMemberResults(filtered);
             });
         }
-        
+
         const confirmBtn = document.getElementById('add-members-confirm-btn');
         if (confirmBtn) {
             confirmBtn.addEventListener('click', async () => {
@@ -2569,11 +2508,10 @@ async addMembersToGroup(chatId, newMemberIds) {
         const chatRef = this.db.collection('chats').doc(chatId);
         const chatDoc = await chatRef.get();
         const chatData = chatDoc.data();
-        
+
         const currentParticipants = chatData.participants || [];
         const currentParticipantNames = chatData.participantNames || {};
-        
-        // Fetch names for new members
+
         const newNames = {};
         for (const uid of newMemberIds) {
             try {
@@ -2588,63 +2526,58 @@ async addMembersToGroup(chatId, newMemberIds) {
                 newNames[uid] = 'User';
             }
         }
-        
+
         const allParticipants = [...currentParticipants, ...newMemberIds];
         const allNames = { ...currentParticipantNames, ...newNames };
-        
+
         await chatRef.update({
             participants: allParticipants,
             participantNames: allNames
         });
-        
+
         this.showToast(`✅ ${newMemberIds.length} member(s) added!`, 'success');
         this.loadConversations();
         this.loadChat(chatId);
-        
+
     } catch (error) {
         console.error('Error adding members:', error);
         this.showToast('Error adding members', 'error');
     }
 }
 
-// ========== LEAVE GROUP ==========
 async leaveGroup(chatId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
         const chatDoc = await chatRef.get();
         const chatData = chatDoc.data();
-        
+
         const participants = chatData.participants || [];
         const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
-        
-        // Remove participant names
+
         const participantNames = chatData.participantNames || {};
         delete participantNames[this.currentUser.uid];
-        
+
         if (newParticipants.length === 0) {
-            // If no members left, delete the group
             await chatRef.delete();
             this.showToast('Group deleted (no members left)', 'info');
         } else {
-            // Update participants
             await chatRef.update({
                 participants: newParticipants,
                 participantNames: participantNames
             });
-            
-            // If admin left, assign new admin
+
             if (chatData.adminId === this.currentUser.uid && newParticipants.length > 0) {
                 await chatRef.update({
                     adminId: newParticipants[0]
                 });
             }
-            
+
             this.showToast('You left the group', 'info');
         }
-        
+
         this.closeChatWindow();
         this.loadConversations();
-        
+
     } catch (error) {
         console.error('Error leaving group:', error);
         this.showToast('Error leaving group', 'error');
@@ -2662,17 +2595,17 @@ closeChatWindow() {
     }
     this.firstMessageDoc = null;
     this.pendingMessage = null;
-    
+
     const chatContainer = document.getElementById('chat-window-container');
     if (chatContainer) {
         chatContainer.remove();
     }
-    
+
     const messagesContent = document.getElementById('messages-content');
     if (messagesContent) {
         messagesContent.removeAttribute('style');
         messagesContent.innerHTML = this.getMessagesHTML();
-        
+
         setTimeout(() => {
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
@@ -2682,14 +2615,14 @@ closeChatWindow() {
                     this.filterConversations(e.target.value);
                 });
             }
-            
+
             const newChatBtn = document.querySelector('#messages-content .new-chat-btn');
             if (newChatBtn) {
                 const newBtn = newChatBtn.cloneNode(true);
                 newChatBtn.parentNode.replaceChild(newBtn, newChatBtn);
                 newBtn.addEventListener('click', () => this.startNewChat());
             }
-            
+
             this.loadConversations();
         }, 100);
     }
@@ -2698,17 +2631,17 @@ closeChatWindow() {
 async loadChatMessages(chatId, loadMore = false) {
     const messagesContainer = document.getElementById('chat-messages-area');
     if (!messagesContainer) return;
-    
+
     try {
         let query = this.db.collection('chats').doc(chatId).collection('messages')
             .orderBy('timestamp', 'asc');
-        
+
         if (loadMore && this.firstMessageDoc) {
             query = query.endBefore(this.firstMessageDoc);
         }
-        
+
         const snapshot = await query.limit(50).get();
-        
+
         if (snapshot.empty && !loadMore) {
             messagesContainer.innerHTML = `
                 <div class="empty-chat" style="text-align: center; padding: 40px; color: var(--grey-dark);">
@@ -2719,53 +2652,49 @@ async loadChatMessages(chatId, loadMore = false) {
             `;
             return;
         }
-        
+
         const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
+
         if (snapshot.docs.length > 0 && !loadMore) {
             this.firstMessageDoc = snapshot.docs[0];
         }
-        
+
         if (!loadMore) {
             messagesContainer.innerHTML = '';
         } else {
             const oldScrollHeight = messagesContainer.scrollHeight;
             const oldScrollTop = messagesContainer.scrollTop;
-            
-            // Remove existing load more button
+
             const existingBtn = document.getElementById('chat-load-more-btn');
             if (existingBtn) existingBtn.remove();
-            
-            // Add messages at the top
+
             messages.forEach(msg => {
                 const msgElement = this.createMessageElement(msg);
                 msgElement.setAttribute('data-message-id', msg.id || Date.now());
                 messagesContainer.insertBefore(msgElement, messagesContainer.firstChild);
             });
-            
-            // Restore scroll position
+
             const newScrollHeight = messagesContainer.scrollHeight;
             messagesContainer.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
-            
-            // Add load more button again if needed
+
             if (snapshot.docs.length >= 50) {
                 this.addLoadMoreButton(chatId, messagesContainer);
             }
             return;
         }
-        
+
         messages.forEach(msg => {
             const msgElement = this.createMessageElement(msg);
             msgElement.setAttribute('data-message-id', msg.id || Date.now());
             messagesContainer.appendChild(msgElement);
         });
-        
+
         this.scrollToBottom(messagesContainer);
-        
+
         if (snapshot.docs.length >= 50) {
             this.addLoadMoreButton(chatId, messagesContainer);
         }
-        
+
     } catch (error) {
         console.error('Error loading messages:', error);
         messagesContainer.innerHTML = '<div class="error-state" style="text-align: center; padding: 20px; color: var(--danger);">Error loading messages. Please try again.</div>';
@@ -2788,18 +2717,18 @@ addLoadMoreButton(chatId, container) {
 
 createMessageElement(message) {
     const isCurrentUser = message.senderId === this.currentUser?.uid;
-    
+
     const div = document.createElement('div');
     div.className = `chat-message ${isCurrentUser ? 'user' : 'other'}`;
     div.style.cssText = `display: flex; flex-direction: column; margin-bottom: 12px; ${isCurrentUser ? 'align-items: flex-end;' : 'align-items: flex-start;'} max-width: 100%;`;
-    
+
     let attachmentsHtml = '';
     if (message.attachments && message.attachments.length > 0) {
         attachmentsHtml = '<div style="margin-bottom: 8px; max-width: 100%;">';
         for (const att of message.attachments) {
             const isImage = att.type && att.type.startsWith('image/');
             const fileSize = this.formatFileSize(att.size);
-            
+
             if (isImage) {
                 attachmentsHtml += `
                     <div onclick="window.open('${att.url}', '_blank')" style="margin: 5px 0; cursor: pointer; display: inline-block; max-width: 100%;">
@@ -2822,12 +2751,12 @@ createMessageElement(message) {
         }
         attachmentsHtml += '</div>';
     }
-    
+
     const messageText = message.text ? `<div style="word-wrap: break-word; max-width: 100%;">${this.escapeHtml(message.text)}</div>` : '';
     const messageTime = this.formatChatTime(message.timestamp);
-    const statusIcon = isCurrentUser ? 
+    const statusIcon = isCurrentUser ?
         `<span style="margin-left: 5px;"><i class="fas ${message.read ? 'fa-check-double' : 'fa-check'}" style="${message.read ? 'color: #4CAF50;' : 'color: #999;'}"></i></span>` : '';
-    
+
     div.innerHTML = `
         <div style="max-width: 85%; padding: 10px 14px; border-radius: 18px; background: ${isCurrentUser ? 'var(--primary)' : 'var(--bg-secondary)'}; color: ${isCurrentUser ? 'white' : 'var(--text-primary)'}; box-shadow: 0 1px 2px rgba(0,0,0,0.1); ${isCurrentUser ? 'border-bottom-right-radius: 4px;' : 'border-bottom-left-radius: 4px;'} word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">
                 ${attachmentsHtml}
@@ -2838,7 +2767,7 @@ createMessageElement(message) {
                 </div>
             </div>
         `;
-    
+
     return div;
 }
 
@@ -2873,22 +2802,20 @@ scrollToBottom(container) {
 async sendChatMessage(chatId) {
     const input = document.getElementById('chat-message-input');
     const message = input?.value.trim();
-    
+
     if (!message) return;
-    
-    // Prevent duplicate sends
+
     if (this.pendingMessage === message) {
-        console.log('Duplicate message prevented');
         return;
     }
     this.pendingMessage = message;
-    
+
     const sendBtn = document.getElementById('chat-send-btn');
     if (sendBtn) {
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></div>';
     }
-    
+
     try {
         const messageData = {
             senderId: this.currentUser.uid,
@@ -2897,19 +2824,19 @@ async sendChatMessage(chatId) {
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             read: false
         };
-        
+
         await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
-        
+
         await this.db.collection('chats').doc(chatId).update({
             lastMessage: message,
             lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessageBy: this.currentUser.uid
         });
-        
+
         input.value = '';
         input.style.height = 'auto';
         this.pendingMessage = null;
-        
+
     } catch (error) {
         console.error('Error sending message:', error);
         this.showToast('Error sending message', 'error');
@@ -2927,35 +2854,36 @@ async uploadChatAttachment(chatId) {
         this.showToast('Please sign in to upload files', 'warning');
         return;
     }
-    
+
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
+
+        input.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         this.showToast(`Uploading ${files.length} file(s)...`, 'info');
-        
+
         const attachments = [];
         let successCount = 0;
-        
+
         for (const file of files) {
             try {
                 if (file.size > 10 * 1024 * 1024) {
                     this.showToast(`${file.name} is too large (max 10MB)`, 'error');
                     continue;
                 }
-                
+
                 const fileExtension = file.name.split('.').pop();
                 const filename = `chat_attachments/${chatId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
                 const storageRef = firebase.storage().ref(filename);
-                
+
                 const uploadTask = await storageRef.put(file);
                 const downloadURL = await uploadTask.ref.getDownloadURL();
-                
+
                 attachments.push({
                     name: file.name,
                     url: downloadURL,
@@ -2969,7 +2897,7 @@ async uploadChatAttachment(chatId) {
                 this.showToast(`Failed to upload ${file.name}`, 'error');
             }
         }
-        
+
         if (attachments.length > 0) {
             const messageData = {
                 senderId: this.currentUser.uid,
@@ -2979,22 +2907,22 @@ async uploadChatAttachment(chatId) {
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 read: false
             };
-            
+
             await this.db.collection('chats').doc(chatId).collection('messages').add(messageData);
-            
+
             const attachmentText = attachments.length === 1 ? `📎 ${attachments[0].name}` : `📎 ${attachments.length} attachments`;
-            
+
             await this.db.collection('chats').doc(chatId).update({
                 lastMessage: attachmentText,
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
                 lastMessageBy: this.currentUser.uid
             });
-            
+
             this.showToast(`${successCount} file(s) uploaded successfully!`, 'success');
             this.loadChatMessages(chatId);
         }
     };
-    
+
     input.click();
 }
 
@@ -3003,14 +2931,13 @@ setupChatListener(chatId) {
         this.currentChatUnsubscribe();
         this.currentChatUnsubscribe = null;
     }
-    
+
     this.currentChatUnsubscribe = this.db.collection('chats').doc(chatId).collection('messages')
         .orderBy('timestamp', 'asc')
         .onSnapshot((snapshot) => {
             snapshot.docChanges().forEach(change => {
                 if (change.type === 'added') {
                     const message = { id: change.doc.id, ...change.doc.data() };
-                    // Check if message already exists before appending
                     const messagesContainer = document.getElementById('chat-messages-area');
                     if (messagesContainer) {
                         const existing = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
@@ -3018,7 +2945,7 @@ setupChatListener(chatId) {
                             this.appendNewMessage(message);
                         }
                     }
-                    
+
                     if (message.senderId !== this.currentUser?.uid && !message.read) {
                         this.markMessageAsRead(chatId, change.doc.id);
                     }
@@ -3027,7 +2954,7 @@ setupChatListener(chatId) {
         }, (error) => {
             console.error('Chat listener error:', error);
         });
-    
+
     const typingRef = this.db.collection('chats').doc(chatId).collection('typing').doc('status');
     if (this.typingUnsubscribe) {
         this.typingUnsubscribe();
@@ -3050,14 +2977,14 @@ setupChatListener(chatId) {
 
 async sendTypingIndicator(chatId, isTyping) {
     if (!this.currentUser) return;
-    
+
     const typingRef = this.db.collection('chats').doc(chatId).collection('typing').doc('status');
     await typingRef.set({
         userId: this.currentUser.uid,
         isTyping: isTyping,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
-    
+
     if (isTyping) {
         setTimeout(async () => {
             const doc = await typingRef.get();
@@ -3074,13 +3001,13 @@ async sendTypingIndicator(chatId, isTyping) {
 
 async markMessagesAsRead(chatId) {
     if (!this.currentUser) return;
-    
+
     const messagesRef = this.db.collection('chats').doc(chatId).collection('messages');
     const unreadSnapshot = await messagesRef
         .where('senderId', '!=', this.currentUser.uid)
         .where('read', '==', false)
         .get();
-    
+
     const batch = this.db.batch();
     unreadSnapshot.forEach(doc => {
         batch.update(doc.ref, { read: true });
@@ -3096,21 +3023,19 @@ async markMessageAsRead(chatId, messageId) {
 appendNewMessage(message) {
     const messagesContainer = document.getElementById('chat-messages-area');
     if (!messagesContainer) return;
-    
-    // Remove empty state if present
+
     const emptyState = messagesContainer.querySelector('.empty-chat');
     if (emptyState) {
         messagesContainer.innerHTML = '';
     }
-    
-    // Check if message already exists (prevent duplicates)
+
     const existingMessages = messagesContainer.querySelectorAll('.chat-message');
     for (const el of existingMessages) {
         if (el.getAttribute('data-message-id') === message.id) {
-            return; // Message already exists
+            return;
         }
     }
-    
+
     const msgElement = this.createMessageElement(message);
     msgElement.setAttribute('data-message-id', message.id || Date.now());
     messagesContainer.appendChild(msgElement);
@@ -3119,7 +3044,7 @@ appendNewMessage(message) {
 
 formatChatTime(timestamp) {
     if (!timestamp) return '';
-    
+
     let date;
     if (timestamp && timestamp.toDate) {
         date = timestamp.toDate();
@@ -3130,11 +3055,11 @@ formatChatTime(timestamp) {
     } else {
         return '';
     }
-    
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     if (msgDate.getTime() === today.getTime()) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else {
@@ -3148,7 +3073,7 @@ async startNewChat() {
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
@@ -3175,10 +3100,9 @@ async startNewChat() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('new-chat-options-modal', modalContent);
-    
-    // Fix: Use arrow functions to preserve 'this' context
+
     setTimeout(() => {
         const individualBtn = document.getElementById('new-individual-chat-btn');
         if (individualBtn) {
@@ -3187,7 +3111,7 @@ async startNewChat() {
                 setTimeout(() => this.showIndividualChatModal(), 300);
             });
         }
-        
+
         const groupBtn = document.getElementById('new-group-chat-btn');
         if (groupBtn) {
             groupBtn.addEventListener('click', () => {
@@ -3195,8 +3119,7 @@ async startNewChat() {
                 setTimeout(() => this.showGroupChatModal(), 300);
             });
         }
-        
-        // Also handle close button by ID
+
         const closeBtn = document.querySelector('#new-chat-options-modal .close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -3206,10 +3129,9 @@ async startNewChat() {
     }, 100);
 }
 
-// ========== INDIVIDUAL CHAT MODAL ==========
 async showIndividualChatModal() {
     if (!this.currentUser) return;
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
@@ -3235,15 +3157,13 @@ async showIndividualChatModal() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('individual-chat-modal', modalContent);
-    
-    // Store reference to this for use in nested functions
+
     const self = this;
     let allUsers = [];
     let selectedUserId = null;
-    
-    // Load users
+
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -3262,16 +3182,16 @@ async showIndividualChatModal() {
         const container = document.getElementById('user-search-results');
         if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
     }
-    
+
     function renderUserResults(users) {
         const container = document.getElementById('user-search-results');
         if (!container) return;
-        
+
         if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
             return;
         }
-        
+
         container.innerHTML = users.map(user => `
             <div class="user-search-item" data-user-id="${user.id}" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s;">
                 <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
@@ -3284,8 +3204,7 @@ async showIndividualChatModal() {
                 <div class="user-select-indicator" style="width: 20px; height: 20px; border: 2px solid var(--grey); border-radius: 50%; flex-shrink: 0;"></div>
             </div>
         `).join('');
-        
-        // Click handler for user selection
+
         container.querySelectorAll('.user-search-item').forEach(item => {
             item.addEventListener('click', function() {
                 container.querySelectorAll('.user-search-item').forEach(el => {
@@ -3315,8 +3234,7 @@ async showIndividualChatModal() {
             });
         });
     }
-    
-    // Search functionality
+
     setTimeout(() => {
         const searchInput = document.getElementById('chat-user-search');
         if (searchInput) {
@@ -3326,14 +3244,14 @@ async showIndividualChatModal() {
                     renderUserResults(allUsers);
                     return;
                 }
-                const filtered = allUsers.filter(user => 
+                const filtered = allUsers.filter(user =>
                     (user.displayName && user.displayName.toLowerCase().includes(query)) ||
                     (user.email && user.email.toLowerCase().includes(query))
                 );
                 renderUserResults(filtered);
             });
         }
-        
+
         const createBtn = document.getElementById('create-individual-chat-btn');
         if (createBtn) {
             createBtn.addEventListener('click', async function() {
@@ -3353,10 +3271,9 @@ async showIndividualChatModal() {
     }, 200);
 }
 
-// ========== GROUP CHAT MODAL ==========
 async showGroupChatModal() {
     if (!this.currentUser) return;
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
             <div class="modal-header">
@@ -3390,14 +3307,13 @@ async showGroupChatModal() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('group-chat-modal', modalContent);
-    
+
     const self = this;
     let allUsers = [];
     let selectedMembers = new Set();
-    
-    // Load users
+
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -3416,16 +3332,16 @@ async showGroupChatModal() {
         const container = document.getElementById('group-user-search-results');
         if (container) container.innerHTML = '<div class="error-state">Error loading users</div>';
     }
-    
+
     function renderGroupUserResults(users) {
         const container = document.getElementById('group-user-search-results');
         if (!container) return;
-        
+
         if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--grey-dark);">No users found</div>';
             return;
         }
-        
+
         container.innerHTML = users.map(user => {
             const isSelected = selectedMembers.has(user.id);
             return `
@@ -3443,7 +3359,7 @@ async showGroupChatModal() {
                 </div>
             `;
         }).join('');
-        
+
         container.querySelectorAll('.group-user-item').forEach(item => {
             item.addEventListener('click', function() {
                 const userId = this.getAttribute('data-user-id');
@@ -3457,19 +3373,19 @@ async showGroupChatModal() {
             });
         });
     }
-    
+
     function updateSelectedMembersUI() {
         const list = document.getElementById('selected-members-list');
         const count = document.getElementById('selected-members-count');
         if (!list) return;
         if (count) count.textContent = selectedMembers.size;
-        
+
         list.innerHTML = '';
         if (selectedMembers.size === 0) {
             list.innerHTML = '<span style="color: var(--grey-dark); font-size: 0.8rem; padding: 4px 8px;">No members selected</span>';
             return;
         }
-        
+
         selectedMembers.forEach(userId => {
             const user = allUsers.find(u => u.id === userId);
             const name = user ? user.displayName || 'User' : 'User';
@@ -3491,8 +3407,7 @@ async showGroupChatModal() {
             list.appendChild(div);
         });
     }
-    
-    // Search functionality
+
     setTimeout(() => {
         const searchInput = document.getElementById('group-user-search');
         if (searchInput) {
@@ -3502,14 +3417,14 @@ async showGroupChatModal() {
                     renderGroupUserResults(allUsers);
                     return;
                 }
-                const filtered = allUsers.filter(user => 
+                const filtered = allUsers.filter(user =>
                     (user.displayName && user.displayName.toLowerCase().includes(query)) ||
                     (user.email && user.email.toLowerCase().includes(query))
                 );
                 renderGroupUserResults(filtered);
             });
         }
-        
+
         const createBtn = document.getElementById('create-group-chat-btn');
         if (createBtn) {
             createBtn.addEventListener('click', async function() {
@@ -3530,17 +3445,14 @@ async showGroupChatModal() {
     }, 200);
 }
 
-// ========== CREATE GROUP CHAT ==========
 async createGroupChat(groupName, memberIds, initialMessage) {
     if (!this.currentUser) {
         this.showToast('Please sign in to create a group', 'warning');
         return;
     }
-    
-    // Prevent duplicate creation
+
     const allParticipants = [this.currentUser.uid, ...memberIds];
-    
-    // Fetch user names for all participants
+
     const userNames = {};
     for (const uid of allParticipants) {
         if (uid === this.currentUser.uid) {
@@ -3559,17 +3471,15 @@ async createGroupChat(groupName, memberIds, initialMessage) {
             }
         }
     }
-    
-    // Check if group with same participants already exists (regardless of name)
+
     const existingGroups = await this.db.collection('chats')
         .where('isGroup', '==', true)
         .get();
-    
+
     for (const doc of existingGroups.docs) {
         const data = doc.data();
         const participants = data.participants || [];
-        // Check if all participants match (order doesn't matter)
-        const allMatch = allParticipants.every(p => participants.includes(p)) && 
+        const allMatch = allParticipants.every(p => participants.includes(p)) &&
                          participants.every(p => allParticipants.includes(p));
         if (allMatch) {
             this.showToast('A group with these members already exists!', 'warning');
@@ -3578,7 +3488,7 @@ async createGroupChat(groupName, memberIds, initialMessage) {
             return;
         }
     }
-    
+
     const chatData = {
         participants: allParticipants,
         participantNames: userNames,
@@ -3590,11 +3500,10 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         lastMessage: initialMessage || 'Welcome to the group!',
         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    
+
     try {
         const chatRef = await this.db.collection('chats').add(chatData);
-        
-        // Send initial message
+
         await chatRef.collection('messages').add({
             senderId: this.currentUser.uid,
             senderName: this.currentUser.displayName || this.currentUser.email || 'User',
@@ -3602,10 +3511,9 @@ async createGroupChat(groupName, memberIds, initialMessage) {
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             read: false
         });
-        
+
         this.showToast('✅ Group chat created successfully!', 'success');
-        
-        // Close the modal properly
+
         const groupModal = document.getElementById('group-chat-modal');
         if (groupModal) {
             groupModal.style.display = 'none';
@@ -3616,13 +3524,12 @@ async createGroupChat(groupName, memberIds, initialMessage) {
                 }
             }, 300);
         }
-        
-        // Refresh conversations and open the new group chat
+
         await this.loadConversations();
         setTimeout(() => {
             this.loadChat(chatRef.id);
         }, 500);
-        
+
     } catch (error) {
         console.error('Error creating group chat:', error);
         this.showToast('Error creating group: ' + error.message, 'error');
@@ -3635,17 +3542,16 @@ async startChatWithUser(userId, initialMessage) {
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
-    
+
     if (!userId) {
         this.showToast('Invalid user', 'error');
         return;
     }
-    
-    // Check for existing chat
+
     const existingChat = await this.db.collection('chats')
         .where('participants', 'array-contains', this.currentUser.uid)
         .get();
-    
+
     let chatRef = null;
     for (const doc of existingChat.docs) {
         const participants = doc.data().participants;
@@ -3654,7 +3560,7 @@ async startChatWithUser(userId, initialMessage) {
             break;
         }
     }
-    
+
     if (!chatRef) {
         const chatData = {
             participants: [this.currentUser.uid, userId],
@@ -3664,7 +3570,7 @@ async startChatWithUser(userId, initialMessage) {
         };
         chatRef = await this.db.collection('chats').add(chatData);
     }
-    
+
     await chatRef.collection('messages').add({
         senderId: this.currentUser.uid,
         senderName: this.currentUser.displayName || this.currentUser.email || 'User',
@@ -3672,13 +3578,13 @@ async startChatWithUser(userId, initialMessage) {
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         read: false
     });
-    
+
     await chatRef.update({
         lastMessage: initialMessage,
         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastMessageBy: this.currentUser.uid
     });
-    
+
     this.showToast('Message sent!', 'success');
     await this.loadConversations();
     this.loadChat(chatRef.id);
@@ -3696,7 +3602,7 @@ filterAlerts(filter) {
         activeBtn.style.background = 'var(--primary)';
         activeBtn.style.color = 'white';
     }
-    
+
     document.querySelectorAll('.alert-card').forEach(card => {
         if (filter === 'all' || card.getAttribute('data-type') === filter) {
             card.style.display = 'block';
@@ -3712,7 +3618,7 @@ switchSafetyCategory(cat) {
     });
     const selectedContent = document.querySelector(`[data-safety-content="${cat}"]`);
     if (selectedContent) selectedContent.style.display = 'block';
-    
+
     document.querySelectorAll('.safety-cat-btn').forEach(btn => {
         btn.style.background = 'var(--light)';
         btn.style.color = 'var(--dark)';
@@ -3725,58 +3631,27 @@ switchSafetyCategory(cat) {
 }
 
 switchMoreTab(tabId) {
-    console.log('Switching to tab:', tabId);
-    
-    const chatWindow = document.getElementById('chat-window-container');
-    if (chatWindow) {
-        if (this.currentChatUnsubscribe) {
-            this.currentChatUnsubscribe();
-            this.currentChatUnsubscribe = null;
-        }
-        if (this.typingUnsubscribe) {
-            this.typingUnsubscribe();
-            this.typingUnsubscribe = null;
-        }
-        this.firstMessageDoc = null;
-        this.pendingMessage = null;
-        chatWindow.remove();
-    }
-    
-    const messagesContent = document.getElementById('messages-content');
-    if (messagesContent) {
-        messagesContent.removeAttribute('style');
-        messagesContent.innerHTML = this.getMessagesHTML();
-        messagesContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
-    }
-    
-    const chatModals = document.querySelectorAll('.modal:not(#auth-modal)');
-    chatModals.forEach(modal => {
-        if (modal.id !== 'auth-modal' && modal.id !== 'rating-modal') {
-            modal.remove();
-        }
-    });
-    
     this.currentMoreTab = tabId;
-    
+
     document.querySelectorAll('.more-tab-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`.more-tab-btn[data-more-tab="${tabId}"]`);
     if (activeBtn) activeBtn.classList.add('active');
-    
+
     document.querySelectorAll('.more-tab-content').forEach(content => {
         content.classList.remove('active');
         content.style.display = 'none';
     });
-    
+
     const targetContent = document.getElementById(`${tabId}-content`);
     if (targetContent) {
         targetContent.classList.add('active');
         targetContent.style.display = 'block';
         targetContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
     }
-    
+
     if (tabId === 'messages') {
         this.loadConversations();
-        
+
         setTimeout(() => {
             const searchInput = document.getElementById('message-search-input');
             if (searchInput) {
@@ -3822,12 +3697,12 @@ async showRatingModal() {
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
-    
+
     if (this.hasRated) {
         this.showToast('You have already rated! Thank you!', 'info');
         return;
     }
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; text-align: center; z-index: 20002;">
             <div class="modal-header">
@@ -3854,12 +3729,12 @@ async showRatingModal() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('rating-modal', modalContent);
-    
+
     let selectedRating = 0;
     const stars = document.querySelectorAll('#rating-modal .rating-stars i');
-    
+
     stars.forEach(star => {
         star.addEventListener('mouseenter', () => {
             const rating = parseInt(star.getAttribute('data-rating'));
@@ -3868,14 +3743,14 @@ async showRatingModal() {
                 else s.className = 'far fa-star';
             });
         });
-        
+
         star.addEventListener('mouseleave', () => {
             stars.forEach((s, index) => {
                 if (index < selectedRating) s.className = 'fas fa-star';
                 else s.className = 'far fa-star';
             });
         });
-        
+
         star.addEventListener('click', () => {
             selectedRating = parseInt(star.getAttribute('data-rating'));
             stars.forEach((s, index) => {
@@ -3884,7 +3759,7 @@ async showRatingModal() {
             });
         });
     });
-    
+
     const submitBtn = document.querySelector('#rating-modal .submit-rating-btn');
     if (submitBtn) {
         submitBtn.addEventListener('click', async () => {
@@ -3907,16 +3782,16 @@ async submitRating(rating) {
             comment: document.getElementById('rating-feedback')?.value || '',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
+
         const founderRef = this.db.collection('system_settings').doc('founder');
         await this.db.runTransaction(async (transaction) => {
             const founderDoc = await transaction.get(founderRef);
             const currentData = founderDoc.data() || { totalStars: 0, ratingCount: 0 };
-            
+
             const newTotalStars = (currentData.totalStars || 0) + rating;
             const newCount = (currentData.ratingCount || 0) + 1;
             const newAverage = newTotalStars / newCount;
-            
+
             transaction.update(founderRef, {
                 totalStars: newTotalStars,
                 ratingCount: newCount,
@@ -3924,10 +3799,10 @@ async submitRating(rating) {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         });
-        
+
         this.hasRated = true;
         this.showToast(`✨ Thanks! You've added ${rating} stars! ✨`, 'success');
-        
+
         const settingsContent = document.getElementById('settings-content');
         if (settingsContent) {
             const newSettingsHTML = await this.getSettingsHTML();
@@ -3943,25 +3818,25 @@ async submitRating(rating) {
 
 async showFounderProfile() {
     const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-    const founder = founderDoc.data() || { 
-        name: 'VikeServe', 
-        totalStars: 0, 
-        ratingCount: 0, 
-        averageRating: 5.0, 
-        email: 'vikeserve426@gmail.com', 
-        county: 'Bungoma', 
-        country: 'Kenya', 
-        schools: 'Nalondo Boys High School, KYU', 
-        achievements: 'Telecommunication & Information Engineer (TIE)', 
-        bio: 'Telecommunication and information engineer.' 
+    const founder = founderDoc.data() || {
+        name: 'VikeServe',
+        totalStars: 0,
+        ratingCount: 0,
+        averageRating: 5.0,
+        email: 'vikeserve426@gmail.com',
+        county: 'Bungoma',
+        country: 'Kenya',
+        schools: 'Nalondo Boys High School, KYU',
+        achievements: 'Telecommunication & Information Engineer (TIE)',
+        bio: 'Telecommunication and information engineer.'
     };
-    
+
     const announcementsSnapshot = await this.db.collection('announcements')
         .orderBy('date', 'desc')
         .limit(10)
         .get();
     const announcements = announcementsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
+
     const modalContent = `
         <div class="modal-content" style="max-width: 500px; z-index: 20002; max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
@@ -3976,7 +3851,7 @@ async showFounderProfile() {
                     <h2 style="margin: 0;">Founder</h2>
                     <p style="color: var(--grey-dark);">Lead Developer</p>
                     <p><i class="fas fa-envelope"></i> ${this.escapeHtml(founder.email || 'vikeserve426@gmail.com')}</p>
-                    
+
                     <div style="background: var(--light); padding: 15px; border-radius: 12px; margin-top: 10px;">
                         <div style="display: flex; justify-content: space-around;">
                             <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">${(founder.totalStars || 0).toLocaleString()}</div><div style="font-size: 0.7rem;">Total Stars</div></div>
@@ -3985,7 +3860,7 @@ async showFounderProfile() {
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-user-circle"></i> Personal Details</h4>
                     <div style="margin-top: 10px;">
@@ -3999,22 +3874,22 @@ async showFounderProfile() {
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-graduation-cap"></i> Education</h4>
                     <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.schools || 'Nalondo Boys High School, KYU')}</p>
                 </div>
-                
+
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-trophy"></i> Achievements</h4>
                     <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.achievements || 'Telecommunication & Information Engineer (TIE)')}</p>
                 </div>
-                
+
                 <div style="background: var(--light); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                     <h4><i class="fas fa-info-circle"></i> About</h4>
                     <p style="margin-top: 10px; font-size: 0.85rem;">${this.escapeHtml(founder.bio || 'Telecommunication and information engineer.')}</p>
                 </div>
-                
+
                 <div style="background: var(--light); border-radius: 12px; padding: 15px;">
                     <h4><i class="fas fa-megaphone"></i> App Updates & Announcements</h4>
                     <div id="announcements-list" style="margin-top: 10px;">
@@ -4031,7 +3906,7 @@ async showFounderProfile() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('founder-profile-modal', modalContent);
 }
 
@@ -4055,40 +3930,40 @@ async showTermsPopup() {
     try {
         const termsDoc = await this.db.collection('system_settings').doc('terms').get();
         let termsContent = '';
-        
+
         if (termsDoc.exists) {
             termsContent = termsDoc.data().content;
         } else {
             termsContent = `
                 <h4>1. Acceptance of Terms</h4>
                 <p>By using VikeServe, you agree to these terms and conditions.</p>
-                
+
                 <h4>2. User Responsibilities</h4>
                 <p>You are responsible for the accuracy of information you provide and for your interactions with other users.</p>
-                
+
                 <h4>3. Prohibited Activities</h4>
                 <p>You may not post false information, spam, or engage in fraudulent activities.</p>
-                
+
                 <h4>4. Payments and Fees</h4>
                 <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
-                
+
                 <h4>5. Intellectual Property</h4>
                 <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
-                
+
                 <h4>6. Limitation of Liability</h4>
                 <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
-                
+
                 <h4>7. Termination</h4>
                 <p>We reserve the right to suspend accounts that violate these terms.</p>
-                
+
                 <h4>8. Changes to Terms</h4>
                 <p>We may update terms. Continued use means acceptance of changes.</p>
-                
+
                 <h4>9. Contact</h4>
                 <p>For questions, contact vikeserve426@gmail.com</p>
             `;
         }
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; z-index: 20002;">
                 <div class="modal-header">
@@ -4103,9 +3978,9 @@ async showTermsPopup() {
                 </div>
             </div>
         `;
-        
+
         this.showModalWithContent('terms-modal', modalContent);
-        
+
         setTimeout(() => {
             const understandBtn = document.querySelector('#terms-modal .close-modal-btn');
             if (understandBtn) {
@@ -4114,7 +3989,7 @@ async showTermsPopup() {
                 });
             }
         }, 100);
-        
+
     } catch (error) {
         console.error('Error loading terms:', error);
         this.showToast('Unable to load terms. Please try again.', 'error');
@@ -4131,19 +4006,19 @@ showPrivacyPolicy() {
             <div style="padding: 15px; max-height: 60vh; overflow-y: auto;">
                 <h4>Information We Collect</h4>
                 <p>We collect your name, email, phone number, location, and usage data to provide better services.</p>
-                
+
                 <h4>How We Use Your Information</h4>
                 <p>We use your information to connect you with service providers, process payments, and improve our app.</p>
-                
+
                 <h4>Data Security</h4>
                 <p>We use encryption and secure servers to protect your data. Your payment information is processed securely through IntaSend.</p>
-                
+
                 <h4>Third-Party Services</h4>
                 <p>We use Firebase for database and authentication, and IntaSend for payment processing.</p>
-                
+
                 <h4>Your Rights</h4>
                 <p>You can request to view, update, or delete your personal data by contacting us.</p>
-                
+
                 <h4>Contact Us</h4>
                 <p>For privacy questions, contact vikeserve426@gmail.com</p>
             </div>
@@ -4152,9 +4027,9 @@ showPrivacyPolicy() {
             </div>
         </div>
     `;
-    
+
     this.showModalWithContent('privacy-modal', modalContent);
-    
+
     setTimeout(() => {
         const understandBtn = document.querySelector('#privacy-modal .close-modal-btn');
         if (understandBtn) {
@@ -4211,7 +4086,7 @@ showModalWithContent(modalId, content) {
     if (existingModal) {
         existingModal.remove();
     }
-    
+
     const modal = document.createElement('div');
     modal.id = modalId;
     modal.className = 'modal';
@@ -4226,7 +4101,7 @@ showModalWithContent(modalId, content) {
     modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
     modal.style.overflowY = 'auto';
     document.body.appendChild(modal);
-    
+
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             this.closeModal(modalId);
@@ -4288,7 +4163,7 @@ escapeHtml(text) {
 
 async loadUserPoints() {
     if (!this.currentUser) return 0;
-    
+
     try {
         let points = 0;
         if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPoints) {
@@ -4297,16 +4172,16 @@ async loadUserPoints() {
             const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
             points = userDoc.exists ? (userDoc.data().points || 0) : 0;
         }
-        
+
         const pointsDisplay = document.getElementById('user-points-display');
         if (pointsDisplay) {
             pointsDisplay.textContent = points.toLocaleString();
         }
-        
+
         document.querySelectorAll('.user-points-display').forEach(el => {
             el.textContent = points.toLocaleString();
         });
-        
+
         return points;
     } catch (error) {
         console.error('Error loading user points:', error);
@@ -4320,7 +4195,7 @@ async showPointsHistory() {
         if (typeof window.openAuthModal === 'function') window.openAuthModal();
         return;
     }
-    
+
     try {
         let transactions = [];
         if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.getUserPointsHistory) {
@@ -4333,12 +4208,12 @@ async showPointsHistory() {
                 .get();
             transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
-        
+
         const historyHtml = transactions.map(t => {
             const date = t.createdAt?.toDate ? this.formatDate(t.createdAt.toDate()) : this.formatDate(t.createdAt);
             const isEarn = t.amount > 0;
             const reasonText = t.reason || (isEarn ? 'Review received' : 'Ad promotion');
-            
+
             return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grey);">
                     <div>
@@ -4354,7 +4229,7 @@ async showPointsHistory() {
                 </div>
             `;
         }).join('');
-        
+
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; max-height: 70vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -4366,7 +4241,7 @@ async showPointsHistory() {
                 </div>
             </div>
         `;
-        
+
         const modal = document.createElement('div');
         modal.id = 'points-history-modal';
         modal.className = 'modal';
@@ -4374,12 +4249,12 @@ async showPointsHistory() {
         modal.style.zIndex = '20002';
         modal.innerHTML = modalContent;
         document.body.appendChild(modal);
-        
+
         window.closePointsHistoryModal = () => {
             const m = document.getElementById('points-history-modal');
             if (m) m.remove();
         };
-        
+
     } catch (error) {
         console.error('Error loading points history:', error);
         this.showToast('Error loading points history', 'error');
@@ -4399,10 +4274,10 @@ formatDate(timestamp) {
         } else {
             return 'Recently';
         }
-        
+
         const now = new Date();
         const diff = now - date;
-        
+
         if (diff < 60000) return 'Just now';
         if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
@@ -4412,7 +4287,7 @@ formatDate(timestamp) {
         return 'Recently';
     }
 }
-}
+} // END OF CLASS
 
 document.addEventListener('DOMContentLoaded', function() {
     window.moreMenuManager = new MoreMenuManager();
@@ -4425,7 +4300,7 @@ window.addAppAnnouncement = async function(title, message) {
             console.log('❌ Please sign in first');
             return { success: false, error: 'Not signed in' };
         }
-        
+
         const announcement = {
             title: title,
             message: message,
@@ -4435,15 +4310,15 @@ window.addAppAnnouncement = async function(title, message) {
             createdBy: currentUser.uid,
             createdByName: currentUser.displayName || currentUser.email
         };
-        
+
         await firebase.firestore().collection('announcements').add(announcement);
         console.log(`✅ Announcement added: "${title}"`);
-        
+
         const founderModal = document.getElementById('founder-profile-modal');
         if (founderModal && founderModal.style.display === 'flex') {
             window.moreMenuManager.showFounderProfile();
         }
-        
+
         return { success: true };
     } catch (error) {
         console.error('Error adding announcement:', error);
@@ -4451,13 +4326,11 @@ window.addAppAnnouncement = async function(title, message) {
     }
 };
 
-// ========== GLOBAL MODAL CLOSE FUNCTION ==========
 window.closeModalById = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.remove();
     }
-    // Also try to close via the manager
     if (window.moreMenuManager && typeof window.moreMenuManager.closeModal === 'function') {
         window.moreMenuManager.closeModal(modalId);
     }
@@ -4470,15 +4343,15 @@ window.updateFounderDetails = async function(details) {
             console.log('❌ Only founder can update these details');
             return { success: false, error: 'Admin only' };
         }
-        
+
         const founderRef = firebase.firestore().collection('system_settings').doc('founder');
         await founderRef.update({
             ...details,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
+
         console.log('✅ Founder details updated:', details);
-        
+
         const settingsContent = document.getElementById('settings-content');
         if (settingsContent) {
             const newHTML = await window.moreMenuManager.getSettingsHTML();
@@ -4486,7 +4359,7 @@ window.updateFounderDetails = async function(details) {
             settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
             window.moreMenuManager.setupEventListeners();
         }
-        
+
         return { success: true };
     } catch (error) {
         console.error('Error updating founder details:', error);

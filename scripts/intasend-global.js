@@ -6,7 +6,7 @@ class VikeServeGlobalPayments {
                 environment: 'live'
             }
         };
-        
+
         this.userCountry = 'KE';
         this.userCurrency = 'KES';
         this.userId = null;
@@ -26,13 +26,11 @@ class VikeServeGlobalPayments {
             'GHS': 0.11,
             'ZAR': 0.14
         };
-        
+
         this.init();
     }
 
     async init() {
-        console.log('🌍 VikeServe Global Payments initializing...');
-        
         if (typeof firebase !== 'undefined' && firebase.auth) {
             firebase.auth().onAuthStateChanged(async (user) => {
                 if (user) {
@@ -46,12 +44,11 @@ class VikeServeGlobalPayments {
                 }
             });
         }
-        
+
         await this.detectUserCountry();
         await this.setupPaymentStatusListener();
-        
-        console.log('✅ Payment system ready! Country:', this.userCountry, 'Currency:', this.userCurrency);
-    }
+
+        }
 
     async loadUserPoints() {
         if (!this.userId) return 0;
@@ -62,7 +59,6 @@ class VikeServeGlobalPayments {
                 const userDoc = await firebase.firestore().collection('users').doc(this.userId).get();
                 this.userPoints = userDoc.exists ? (userDoc.data().points || 0) : 0;
             }
-            console.log('💰 User points loaded:', this.userPoints);
             return this.userPoints;
         } catch (error) {
             console.error('Error loading user points:', error);
@@ -78,7 +74,7 @@ class VikeServeGlobalPayments {
                 const locationData = JSON.parse(savedLocation);
                 this.userCountry = this.getCountryCode(locationData.country || '');
             }
-            
+
             if (typeof window.getCurrentLocation === 'function') {
                 const appLocation = window.getCurrentLocation();
                 if (appLocation && appLocation.country) {
@@ -88,7 +84,7 @@ class VikeServeGlobalPayments {
         } catch (error) {
             this.userCountry = 'KE';
         }
-        
+
         this.userCurrency = this.getCurrencyForCountry(this.userCountry);
     }
 
@@ -113,19 +109,19 @@ class VikeServeGlobalPayments {
     async convertCurrency(amount, fromCurrency = 'KES', toCurrency = null) {
         const targetCurrency = toCurrency || this.userCurrency;
         if (fromCurrency === targetCurrency) return amount;
-        
+
         const fromRate = this.exchangeRates[fromCurrency] || 1;
         const toRate = this.exchangeRates[targetCurrency] || 1;
-        
+
         const amountInKES = amount / fromRate;
         const convertedAmount = amountInKES * toRate;
-        
+
         return Math.round(convertedAmount);
     }
 
     getAvailablePaymentMethods(country = null) {
         const activeCountry = country || this.userCountry;
-        
+
         const methods = {
             'KE': [
                 { id: 'mpesa', name: 'M-Pesa', icon: 'fas fa-mobile-alt', type: 'mobile_money', provider: 'SAFARICOM' },
@@ -150,13 +146,13 @@ class VikeServeGlobalPayments {
                 { id: 'paypal', name: 'PayPal', icon: 'fab fa-paypal', type: 'paypal' }
             ]
         };
-        
+
         return methods[activeCountry] || methods['DEFAULT'];
     }
 
     async checkLoginAndContinue(callback) {
         const user = firebase.auth().currentUser;
-        
+
         if (!user) {
             if (typeof window.showAuthModal === 'function') {
                 window.showAuthModal();
@@ -165,7 +161,7 @@ class VikeServeGlobalPayments {
             }
             return false;
         }
-        
+
         this.userId = user.uid;
         this.userEmail = user.email;
         this.userPhone = user.phoneNumber || '';
@@ -188,16 +184,14 @@ class VikeServeGlobalPayments {
     }
 
     async showAdPackagesModal(adId = null) {
-        console.log('showAdPackagesModal called with adId:', adId);
-        
         const isLoggedIn = await this.checkLoginAndContinue(() => {
             this.showAdPackagesModal(adId);
         });
-        
+
         if (!isLoggedIn) return;
-        
+
         const userAds = await this.getUserAds();
-        
+
         if (userAds.length === 0) {
             window.showToast('You don\'t have any ads yet. Please create an ad first!', 'warning');
             setTimeout(() => {
@@ -207,9 +201,9 @@ class VikeServeGlobalPayments {
             }, 1000);
             return;
         }
-        
+
         const modalContent = this.createFullAdPromotionModal(userAds, adId);
-        
+
         let modal = document.getElementById('ad-packages-full-modal');
         if (!modal) {
             modal = document.createElement('div');
@@ -217,11 +211,11 @@ class VikeServeGlobalPayments {
             modal.className = 'modal';
             document.body.appendChild(modal);
         }
-        
+
         modal.innerHTML = modalContent;
         modal.style.display = 'flex';
         modal.style.zIndex = '10001';
-        
+
         setTimeout(() => {
             this.setupAdPromotionModalEvents(adId);
         }, 100);
@@ -234,16 +228,16 @@ class VikeServeGlobalPayments {
             { id: 'pro', name: 'Pro Featured', price: 500, duration: 14, color: '#f39c12', tag: 'HOT', maxPoints: 150 },
             { id: 'vip', name: 'VIP Spotlight', price: 1000, duration: 30, color: '#e74c3c', tag: 'VIP', maxPoints: 300 }
         ];
-        
+
         const currentMethods = this.getAvailablePaymentMethods();
-        
+
         return `
             <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header">
                     <div class="modal-title"><i class="fas fa-rocket"></i> Promote Your Ad</div>
                     <button class="close-modal-btn" onclick="document.getElementById('ad-packages-full-modal').style.display='none'">&times;</button>
                 </div>
-                
+
                 <div style="padding: 20px;">
                     <div class="promotion-steps" style="display: flex; margin-bottom: 30px; justify-content: space-between;">
                         <div class="step active" data-step="1" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">1</div><div style="font-size: 0.7rem; margin-top: 5px;">Select Ad</div></div>
@@ -252,7 +246,7 @@ class VikeServeGlobalPayments {
                         <div class="step" data-step="4" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">4</div><div style="font-size: 0.7rem; margin-top: 5px;">Payment</div></div>
                         <div class="step" data-step="5" style="text-align: center; flex: 1;"><div style="width: 30px; height: 30px; background: var(--grey); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white;">5</div><div style="font-size: 0.7rem; margin-top: 5px;">Verify</div></div>
                     </div>
-                    
+
                     <div id="promo-step-1" class="promo-step">
                         <h3 style="margin-bottom: 15px;">Select Ad to Promote</h3>
                         <div class="form-group">
@@ -265,10 +259,10 @@ class VikeServeGlobalPayments {
                         <div id="promo-ad-preview" style="display: none; margin: 15px 0; padding: 15px; background: var(--light); border-radius: 10px;"></div>
                         <button class="btn btn-primary" id="promo-step1-next" style="margin-top: 15px;" disabled>Continue →</button>
                     </div>
-                    
+
                     <div id="promo-step-2" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">Select Promotion Package</h3>
-                        
+
                         <!-- Points Info Section -->
                         <div id="points-info" style="background: var(--light); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
                             <div><i class="fas fa-coins"></i> Your Points: <strong id="user-points-balance">${this.userPoints}</strong></div>
@@ -278,7 +272,7 @@ class VikeServeGlobalPayments {
                                 <span>Use points to get discount (max 30% of package)</span>
                             </label>
                         </div>
-                        
+
                         <div class="packages-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                             ${packages.map(pkg => `
                                 <div class="package-card" data-package-id="${pkg.id}" data-package-name="${pkg.name}" data-package-price="${pkg.price}" data-package-duration="${pkg.duration}" data-max-points="${pkg.maxPoints}" style="padding: 15px; border: 2px solid var(--grey); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.2s; position: relative;">
@@ -295,7 +289,7 @@ class VikeServeGlobalPayments {
                             <button class="btn btn-primary" id="promo-step2-next" disabled>Continue →</button>
                         </div>
                     </div>
-                    
+
                     <div id="promo-step-3" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">What happens when someone clicks your ad?</h3>
                         <div class="action-options" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
@@ -316,7 +310,7 @@ class VikeServeGlobalPayments {
                                 <div>Website Link</div>
                             </div>
                         </div>
-                        
+
                         <div id="action-details-container" style="display: none;">
                             <div id="action-whatsapp-details" class="action-detail" style="display: none;">
                                 <div class="form-group"><label class="form-label">WhatsApp Number *</label><input type="tel" id="action-whatsapp-number" class="form-input" placeholder="e.g., 254712345678"></div>
@@ -333,16 +327,16 @@ class VikeServeGlobalPayments {
                                 <div class="form-group"><label class="form-label">Website URL *</label><input type="url" id="action-link-url" class="form-input" placeholder="https://yourwebsite.com"></div>
                             </div>
                         </div>
-                        
+
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn btn-outline" id="promo-step3-back">← Back</button>
                             <button class="btn btn-primary" id="promo-step3-next" disabled>Continue →</button>
                         </div>
                     </div>
-                    
+
                     <div id="promo-step-4" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">Complete Payment</h3>
-                        
+
                         <div id="payment-summary" style="background: var(--light); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
                             <div><strong>Ad:</strong> <span id="summary-ad-name">-</span></div>
                             <div><strong>Package:</strong> <span id="summary-package-name">-</span> (<span id="summary-package-duration">-</span> days)</div>
@@ -359,7 +353,7 @@ class VikeServeGlobalPayments {
                                 <option value="OTHER" ${this.userCountry === 'OTHER' ? 'selected' : ''}>🌍 Other (Card/PayPal)</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label class="form-label">Select Payment Method</label>
                             <div id="payment-methods-grid" class="payment-methods-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
@@ -371,7 +365,7 @@ class VikeServeGlobalPayments {
                                 `).join('')}
                             </div>
                         </div>
-                        
+
                         <div id="payment-details-container" style="display: none;">
                             <div id="mobile-money-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
@@ -380,7 +374,7 @@ class VikeServeGlobalPayments {
                                     <div class="form-hint">You will receive an STK push prompt on your phone. Enter your PIN to complete payment.</div>
                                 </div>
                             </div>
-                            
+
                             <div id="card-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
                                     <label class="form-label">Card Number *</label>
@@ -402,7 +396,7 @@ class VikeServeGlobalPayments {
                                 </div>
                                 <div class="form-hint">Your card details are securely processed by IntaSend. We do not store card information.</div>
                             </div>
-                            
+
                             <div id="paypal-details" class="payment-detail" style="display: none;">
                                 <div class="form-group">
                                     <label class="form-label">PayPal Email *</label>
@@ -411,22 +405,22 @@ class VikeServeGlobalPayments {
                                 <div class="form-hint">You will be redirected to PayPal to complete payment.</div>
                             </div>
                         </div>
-                        
+
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn btn-outline" id="promo-step4-back">← Back</button>
                             <button class="btn btn-primary" id="promo-submit-payment" disabled>Pay Now</button>
                         </div>
                     </div>
-                    
+
                     <div id="promo-step-5" class="promo-step" style="display: none;">
                         <h3 style="margin-bottom: 15px;">Verify & Activate Your Ad</h3>
-                        
+
                         <div class="verification-options" style="margin-bottom: 20px;">
                             <div class="verification-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--grey);">
                                 <button class="verification-tab active" data-tab="auto" style="padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--primary); border-bottom: 2px solid var(--primary);">Auto Verification</button>
                                 <button class="verification-tab" data-tab="manual" style="padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: 600;">Manual Verification</button>
                             </div>
-                            
+
                             <div id="auto-verify-tab" class="verification-tab-content">
                                 <div id="payment-status-checker" style="text-align: center; padding: 20px;">
                                     <div class="loader" style="border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
@@ -439,10 +433,10 @@ class VikeServeGlobalPayments {
                                     <p>Your ad is now being activated.</p>
                                 </div>
                             </div>
-                            
+
                             <div id="manual-verify-tab" class="verification-tab-content" style="display: none;">
                                 <p style="margin-bottom: 15px;">If you have already paid but haven't received confirmation, enter your payment details below:</p>
-                                
+
                                 <div class="form-group">
                                     <label class="form-label">Payment Method *</label>
                                     <select id="manual-payment-method" class="form-input">
@@ -455,27 +449,27 @@ class VikeServeGlobalPayments {
                                         <option value="PayPal">PayPal</option>
                                     </select>
                                 </div>
-                                
+
                                 <div class="form-group">
                                     <label class="form-label">Transaction Code / Reference *</label>
                                     <input type="text" id="manual-transaction-code" class="form-input" placeholder="e.g., R8X9K2L4M or M-Pesa confirmation code">
                                     <div class="form-hint">Enter the transaction ID from your payment confirmation message or email.</div>
                                 </div>
-                                
+
                                 <div class="form-group">
                                     <label class="form-label">Phone Number Used (for M-Pesa/Airtel)</label>
                                     <input type="tel" id="manual-phone-number" class="form-input" placeholder="e.g., 254712345678">
                                 </div>
-                                
+
                                 <div class="warning-item" style="margin: 15px 0; padding: 12px; background: rgba(243, 156, 18, 0.1); border-radius: 8px;">
                                     <i class="fas fa-info-circle"></i>
                                     <span style="font-size: 0.8rem;">Our team will verify your payment within 5-10 minutes during business hours.</span>
                                 </div>
-                                
+
                                 <button class="btn btn-primary" id="submit-manual-verification" style="width: 100%;">Submit for Verification</button>
                             </div>
                         </div>
-                        
+
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn btn-outline" id="promo-step5-back">← Back to Payment</button>
                             <button class="btn btn-success" id="promo-activate-btn" style="display: none;">Activate Ad Now</button>
@@ -495,13 +489,13 @@ class VikeServeGlobalPayments {
         let currentTransactionId = null;
         let usePoints = false;
         let pointsDiscountResult = null;
-        
+
         window.selectedPackage = null;
-    
+
         const step1Next = document.getElementById('promo-step1-next');
         const adSelect = document.getElementById('promo-ad-select');
         const adPreview = document.getElementById('promo-ad-preview');
-        
+
         if (adSelect) {
             adSelect.addEventListener('change', async () => {
                 const adId = adSelect.value;
@@ -528,44 +522,44 @@ class VikeServeGlobalPayments {
                     if (step1Next) step1Next.disabled = true;
                 }
             });
-            
+
             if (selectedAdId && adSelect) {
                 adSelect.value = selectedAdId;
                 setTimeout(() => adSelect.dispatchEvent(new Event('change')), 100);
             }
         }
-        
+
         if (step1Next) {
             step1Next.addEventListener('click', () => {
                 if (selectedAd) this.goToPromoStep(2);
             });
         }
-        
+
         const packageCards = document.querySelectorAll('.package-card');
         const step2Next = document.getElementById('promo-step2-next');
         const step2Back = document.getElementById('promo-step2-back');
         const usePointsCheckbox = document.getElementById('use-points-checkbox');
         const pointsDiscountInfo = document.getElementById('points-discount-info');
         const userPointsBalanceSpan = document.getElementById('user-points-balance');
-        
+
         if (userPointsBalanceSpan) {
             userPointsBalanceSpan.textContent = this.userPoints;
         }
-        
+
         const updatePointsDiscount = () => {
             if (selectedPackage && usePointsCheckbox && usePointsCheckbox.checked) {
                 const maxPointsAllowed = Math.floor(selectedPackage.price * 0.3); // 30% max
                 const pointsToUse = Math.min(this.userPoints, maxPointsAllowed);
                 const discount = pointsToUse;
                 const finalAmount = selectedPackage.price - discount;
-                
+
                 pointsDiscountResult = {
                     pointsToUse: pointsToUse,
                     discount: discount,
                     finalAmount: finalAmount,
                     remainingPoints: this.userPoints - pointsToUse
                 };
-                
+
                 if (pointsDiscountInfo) {
                     if (pointsToUse > 0) {
                         pointsDiscountInfo.innerHTML = `
@@ -584,7 +578,7 @@ class VikeServeGlobalPayments {
                 pointsDiscountResult = null;
             }
         };
-        
+
         packageCards.forEach(card => {
             card.addEventListener('click', () => {
                 packageCards.forEach(c => {
@@ -593,7 +587,7 @@ class VikeServeGlobalPayments {
                 });
                 card.style.borderColor = 'var(--primary)';
                 card.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
-                
+
                 selectedPackage = {
                     id: card.getAttribute('data-package-id'),
                     name: card.getAttribute('data-package-name'),
@@ -603,19 +597,19 @@ class VikeServeGlobalPayments {
                     maxPoints: parseInt(card.getAttribute('data-max-points'))
                 };
                 window.selectedPackage = selectedPackage;
-                
+
                 updatePointsDiscount();
-                
+
                 if (step2Next) step2Next.disabled = false;
             });
         });
-        
+
         if (usePointsCheckbox) {
             usePointsCheckbox.addEventListener('change', () => {
                 updatePointsDiscount();
             });
         }
-        
+
         if (step2Next) {
             step2Next.addEventListener('click', () => {
                 if (selectedPackage) {
@@ -624,37 +618,37 @@ class VikeServeGlobalPayments {
                 }
             });
         }
-        
+
         if (step2Back) {
             step2Back.addEventListener('click', () => this.goToPromoStep(1));
         }
-        
+
         const actionOptions = document.querySelectorAll('.action-option');
         const actionDetailsContainer = document.getElementById('action-details-container');
         const step3Next = document.getElementById('promo-step3-next');
         const step3Back = document.getElementById('promo-step3-back');
-        
+
         actionOptions.forEach(option => {
             option.addEventListener('click', () => {
                 actionOptions.forEach(opt => opt.style.borderColor = 'var(--grey)');
                 option.style.borderColor = 'var(--primary)';
-                
+
                 selectedAction = option.getAttribute('data-action');
-                
+
                 if (actionDetailsContainer) actionDetailsContainer.style.display = 'block';
                 document.querySelectorAll('.action-detail').forEach(detail => detail.style.display = 'none');
-                
+
                 const detailForm = document.getElementById(`action-${selectedAction}-details`);
                 if (detailForm) detailForm.style.display = 'block';
-                
+
                 if (step3Next) step3Next.disabled = false;
             });
         });
-        
+
         if (step3Next) {
             step3Next.addEventListener('click', () => {
                 let isValid = true;
-                
+
                 switch(selectedAction) {
                     case 'whatsapp':
                         const phone = document.getElementById('action-whatsapp-number')?.value;
@@ -699,19 +693,18 @@ class VikeServeGlobalPayments {
                         }
                         break;
                 }
-                
+
                 if (isValid && selectedAction && selectedActionDetails) {
                     const summaryAd = document.getElementById('summary-ad-name');
                     const summaryPackage = document.getElementById('summary-package-name');
                     const summaryDuration = document.getElementById('summary-package-duration');
                     const summaryPrice = document.getElementById('summary-package-price');
                     const summaryAction = document.getElementById('summary-action-name');
-                    
+
                     if (summaryAd) summaryAd.textContent = selectedAd?.title || '-';
                     if (summaryPackage) summaryPackage.textContent = selectedPackage?.name || '-';
                     if (summaryDuration) summaryDuration.textContent = selectedPackage?.duration || '-';
-                    
-                    // Show discounted price if using points
+
                     if (usePoints && pointsDiscountResult && pointsDiscountResult.pointsToUse > 0) {
                         if (summaryPrice) {
                             summaryPrice.innerHTML = `
@@ -722,23 +715,23 @@ class VikeServeGlobalPayments {
                     } else {
                         if (summaryPrice) summaryPrice.textContent = `KES ${selectedPackage?.price || 0}`;
                     }
-                    
+
                     const actionNames = { 'whatsapp': 'WhatsApp', 'phone': 'Phone Call', 'email': 'Email', 'link': 'Website' };
                     if (summaryAction) summaryAction.textContent = actionNames[selectedAction] || '-';
-                    
+
                     this.goToPromoStep(4);
                 }
             });
         }
-        
+
         if (step3Back) {
             step3Back.addEventListener('click', () => this.goToPromoStep(2));
         }
-        
+
         const submitPaymentBtn = document.getElementById('promo-submit-payment');
         const step4Back = document.getElementById('promo-step4-back');
         const countrySelect = document.getElementById('payment-country');
-        
+
         if (countrySelect) {
             countrySelect.addEventListener('change', async (e) => {
                 this.userCountry = e.target.value;
@@ -746,45 +739,39 @@ class VikeServeGlobalPayments {
                 await this.updatePaymentMethodsForCountry(e.target.value);
             });
         }
-        
+
         const attachPaymentMethodHandlers = () => {
             const methodElements = document.querySelectorAll('.payment-method');
-            console.log('Attaching handlers to', methodElements.length, 'payment methods');
-            
             methodElements.forEach(method => {
                 const newMethod = method.cloneNode(true);
                 method.parentNode.replaceChild(newMethod, method);
-                
+
                 newMethod.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
-                    console.log('Payment method clicked:', newMethod.getAttribute('data-method-id'));
-                    
+
                     document.querySelectorAll('.payment-method').forEach(m => {
                         m.style.borderColor = 'var(--grey)';
                         m.style.backgroundColor = 'transparent';
                     });
-                    
+
                     newMethod.style.borderColor = 'var(--primary)';
                     newMethod.style.backgroundColor = 'rgba(46, 134, 222, 0.1)';
-                    
+
                     selectedPaymentMethod = {
                         id: newMethod.getAttribute('data-method-id'),
                         name: newMethod.getAttribute('data-method-name'),
                         type: newMethod.getAttribute('data-method-type'),
                         provider: newMethod.getAttribute('data-method-provider')
                     };
-                    
-                    console.log('Selected payment method:', selectedPaymentMethod);
-                    
+
                     const paymentDetailsContainer = document.getElementById('payment-details-container');
                     if (paymentDetailsContainer) paymentDetailsContainer.style.display = 'block';
-                    
+
                     document.querySelectorAll('.payment-detail').forEach(detail => {
                         detail.style.display = 'none';
                     });
-                    
+
                     if (selectedPaymentMethod.type === 'mobile_money') {
                         const mobileForm = document.getElementById('mobile-money-details');
                         if (mobileForm) mobileForm.style.display = 'block';
@@ -795,16 +782,16 @@ class VikeServeGlobalPayments {
                         const paypalForm = document.getElementById('paypal-details');
                         if (paypalForm) paypalForm.style.display = 'block';
                     }
-                    
+
                     if (submitPaymentBtn) submitPaymentBtn.disabled = false;
                 });
             });
         };
-        
+
         setTimeout(() => {
             attachPaymentMethodHandlers();
         }, 200);
-        
+
         const originalUpdateMethods = this.updatePaymentMethodsForCountry;
         this.updatePaymentMethodsForCountry = async function(country) {
             await originalUpdateMethods.call(this, country);
@@ -812,18 +799,16 @@ class VikeServeGlobalPayments {
                 attachPaymentMethodHandlers();
             }, 200);
         };
-        
+
         if (submitPaymentBtn) {
             submitPaymentBtn.addEventListener('click', async () => {
-                console.log('Pay button clicked. Selected payment method:', selectedPaymentMethod);
-                
                 if (!selectedPaymentMethod) {
                     window.showToast('Please select a payment method first', 'warning');
                     return;
                 }
-                
+
                 let paymentDetails = {};
-                
+
                 if (selectedPaymentMethod.type === 'mobile_money') {
                     let phone = document.getElementById('payment-phone-number')?.value;
                     if (!phone || phone.length < 10) {
@@ -846,7 +831,7 @@ class VikeServeGlobalPayments {
                     const cardExpiry = document.getElementById('card-expiry')?.value;
                     const cardCvv = document.getElementById('card-cvv')?.value;
                     const cardName = document.getElementById('card-name')?.value;
-                    
+
                     if (!cardNumber || cardNumber.length < 15) {
                         window.showToast('Please enter a valid card number', 'error');
                         return;
@@ -863,7 +848,7 @@ class VikeServeGlobalPayments {
                         window.showToast('Please enter cardholder name', 'error');
                         return;
                     }
-                    
+
                     paymentDetails = {
                         card_number: cardNumber,
                         card_expiry: cardExpiry,
@@ -878,15 +863,15 @@ class VikeServeGlobalPayments {
                     }
                     paymentDetails = { email: email };
                 }
-                
+
                 submitPaymentBtn.disabled = true;
                 submitPaymentBtn.innerHTML = '<div class="spinner"></div> Processing...';
-                
+
                 currentTransactionId = await this.processPayment(
                     selectedAd, selectedPackage, selectedAction, selectedActionDetails,
                     selectedPaymentMethod, paymentDetails, usePoints, pointsDiscountResult
                 );
-                
+
                 if (currentTransactionId) {
                     this.goToPromoStep(5);
                     this.startPaymentStatusCheck(currentTransactionId);
@@ -896,15 +881,15 @@ class VikeServeGlobalPayments {
                 }
             });
         }
-        
+
         if (step4Back) {
             step4Back.addEventListener('click', () => this.goToPromoStep(3));
         }
-        
+
         const verificationTabs = document.querySelectorAll('.verification-tab');
         const step5Back = document.getElementById('promo-step5-back');
         const manualVerifyBtn = document.getElementById('submit-manual-verification');
-        
+
         verificationTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 verificationTabs.forEach(t => {
@@ -915,23 +900,23 @@ class VikeServeGlobalPayments {
                 tab.classList.add('active');
                 tab.style.color = 'var(--primary)';
                 tab.style.borderBottom = '2px solid var(--primary)';
-                
+
                 const tabId = tab.getAttribute('data-tab');
                 document.getElementById('auto-verify-tab').style.display = tabId === 'auto' ? 'block' : 'none';
                 document.getElementById('manual-verify-tab').style.display = tabId === 'manual' ? 'block' : 'none';
-                
+
                 if (tabId === 'auto' && currentTransactionId) {
                     this.startPaymentStatusCheck(currentTransactionId);
                 }
             });
         });
-        
+
         if (manualVerifyBtn) {
             manualVerifyBtn.addEventListener('click', async () => {
                 const paymentMethod = document.getElementById('manual-payment-method')?.value;
                 const transactionCode = document.getElementById('manual-transaction-code')?.value;
                 const phoneNumber = document.getElementById('manual-phone-number')?.value;
-                
+
                 if (!paymentMethod) {
                     window.showToast('Please select payment method', 'error');
                     return;
@@ -940,9 +925,9 @@ class VikeServeGlobalPayments {
                     window.showToast('Please enter transaction code', 'error');
                     return;
                 }
-                
+
                 window.showToast('Submitting for verification...', 'info');
-                
+
                 await firebase.firestore().collection('payment_verifications').add({
                     transactionId: currentTransactionId,
                     adId: selectedAd?.id,
@@ -959,20 +944,20 @@ class VikeServeGlobalPayments {
                     status: 'pending_verification',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                
+
                 window.showToast('Verification request submitted! Our team will review and activate your ad shortly.', 'success');
-                
+
                 setTimeout(() => {
                     const modal = document.getElementById('ad-packages-full-modal');
                     if (modal) modal.style.display = 'none';
                 }, 3000);
             });
         }
-        
+
         if (step5Back) {
             step5Back.addEventListener('click', () => this.goToPromoStep(4));
         }
-        
+
         window.paymentSystem = this;
     }
 
@@ -981,18 +966,18 @@ class VikeServeGlobalPayments {
         this.userCurrency = this.getCurrencyForCountry(country);
         const newMethods = this.getAvailablePaymentMethods(country);
         const methodsContainer = document.getElementById('payment-methods-grid');
-        
+
         if (window.selectedPackage) {
             const convertedPrice = await this.convertCurrency(window.selectedPackage.originalPriceKES || window.selectedPackage.price, 'KES', this.userCurrency);
             window.selectedPackage.displayPrice = convertedPrice;
             window.selectedPackage.displayCurrency = this.userCurrency;
-            
+
             const summaryPrice = document.getElementById('summary-package-price');
             if (summaryPrice) {
                 summaryPrice.textContent = `${this.userCurrency} ${convertedPrice.toLocaleString()}`;
             }
         }
-        
+
         if (methodsContainer) {
             methodsContainer.innerHTML = newMethods.map(method => `
                 <div class="payment-method" data-method-id="${method.id}" data-method-name="${method.name}" data-method-type="${method.type}" data-method-provider="${method.provider || ''}" style="padding: 12px; border: 2px solid var(--grey); border-radius: 8px; text-align: center; cursor: pointer;">
@@ -1007,30 +992,30 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
     const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (pkg.duration || 3));
-    
+
     try {
         let finalAmount = pkg.price;
         let pointsUsed = 0;
         let discount = 0;
-        
+
         if (usePoints && pointsDiscountResult && pointsDiscountResult.pointsToUse > 0) {
             finalAmount = pointsDiscountResult.finalAmount;
             pointsUsed = pointsDiscountResult.pointsToUse;
             discount = pointsDiscountResult.discount;
-            
+
             if (typeof window.reviewsManager !== 'undefined' && window.reviewsManager.redeemPointsForDiscount) {
                 await window.reviewsManager.redeemPointsForDiscount(this.userId, pointsUsed, pkg.name);
                 this.userPoints -= pointsUsed;
             }
         }
-        
+
         let formattedPhone = paymentDetails.phone || '';
         if (formattedPhone && formattedPhone.startsWith('0')) {
             formattedPhone = '254' + formattedPhone.substring(1);
         } else if (formattedPhone && !formattedPhone.startsWith('254') && formattedPhone.length === 9) {
             formattedPhone = '254' + formattedPhone;
         }
-        
+
         const paymentRecord = {
             transactionId: transactionId,
             adId: ad.id,
@@ -1053,18 +1038,18 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
             pointsDiscount: discount,
             usedPoints: usePoints
         };
-        
+
         await firebase.firestore().collection('transactions').add(paymentRecord);
-        
+
         const modal = document.getElementById('ad-packages-full-modal');
         if (modal) {
             modal.style.display = 'none';
         }
-        
+
         this.showIntaSendPaymentModal(finalAmount, transactionId, formattedPhone);
-        
+
         return transactionId;
-        
+
     } catch (error) {
         console.error('Payment error:', error);
         window.showToast(error.message || 'Payment service error. Please try again.', 'error');
@@ -1074,15 +1059,13 @@ async processPayment(ad, pkg, action, actionDetails, paymentMethod, paymentDetai
 
 showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
     const redirectUrl = `${window.location.origin}/?payment_status=success&api_ref=${transactionId}`;
-    
+
     let checkoutUrl = `https://intasend.com/pay/checkout?public_key=${this.config.intasend.publicKey}&amount=${amount}&currency=KES&email=${encodeURIComponent(this.userEmail || 'customer@vikeserve.com')}&api_ref=${transactionId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
-    
+
     if (phoneNumber && phoneNumber.length >= 10) {
         checkoutUrl += `&phone_number=${phoneNumber}`;
     }
-    
-    console.log('Redirecting to IntaSend:', checkoutUrl);
-    
+
     const confirmModal = document.createElement('div');
     confirmModal.id = 'payment-confirm-modal';
     confirmModal.className = 'modal';
@@ -1107,14 +1090,14 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(confirmModal);
-    
+
     window.closeConfirmModal = () => {
         const modal = document.getElementById('payment-confirm-modal');
         if (modal) modal.remove();
     };
-    
+
     document.getElementById('confirm-payment-btn')?.addEventListener('click', () => {
         closeConfirmModal();
         window.showToast('Redirecting to payment page...', 'info');
@@ -1128,22 +1111,22 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
         const statusChecker = document.getElementById('payment-status-checker');
         const successDisplay = document.getElementById('payment-success-display');
         const statusMessage = document.getElementById('status-message');
-        
+
         let attempts = 0;
         const maxAttempts = 60;
-        
+
         const checkStatus = async () => {
             attempts++;
-            
+
             try {
                 const snapshot = await firebase.firestore()
                     .collection('transactions')
                     .where('transactionId', '==', transactionId)
                     .get();
-                
+
                 if (!snapshot.empty) {
                     const transaction = snapshot.docs[0].data();
-                    
+
                     if (transaction.status === 'completed') {
                         if (statusChecker) statusChecker.style.display = 'none';
                         if (successDisplay) successDisplay.style.display = 'block';
@@ -1156,17 +1139,17 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
                         return;
                     }
                 }
-                
+
                 if (statusMessage) {
                     statusMessage.textContent = `Waiting for payment confirmation... (${attempts}/${maxAttempts})`;
                 }
-                
+
                 if (attempts < maxAttempts) {
                     setTimeout(checkStatus, 2000);
                 } else {
                     if (statusMessage) statusMessage.textContent = '⚠️ Payment confirmation taking longer than expected. Please use Manual Verification tab.';
                 }
-                
+
             } catch (error) {
                 console.error('Status check error:', error);
                 if (attempts < maxAttempts) {
@@ -1174,7 +1157,7 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
                 }
             }
         };
-        
+
         checkStatus();
     }
 
@@ -1184,14 +1167,14 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
                 .collection('transactions')
                 .where('transactionId', '==', transactionId)
                 .get();
-            
+
             if (transactionSnapshot.empty) return;
-            
+
             const transaction = transactionSnapshot.docs[0].data();
             const adId = transaction.adId;
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + transaction.duration);
-            
+
             await firebase.firestore().collection('marketplace_items').doc(adId).update({
                 promoted: true,
                 promotionPackage: transaction.packageName,
@@ -1201,7 +1184,7 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
                 pointsUsed: transaction.pointsUsed || 0,
                 pointsDiscount: transaction.pointsDiscount || 0
             });
-            
+
             await firebase.firestore().collection('promoted_ads').add({
                 adId: adId,
                 adTitle: transaction.adTitle,
@@ -1216,16 +1199,16 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
                 action: transaction.action,
                 pointsUsed: transaction.pointsUsed || 0
             });
-            
+
             await transactionSnapshot.docs[0].ref.update({
                 status: 'completed',
                 completedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             if (typeof window.loadMarketplaceItems === 'function') {
                 setTimeout(() => window.loadMarketplaceItems('all'), 500);
             }
-            
+
         } catch (error) {
             console.error('Activation error:', error);
         }
@@ -1233,13 +1216,13 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
 
     async checkPendingTransactions() {
         if (!this.userId) return;
-        
+
         const snapshot = await firebase.firestore()
             .collection('transactions')
             .where('userId', '==', this.userId)
             .where('status', '==', 'pending')
             .get();
-        
+
         if (!snapshot.empty) {
             window.showToast(`You have ${snapshot.size} pending payment(s).`, 'warning');
         }
@@ -1249,9 +1232,8 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
         const urlParams = new URLSearchParams(window.location.search);
         const transactionRef = urlParams.get('api_ref') || urlParams.get('reference');
         const status = urlParams.get('status') || urlParams.get('payment_status');
-        
+
         if (transactionRef && (status === 'complete' || status === 'SUCCESS' || status === 'success')) {
-            console.log('Payment callback detected for:', transactionRef);
             await this.activatePromotion(transactionRef);
             window.history.replaceState({}, document.title, window.location.pathname);
             window.showToast('Payment successful! Your ad is now promoted.', 'success');
@@ -1263,10 +1245,10 @@ showIntaSendPaymentModal(amount, transactionId, phoneNumber) {
             const stepDiv = document.getElementById(`promo-step-${i}`);
             if (stepDiv) stepDiv.style.display = 'none';
         }
-        
+
         const selectedStep = document.getElementById(`promo-step-${step}`);
         if (selectedStep) selectedStep.style.display = 'block';
-        
+
         const stepIndicators = document.querySelectorAll('.promotion-steps .step');
         stepIndicators.forEach((indicator, index) => {
             const stepNum = index + 1;
@@ -1320,9 +1302,7 @@ window.setIntaSendTestMode = function(isTestMode) {
     const paymentSystem = getPaymentSystem();
     paymentSystem.isTestMode = isTestMode;
     if (isTestMode) {
-        console.log('🔧 IntaSend in TEST MODE - using sandbox environment');
         window.showToast('Test mode enabled. No real charges will be made.', 'info');
     } else {
-        console.log('💰 IntaSend in LIVE MODE - real charges will be processed');
-    }
+        }
 };
