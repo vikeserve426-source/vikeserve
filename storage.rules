@@ -2,24 +2,20 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Helper function: Check if user is admin
     function isAdmin() {
       return request.auth.token.admin == true ||
              request.auth.token.role == 'admin' ||
              request.auth.token.role == 'founder';
     }
     
-    // Helper function: Check file type is image
     function isImage() {
       return request.resource.contentType.matches('image/(jpeg|jpg|png|gif|webp)');
     }
     
-    // Helper function: Check file size limit (MB)
     function isWithinSizeLimit(limitMB) {
       return request.resource.size < limitMB * 1024 * 1024;
     }
     
-    // ========== PROFILE PICTURES ==========
     match /users/{userId}/profile-pictures/{fileName} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
@@ -30,7 +26,6 @@ service firebase.storage {
       );
     }
     
-    // ========== MARKETPLACE ITEMS ==========
     match /marketplace/{itemId}/images/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
@@ -43,7 +38,6 @@ service firebase.storage {
       );
     }
     
-    // ========== HOUSING / PROPERTY ==========
     match /properties/{propertyId}/images/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
@@ -56,8 +50,6 @@ service firebase.storage {
       );
     }
     
-    // ========== BOOKING ATTACHMENTS ==========
-    // Get booking data from Firestore
     function isBookingParticipant(bookingId) {
       let booking = get(/databases/(default)/documents/bookings/$(bookingId)).data;
       return booking != null && (
@@ -77,7 +69,6 @@ service firebase.storage {
       );
     }
     
-    // ========== REVIEW PHOTOS ==========
     match /review-photos/{reviewId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
@@ -90,15 +81,12 @@ service firebase.storage {
       );
     }
     
-    // ========== TEMP UPLOADS ==========
     match /temp/{userId}/{fileName} {
       allow read, write, delete: if request.auth != null && request.auth.uid == userId
         && isImage()
         && isWithinSizeLimit(5);
-      // Auto-delete temp files after 24 hours (optional: use Cloud Function)
     }
     
-    // ========== DENY ALL ELSE ==========
     match /{allPaths=**} {
       allow read, write: if false;
     }

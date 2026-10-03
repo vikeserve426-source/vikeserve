@@ -1,10 +1,6 @@
-// ========== SERVICES MANAGER - COMPLETE FIXED VERSION ==========
-// Handles services and jobs posting, loading, and booking
-
 class ServicesManager {
     constructor() {
         this.db = db;
-        // Fix: Use global storage or fallback
         this.storage = typeof storage !== 'undefined' ? storage : 
                       (typeof window.storage !== 'undefined' ? window.storage : 
                       (typeof firebase !== 'undefined' && firebase.storage ? firebase.storage() : null));
@@ -63,7 +59,6 @@ class ServicesManager {
             imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
         }
 
-        // Clean serviceData - remove any undefined values
         const cleanedData = {};
         Object.keys(serviceData).forEach(key => {
             if (serviceData[key] !== undefined && serviceData[key] !== null && serviceData[key] !== '') {
@@ -103,7 +98,6 @@ class ServicesManager {
             imageUrls = await this.uploadServiceImages(imageFiles, 'temp');
         }
 
-        // Clean jobData - remove any undefined values
         const cleanedData = {};
         Object.keys(jobData).forEach(key => {
             if (jobData[key] !== undefined && jobData[key] !== null && jobData[key] !== '') {
@@ -139,7 +133,6 @@ class ServicesManager {
     
     if (!files || files.length === 0) return imageUrls;
     
-    // Check if storage is available
     if (!this.storage) {
         console.warn('Firebase Storage not available');
         if (typeof window.showToast === 'function') {
@@ -200,7 +193,6 @@ class ServicesManager {
 
 const servicesManager = new ServicesManager();
 
-// ========== HELPER FUNCTIONS ==========
 function generateStarRating(rating) {
     if (!rating) rating = 0;
     let stars = '';
@@ -219,7 +211,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ========== LOAD URGENT JOBS ==========
 async function loadUrgentJobs(limit = 5) {
     const container = document.getElementById('urgent-jobs-container');
     if (!container) return;
@@ -277,7 +268,6 @@ div.style.cssText = `
     return div;
 }
 
-// ========== LOAD SERVICES ==========
 async function loadServices(category = null, limit = 20) {
     const container = document.getElementById('services-list-container');
     if (!container) return;
@@ -321,7 +311,6 @@ services.forEach(service => {
     container.appendChild(createServiceElement(service));
 });
 
-// Add footer after services
 if (!document.getElementById('services-footer')) {
     const footer = document.createElement('div');
     footer.id = 'services-footer';
@@ -447,7 +436,6 @@ div.style.cssText = `
     return div;
 }
 
-// ========== VIEW FUNCTIONS ==========
 async function viewJobDetails(serviceId) {
     try {
         const result = await servicesManager.getServiceById(serviceId);
@@ -461,7 +449,6 @@ async function viewJobDetails(serviceId) {
     }
 }
 
-// ========== BOOKING MODAL FUNCTION ==========
 function showBookingModal(service) {
     const currentUser = firebase.auth().currentUser;
     
@@ -549,7 +536,6 @@ function showBookingModal(service) {
                 };
                 
                 try {
-                    // Save to Firestore bookings collection
                     const docRef = await firebase.firestore().collection('bookings').add({
                         ...bookingData,
                         customerId: firebase.auth().currentUser?.uid,
@@ -560,7 +546,6 @@ function showBookingModal(service) {
                         window.showToast('✅ Booking request sent successfully!', 'success');
                     }
                     
-                    // Close modal
                     if (typeof window.closeModal === 'function') {
                         window.closeModal('booking-modal');
                     } else {
@@ -683,11 +668,9 @@ if (editBtn) {
     }, 100);
 }
 
-// ========== PROMOTE SERVICE ==========
 function promoteService(serviceId) {
     console.log('promoteService called for ID:', serviceId);
     
-    // Create modal manually to ensure event handlers work
     const modal = document.createElement('div');
     modal.id = 'promote-service-modal';
     modal.className = 'modal';
@@ -712,7 +695,6 @@ function promoteService(serviceId) {
     
     document.body.appendChild(modal);
     
-    // ========== FIX: Close button handler ==========
     const closeBtns = modal.querySelectorAll('.close-modal-btn');
     closeBtns.forEach(btn => {
         const newBtn = btn.cloneNode(true);
@@ -733,7 +715,6 @@ function promoteService(serviceId) {
         });
     });
     
-    // Close on background click
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
             this.style.display = 'none';
@@ -746,7 +727,6 @@ function promoteService(serviceId) {
         }
     });
     
-    // Convert and promote button handler
     const convertBtn = document.getElementById('convert-and-promote-btn');
     if (convertBtn) {
         const newConvertBtn = convertBtn.cloneNode(true);
@@ -754,12 +734,10 @@ function promoteService(serviceId) {
         newConvertBtn.addEventListener('click', async () => {
             console.log('Convert button clicked for service:', serviceId);
             
-            // Show loading state
             newConvertBtn.disabled = true;
             newConvertBtn.innerHTML = '<div class="spinner"></div> Converting...';
             
             try {
-                // Get the service data
                 const serviceDoc = await firebase.firestore().collection('services').doc(serviceId).get();
                 
                 if (!serviceDoc.exists) {
@@ -771,7 +749,6 @@ function promoteService(serviceId) {
                 const service = serviceDoc.data();
                 console.log('Service data retrieved:', service);
                 
-                // Check if current user is the owner
                 const currentUser = firebase.auth().currentUser;
                 if (!currentUser || service.userId !== currentUser.uid) {
                     window.showToast('You can only promote your own services', 'error');
@@ -779,7 +756,6 @@ function promoteService(serviceId) {
                     return;
                 }
                 
-                // Prepare marketplace data
                 const marketplaceData = {
                     category: 'services',
                     title: service.title || 'Service',
@@ -800,29 +776,24 @@ function promoteService(serviceId) {
                     delivery: false
                 };
                 
-                // Remove any undefined values
                 Object.keys(marketplaceData).forEach(key => {
                     if (marketplaceData[key] === undefined) {
                         delete marketplaceData[key];
                     }
                 });
                 
-                // Save to marketplace
                 const docRef = await firebase.firestore().collection('marketplace_items').add(marketplaceData);
                 console.log('Service copied to marketplace with ID:', docRef.id);
                 
                 window.showToast('✅ Service copied to Marketplace! Now you can promote it.', 'success');
                 
-                // Close modal
                 modal.remove();
                 
-                // Show ad packages modal for promotion
                 setTimeout(() => {
                     if (typeof window.showAdPackagesModal === 'function') {
                         window.showAdPackagesModal(docRef.id);
                     } else {
                         window.showToast('Click Promote on your marketplace item to boost visibility', 'info');
-                        // Switch to marketplace tab
                         const marketplaceTab = document.querySelector('[data-tab="marketplace-tab"]');
                         if (marketplaceTab) {
                             marketplaceTab.click();
@@ -840,7 +811,6 @@ function promoteService(serviceId) {
     }
 }
 
-// ========== SERVICE POST MODAL FUNCTIONS ==========
 function showServicePostModal() {
     console.log('showServicePostModal called');
     resetServicePostForm();
@@ -1005,7 +975,6 @@ switch(serviceType) {
         break;
 }
 
-// Build service data, only include defined values
 const serviceData = {
     title: title,
     description: description,
@@ -1018,7 +987,6 @@ const serviceData = {
     ...additionalData
 };
 
-// Remove any undefined values
 Object.keys(serviceData).forEach(key => {
     if (serviceData[key] === undefined) {
         delete serviceData[key];
@@ -1045,7 +1013,6 @@ Object.keys(serviceData).forEach(key => {
     }
 }
 
-// ========== JOB POST MODAL FUNCTIONS ==========
 function showJobPostModal() {
     console.log('showJobPostModal called');
     resetJobPostForm();
@@ -1184,7 +1151,6 @@ async function submitJob() {
     }
 }
 
-// ========== LOCATION FUNCTIONS ==========
 function fillServiceLocationFromProfile() {
     if (typeof window.getCurrentLocation === 'function') {
         const location = window.getCurrentLocation();
@@ -1205,7 +1171,6 @@ function fillJobLocationFromProfile() {
     }
 }
 
-// ========== EXPORT GLOBALLY ==========
 window.servicesManager = servicesManager;
 window.loadUrgentJobs = loadUrgentJobs;
 window.loadServices = loadServices;
@@ -1223,7 +1188,6 @@ window.setupJobModalHandlers = setupJobModalHandlers;
 window.previewServiceImages = previewServiceImages;
 window.showBookingModal = showBookingModal;
 
-// ========== INITIALIZE ON DOM LOAD ==========
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Services.js DOM loaded - initializing');
     
@@ -1237,7 +1201,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => loadServices(), 1000);
 });
 
-// ========== FIX: Service Modal Buttons ==========
 function setupServiceModalButtons() {
     console.log('🔧 Setting up service modal buttons...');
     
@@ -1278,7 +1241,6 @@ function setupServiceModalButtons() {
     }
 }
 
-// Make sure it runs on tab switch to services
 document.addEventListener('tabChanged', function(e) {
     if (e.detail && e.detail.tabId === 'services-tab') {
         setTimeout(setupServiceModalButtons, 300);
@@ -1287,7 +1249,6 @@ document.addEventListener('tabChanged', function(e) {
 
 window.setupServiceModalButtons = setupServiceModalButtons;
 
-// ========== EDIT SERVICE FUNCTIONALITY ==========
 async function editServiceItem(serviceId) {
     try {
         const doc = await firebase.firestore().collection('services').doc(serviceId).get();
@@ -1298,18 +1259,15 @@ async function editServiceItem(serviceId) {
         
         const service = doc.data();
         
-        // Check if current user is the owner
         const currentUser = firebase.auth().currentUser;
         if (!currentUser || service.userId !== currentUser.uid) {
             window.showToast('You can only edit your own services', 'error');
             return;
         }
         
-        // Close any open modals first
         const existingModal = document.getElementById('edit-service-modal');
         if (existingModal) existingModal.remove();
         
-        // Create edit modal content
         const modalContent = `
             <div class="modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -1391,7 +1349,6 @@ async function editServiceItem(serviceId) {
             </div>
         `;
         
-        // Create and show modal
         const modal = document.createElement('div');
         modal.id = 'edit-service-modal';
         modal.className = 'modal';
@@ -1400,7 +1357,6 @@ async function editServiceItem(serviceId) {
         modal.innerHTML = modalContent;
         document.body.appendChild(modal);
         
-        // Save button handler
         const saveBtn = document.getElementById('save-service-edit-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', async () => {
@@ -1414,7 +1370,6 @@ async function editServiceItem(serviceId) {
     }
 }
 
-// ========== SAVE EDITED SERVICE ==========
 async function saveEditedService(serviceId) {
     try {
         const title = document.getElementById('edit-service-title')?.value.trim();
@@ -1432,7 +1387,6 @@ async function saveEditedService(serviceId) {
         
         window.showToast('Saving changes...', 'info');
         
-        // Upload new images if any
         const imageInput = document.getElementById('edit-service-images');
         let newImages = [];
         if (imageInput && imageInput.files && imageInput.files.length > 0) {
@@ -1441,14 +1395,11 @@ async function saveEditedService(serviceId) {
             newImages = await servicesManager.uploadServiceImages(imageFiles, serviceId);
         }
         
-        // Get existing images from current service
         const currentDoc = await firebase.firestore().collection('services').doc(serviceId).get();
         const existingImages = currentDoc.data()?.images || [];
         
-        // Combine images
         const allImages = [...existingImages, ...newImages];
         
-        // Update Firestore
         await firebase.firestore().collection('services').doc(serviceId).update({
             title: title,
             description: description,
@@ -1464,10 +1415,8 @@ async function saveEditedService(serviceId) {
         
         window.showToast('✅ Service updated successfully!', 'success');
         
-        // Close modal
         closeEditServiceModal();
         
-        // Reload services
         setTimeout(() => {
             loadServices();
         }, 500);
@@ -1478,7 +1427,6 @@ async function saveEditedService(serviceId) {
     }
 }
 
-// ========== CLOSE EDIT SERVICE MODAL ==========
 function closeEditServiceModal() {
     const modal = document.getElementById('edit-service-modal');
     if (modal) {
@@ -1486,7 +1434,6 @@ function closeEditServiceModal() {
     }
 }
 
-// ========== EDIT JOB FUNCTIONALITY ==========
 async function editJobItem(jobId) {
     try {
         const doc = await firebase.firestore().collection('services').doc(jobId).get();
@@ -1658,7 +1605,6 @@ function closeEditJobModal() {
     if (modal) modal.remove();
 }
 
-// Export edit functions
 window.editServiceItem = editServiceItem;
 window.saveEditedService = saveEditedService;
 window.closeEditServiceModal = closeEditServiceModal;
@@ -1666,7 +1612,6 @@ window.editJobItem = editJobItem;
 window.saveEditedJob = saveEditedJob;
 window.closeEditJobModal = closeEditJobModal;
 
-// ========== VIEW SERVICE DETAILS ==========
 async function viewServiceDetails(serviceId) {
     try {
         const doc = await firebase.firestore().collection('services').doc(serviceId).get();
@@ -1677,7 +1622,6 @@ async function viewServiceDetails(serviceId) {
         
         const service = { id: doc.id, ...doc.data() };
         
-        // Get provider rating
         let providerRating = 0;
         let providerRatingCount = 0;
         if (service.userId) {
@@ -1823,10 +1767,8 @@ async function viewServiceDetails(serviceId) {
     }
 }
 
-// Make viewServiceDetails available globally
 window.viewServiceDetails = viewServiceDetails;
 
-// ========== VIEW PROVIDER PROFILE ==========
 async function viewProviderProfile(providerId) {
     if (!providerId) {
         window.showToast('Invalid provider ID', 'error');
@@ -1944,7 +1886,6 @@ async function viewProviderProfile(providerId) {
             });
         }
         
-        // ========== REVIEW BUTTON ==========
         const reviewBtn = document.getElementById('review-provider-btn');
         if (reviewBtn) {
             reviewBtn.addEventListener('click', () => {
@@ -1963,7 +1904,4 @@ async function viewProviderProfile(providerId) {
     }
 }
 
-// Make function available globally
 window.viewProviderProfile = viewProviderProfile;
-
-console.log('✅ Services.js fully loaded with booking feature');

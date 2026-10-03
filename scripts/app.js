@@ -81,7 +81,6 @@ class VikeServeApp {
     async init() {
         this.applyGlobalFixes();
         this.setupEventListeners();
-        // ADDED: Setup close buttons after app initializes
         setTimeout(() => this.setupCloseButtons(), 300);
         this.setupNavigation();
         this.setupQuickActions();
@@ -96,10 +95,8 @@ class VikeServeApp {
         this.handleInitialTabFromURL();
     }
 
-    // ========== LOAD STATS COUNTS (UPDATED - Hide Total Users from Non-Founders) ==========
     async loadStatsCounts() {
         try {
-            // Check if current user is founder
             let isFounder = false;
             let userRole = 'user';
             
@@ -115,14 +112,12 @@ class VikeServeApp {
                 }
             }
             
-            // Count active services/jobs
             const servicesSnapshot = await firebase.firestore()
                 .collection('services')
                 .where('status', '==', 'active')
                 .get();
             const activeServices = servicesSnapshot.size;
             
-            // Count verified workers (users with role 'service_provider' or 'verified')
             const workersSnapshot = await firebase.firestore()
                 .collection('users')
                 .where('role', 'in', ['service_provider', 'verified', 'provider'])
@@ -130,35 +125,29 @@ class VikeServeApp {
             
             let verifiedWorkers = workersSnapshot.size;
             
-            // If no verified role exists, fallback to count all users
             if (verifiedWorkers === 0) {
                 const allUsersSnapshot = await firebase.firestore().collection('users').get();
                 verifiedWorkers = allUsersSnapshot.size;
             }
             
-            // Count total users (ONLY if founder)
             let totalUsers = 0;
             if (isFounder) {
                 const totalUsersSnapshot = await firebase.firestore().collection('users').get();
                 totalUsers = totalUsersSnapshot.size;
             }
             
-            // Count marketplace items
             const marketplaceSnapshot = await firebase.firestore()
                 .collection('marketplace_items')
                 .where('status', '==', 'active')
                 .get();
             const marketplaceItems = marketplaceSnapshot.size;
             
-            // Count total bookings
             const bookingsSnapshot = await firebase.firestore().collection('bookings').get();
             const totalBookings = bookingsSnapshot.size;
             
-            // Count reviews
             const reviewsSnapshot = await firebase.firestore().collection('reviews').get();
             const totalReviews = reviewsSnapshot.size;
             
-            // Update stats - hide total users if not founder
             const statsElements = {
                 'active-jobs-count': activeServices,
                 'verified-workers-count': verifiedWorkers,
@@ -167,7 +156,6 @@ class VikeServeApp {
                 'reviews-count': totalReviews
             };
             
-            // Only update total-users-count if founder
             if (isFounder) {
                 statsElements['total-users-count'] = totalUsers;
             }
@@ -176,8 +164,7 @@ class VikeServeApp {
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             });
-            
-            // Hide the "Total Users" stat card from non-founders
+           
             const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
             if (totalUsersContainer) {
                 if (!isFounder) {
@@ -191,13 +178,11 @@ class VikeServeApp {
             return { activeServices, verifiedWorkers, totalUsers, marketplaceItems, totalBookings, totalReviews };
         } catch (error) {
             console.error('Error loading stats:', error);
-            // Show fallback values (all 0)
             const ids = ['active-jobs-count', 'verified-workers-count', 'marketplace-items-count', 'total-bookings-count', 'reviews-count'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '0';
             });
-            // Hide total users on error too
             const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
             if (totalUsersContainer) totalUsersContainer.style.display = 'none';
             return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
@@ -250,7 +235,6 @@ class VikeServeApp {
         console.log('🔄 Switching to tab:', tabId);
         this.currentTab = tabId;
         
-        // Update bottom nav
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -259,7 +243,6 @@ class VikeServeApp {
             activeNav.classList.add('active');
         }
         
-        // Update tab content
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -273,18 +256,15 @@ class VikeServeApp {
             console.warn('⚠️ Tab not found:', tabId);
         }
         
-        // Close any open menus
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
             userMenu.classList.remove('show');
         }
         
-        // Close more menu if open
         if (tabId !== 'more-tab') {
             this.closeMoreMenu();
         }
         
-        // Dispatch event for other components
         window.dispatchEvent(new CustomEvent('tabChanged', { 
             detail: { tabId: tabId } 
         }));
@@ -298,7 +278,6 @@ class VikeServeApp {
         const mainNav = document.querySelector('.bottom-nav');
         const moreBottomNav = document.querySelector('.more-bottom-nav');
         
-        // Show overlay
         if (overlay) {
             overlay.style.display = 'block';
             setTimeout(() => {
@@ -306,7 +285,6 @@ class VikeServeApp {
             }, 10);
         }
         
-        // Show more section
         if (moreSection) {
             moreSection.style.display = 'flex';
             setTimeout(() => {
@@ -314,21 +292,17 @@ class VikeServeApp {
             }, 10);
         }
         
-        // Hide main nav, show more nav
         if (mainNav) mainNav.style.display = 'none';
         if (moreBottomNav) moreBottomNav.style.display = 'flex';
         
-        // Add class to body to blur background
         document.body.classList.add('more-open');
         
-        // Update nav item
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
         });
         const moreNav = document.querySelector('.bottom-nav .nav-item[data-tab="more-tab"]');
         if (moreNav) moreNav.classList.add('active');
         
-        // Trigger more menu manager
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuOpen === 'function') {
             window.moreMenuManager.onMenuOpen();
         }
@@ -355,7 +329,6 @@ class VikeServeApp {
         const mainNav = document.querySelector('.bottom-nav');
         const moreBottomNav = document.querySelector('.more-bottom-nav');
         
-        // Hide overlay
         if (overlay) {
             overlay.classList.remove('active');
             setTimeout(() => {
@@ -363,7 +336,6 @@ class VikeServeApp {
             }, 300);
         }
         
-        // Hide more section with animation
         if (moreSection) {
             moreSection.classList.remove('active');
             setTimeout(() => {
@@ -371,11 +343,9 @@ class VikeServeApp {
             }, 300);
         }
         
-        // Show main nav, hide more nav
         if (mainNav) mainNav.style.display = 'flex';
         if (moreBottomNav) moreBottomNav.style.display = 'none';
         
-        // Remove body class
         document.body.classList.remove('more-open');
         
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
@@ -494,7 +464,6 @@ class VikeServeApp {
     setupLocationSelector() {
         const locationSelector = document.getElementById('location-selector');
         if (locationSelector) {
-            // Remove existing listener by cloning
             const newSelector = locationSelector.cloneNode(true);
             locationSelector.parentNode.replaceChild(newSelector, locationSelector);
             newSelector.addEventListener('click', () => this.openLocationModal());
@@ -704,7 +673,6 @@ class VikeServeApp {
                 this.currentUser = user;
                 this.updateUIForAuthState();
                 
-                // Reload stats to update founder view
                 if (user) {
                     setTimeout(() => this.loadStatsCounts(), 500);
                 }
@@ -737,7 +705,6 @@ class VikeServeApp {
         if (guestMessage) guestMessage.style.display = isLoggedIn ? 'none' : 'block';
         if (authContent) authContent.style.display = isLoggedIn ? 'block' : 'none';
         
-        // Update founder status on body
         if (isLoggedIn) {
             this.updateFounderBodyClass();
         } else {
@@ -745,7 +712,6 @@ class VikeServeApp {
         }
     }
     
-    // ========== UPDATE FOUNDER BODY CLASS ==========
     async updateFounderBodyClass() {
         if (!this.currentUser) {
             document.body.classList.remove('founder');
@@ -767,7 +733,6 @@ class VikeServeApp {
         }
     }
     
-    // ========== CHECK IF USER IS FOUNDER ==========
     async isUserFounder() {
         if (!this.currentUser) return false;
         
@@ -852,7 +817,6 @@ class VikeServeApp {
                     }
                 } else {
                     console.log('👤 User logged in, toggling user menu');
-                    // Force toggle the user menu
                     this.toggleUserMenu();
                 }
             });
@@ -884,7 +848,6 @@ class VikeServeApp {
             });
         }
 
-// ========== FIX: Home Tab Search ==========
         const homeSearchInput = document.querySelector('#home-tab .search-input');
         if (homeSearchInput) {
             const newInput = homeSearchInput.cloneNode(true);
@@ -903,11 +866,9 @@ class VikeServeApp {
         }
     }
 
-    // ========== FIX: Global Close Button Handler ==========
     setupCloseButtons() {
         console.log('🔧 Setting up global close buttons...');
         
-        // Close all modals when clicking ×
         document.querySelectorAll('.close-modal-btn').forEach(btn => {
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
@@ -915,7 +876,6 @@ class VikeServeApp {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Find the closest modal
                 const modal = this.closest('.modal');
                 if (modal) {
                     modal.style.display = 'none';
@@ -925,7 +885,6 @@ class VikeServeApp {
             });
         });
         
-        // Also handle modal background clicks
         document.querySelectorAll('.modal').forEach(modal => {
             const newModal = modal.cloneNode(true);
             modal.parentNode.replaceChild(newModal, modal);
@@ -942,7 +901,6 @@ class VikeServeApp {
     toggleUserMenu() {
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
-            // Toggle the 'show' class
             userMenu.classList.toggle('show');
             console.log('🔄 User menu toggled:', userMenu.classList.contains('show') ? 'open' : 'closed');
             console.log('📋 User menu classes:', userMenu.className);
@@ -1026,7 +984,6 @@ class VikeServeApp {
     }
 
     applyFeatureToggles() {
-        // Check if Remote Config is available
         const isFeatureEnabled = typeof window.isFeatureEnabled === 'function' 
             ? window.isFeatureEnabled 
             : () => {
@@ -1041,7 +998,6 @@ class VikeServeApp {
             
             console.log('🔧 Feature Toggles - Ad Promotion:', isAdPromotionEnabled, 'WiFi Connect:', isWifiConnectEnabled);
             
-            // ========== HANDLE AD PROMOTION BUTTONS ==========
             const promoteButtons = document.querySelectorAll(
                 '.ad-cta, .btn-promote, .promote-service-btn, .promote-ad-btn, #view-packages-btn, #post-ad-btn'
             );
@@ -1084,7 +1040,6 @@ class VikeServeApp {
                 }
             });
             
-            // ========== HANDLE WIFI CONNECT QUICK ACTION ==========
             const wifiAction = document.querySelector('.quick-action[data-action="wifi"]');
             if (wifiAction) {
                 if (!isWifiConnectEnabled) {
@@ -1137,14 +1092,9 @@ class VikeServeApp {
     }
 }
 
-// ========================================
-// FIX: Modal Button Handlers (Re-attach after DOM changes)
-// ========================================
-
 function setupAllModalHandlers() {
     console.log('🔧 Setting up ALL modal button handlers...');
     
-    // ========== SERVICES TAB ==========
     const serviceBtn = document.getElementById('service-post-btn');
     if (serviceBtn) {
         const newBtn = serviceBtn.cloneNode(true);
@@ -1162,7 +1112,6 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Service post button handler attached');
     }
     
     const jobBtn = document.getElementById('job-post-btn');
@@ -1182,10 +1131,8 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Job post button handler attached');
     }
     
-    // ========== MARKETPLACE TAB ==========
     const marketBtn = document.getElementById('marketplace-post-btn');
     if (marketBtn) {
         const newBtn = marketBtn.cloneNode(true);
@@ -1203,7 +1150,6 @@ function setupAllModalHandlers() {
                 }
             }
         });
-        console.log('✅ Marketplace post button handler attached');
     }
     
     const gasBtn = document.getElementById('gas-refill-post-btn');
@@ -1218,7 +1164,6 @@ function setupAllModalHandlers() {
                 window.showGasRefillPostModal();
             }
         });
-        console.log('✅ Gas refill button handler attached');
     }
     
     const waterBtn = document.getElementById('water-delivery-post-btn');
@@ -1233,7 +1178,6 @@ function setupAllModalHandlers() {
                 window.showWaterDeliveryPostModal();
             }
         });
-        console.log('✅ Water delivery button handler attached');
     }
     
     const hotelBtn = document.getElementById('hotel-post-btn');
@@ -1248,7 +1192,6 @@ function setupAllModalHandlers() {
                 window.showHotelPostModal();
             }
         });
-        console.log('✅ Hotel button handler attached');
     }
     
     const propertyBtn = document.getElementById('property-post-btn');
@@ -1263,7 +1206,6 @@ function setupAllModalHandlers() {
                 window.showPropertyPostModal();
             }
         });
-        console.log('✅ Property button handler attached');
     }
     
     const landBtn = document.getElementById('land-post-btn');
@@ -1278,13 +1220,10 @@ function setupAllModalHandlers() {
                 window.showLandPostModal();
             }
         });
-        console.log('✅ Land button handler attached');
     }
     
-    console.log('✅ All modal button handlers setup complete');
 }
 
-// Call on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new VikeServeApp();
     
@@ -1293,10 +1232,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeMoreMenu = () => window.app?.closeMoreMenu();
     window.getCurrentLocation = () => window.app?.getCurrentLocation();
     
-    // Expose founder check
     window.isUserFounder = () => window.app?.isUserFounder();
     
-    // Setup modal handlers after app initializes
     setTimeout(setupAllModalHandlers, 500);
     
     window.addEventListener('beforeunload', () => {
@@ -1306,11 +1243,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Also call when tab changes
 document.addEventListener('tabChanged', function(e) {
     console.log('🔄 Tab changed, reattaching modal handlers...');
     setTimeout(setupAllModalHandlers, 300);
 });
 
-// Expose to window
 window.setupAllModalHandlers = setupAllModalHandlers;

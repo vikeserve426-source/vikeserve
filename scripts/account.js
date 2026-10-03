@@ -388,9 +388,6 @@ async function loadUserAccountData() {
         await loadUserBookings();
         await loadUserReviews();
         await loadUserFavorites();
-        
-        // ========== FIX: Load Reviews Properly ==========
-        // Use reviewsManager to render reviews
         if (typeof reviewsManager !== 'undefined' && reviewsManager) {
             setTimeout(() => {
                 reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
@@ -432,7 +429,7 @@ async function loadUserAds() {
             adsContainer.appendChild(adElement);
         });
     } catch (error) {
-        // Silent fail
+
     }
 }
 
@@ -529,16 +526,13 @@ async function loadUserReviews() {
             }
         }
         
-        // ========== FIX: Check if we should use reviewsManager ==========
         if (typeof reviewsManager !== 'undefined' && reviewsManager) {
-            // Use the reviewsManager to render properly
             setTimeout(() => {
                 reviewsManager.renderReviews('user-reviews-container', auth.currentUser.uid, 'received', 5);
             }, 100);
             return;
         }
-        
-        // Fallback to manual rendering
+
         if (reviews.length === 0) {
             reviewsContainer.innerHTML = '<div class="no-items">You don\'t have any reviews yet</div>';
             return;
@@ -551,7 +545,6 @@ async function loadUserReviews() {
         });
     } catch (error) {
         console.error('Error loading user reviews:', error);
-        // Fallback: show empty state
         const reviewsContainer = document.getElementById('user-reviews-container');
         if (reviewsContainer) {
             reviewsContainer.innerHTML = '<div class="no-items">No reviews yet</div>';
@@ -645,7 +638,6 @@ function updateProfileUI(userProfile) {
     if (profileLocation) profileLocation.textContent = userProfile.location || 'No location set';
     if (profileBio) profileBio.textContent = userProfile.bio || 'No bio yet';
     
-    // Display user role with badge
     if (profileRole) {
         const role = userProfile.role || 'general-user';
         const roleDisplay = getRoleDisplay(role);
@@ -662,14 +654,12 @@ function updateProfileUI(userProfile) {
         }
     }
     
-    // Check if user is founder and update badge
     if (userProfile.role === 'founder') {
         document.body.classList.add('founder');
     } else {
         document.body.classList.remove('founder');
     }
     
-    // ========== FIX: Ensure reviews container exists ==========
     let reviewsContainer = document.getElementById('user-reviews-container');
     if (!reviewsContainer) {
         reviewsContainer = document.createElement('div');
@@ -683,7 +673,6 @@ function updateProfileUI(userProfile) {
         }
     }
     
-    // Load reviews if user is logged in
     if (auth.currentUser) {
         setTimeout(() => {
             if (typeof reviewsManager !== 'undefined' && reviewsManager) {
@@ -695,7 +684,6 @@ function updateProfileUI(userProfile) {
     }
 }
 
-// ========== GET ROLE DISPLAY WITH BADGE ==========
 function getRoleDisplay(role) {
     const roleMap = {
         'founder': '<span class="role-badge founder"><i class="fas fa-crown"></i> Founder</span>',
@@ -799,7 +787,6 @@ function showEditProfileForm() {
         }
         
         setTimeout(() => {
-            // ========== FIX: Close button for modal ==========
             const closeBtn = document.querySelector('#edit-profile-modal .close-modal-btn');
             if (closeBtn) {
                 const newCloseBtn = closeBtn.cloneNode(true);

@@ -11,7 +11,6 @@ class AuthManager {
         if (this.auth && this.auth.setPersistence) {
             try {
                 await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                console.log('✅ Auth persistence set to LOCAL');
             } catch (error) {
                 console.error('Error setting persistence:', error);
             }
@@ -114,12 +113,10 @@ class AuthManager {
                     e.stopPropagation();
                     console.log(`🖱️ ${btn.id} clicked`);
                     
-                    // Close user menu
                     if (userMenu) {
                         userMenu.classList.remove('show');
                     }
                     
-                    // Execute handler
                     btn.handler();
                 });
             } else {
@@ -131,24 +128,20 @@ class AuthManager {
     showProfile() {
         console.log('👤 Opening profile...');
         
-        // Close the user menu first
         const userMenu = document.getElementById('user-menu');
         if (userMenu) {
             userMenu.classList.remove('show');
         }
         
-        // Close more menu if open
         if (typeof window.closeMoreMenu === 'function') {
             window.closeMoreMenu();
         }
         
-        // Switch to account tab
         if (typeof window.switchTab === 'function') {
             window.switchTab('account-tab');
         } else if (window.app && typeof window.app.switchTab === 'function') {
             window.app.switchTab('account-tab');
         } else {
-            // Fallback: manually switch
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -161,12 +154,10 @@ class AuthManager {
             if (accountNav) accountNav.classList.add('active');
         }
         
-        // Load user account data
         if (typeof loadUserAccountData === 'function') {
             setTimeout(() => loadUserAccountData(), 300);
         }
         
-        // Update URL hash
         if (typeof window.updateURLHash === 'function') {
             window.updateURLHash('account-tab');
         }
@@ -426,7 +417,6 @@ class AuthManager {
         const password = form.querySelector('#register-password')?.value;
         const confirmPassword = form.querySelector('#register-confirm-password')?.value;
         const displayName = form.querySelector('#register-name')?.value;
-        // Get role from text input instead of hidden field
         const roleInput = document.getElementById('user-role-input');
         const role = roleInput ? roleInput.value.trim() : 'general-user';
 
@@ -730,7 +720,6 @@ class AuthManager {
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = this.userData?.displayName || user.displayName || user.email;
         
-        // ========== ADD ROLE DISPLAY TO PROFILE ==========
         const profileRole = document.getElementById('profile-role');
         if (profileRole && this.userData) {
             const role = this.userData.role || 'general-user';
@@ -749,7 +738,6 @@ class AuthManager {
             }
         }
         
-        // ADD THIS: Update founder body class
         if (window.app && typeof window.app.updateFounderBodyClass === 'function') {
             setTimeout(() => window.app.updateFounderBodyClass(), 100);
         }
@@ -795,7 +783,6 @@ class AuthManager {
             profileAvatar.style.background = 'var(--primary)';
         }
         
-        // Remove founder class on body
         document.body.classList.remove('founder');
     }
 

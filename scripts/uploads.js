@@ -1,6 +1,3 @@
-// ========== UPLOAD MANAGER - COMPLETE FIXED VERSION ==========
-// Handles file uploads to Firebase Storage with compression and progress tracking
-
 if (typeof window.showToast !== 'function') {
     window.showToast = console.log;
 }
@@ -35,7 +32,6 @@ class UploadManager {
         this.auth = auth;
         this.currentUploads = new Map();
         
-        // FIXED: Use propertyListings instead of housing
         this.fileUploadsCollection = collections.fileUploads ? collections.fileUploads() : null;
         this.usersCollection = collections.users();
         this.propertyCollection = collections.propertyListings(); // FIXED
@@ -108,7 +104,6 @@ class UploadManager {
         input.click();
     }
 
-    // Compress image before upload
     async compressImage(file, maxWidth = 1024, maxHeight = 1024, quality = 0.8) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -156,12 +151,10 @@ class UploadManager {
             return;
         }
 
-        // Validate files
         const validFiles = [];
         for (const file of files) {
             const validation = this.validateFile(file, type);
             if (validation.valid) {
-                // Compress image before adding to valid files
                 if (file.type.startsWith('image/')) {
                     try {
                         const compressed = await this.compressImage(file);
@@ -180,7 +173,6 @@ class UploadManager {
         
         if (validFiles.length === 0) return;
 
-        // Show upload progress
         this.showUploadProgress(validFiles, type);
 
         try {
@@ -252,7 +244,6 @@ class UploadManager {
             const fileExtension = file.name.split('.').pop();
             const filename = `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
             
-            // FIXED: Include userId in temp path to avoid collisions
             const storagePath = this.getStoragePath(type, user.uid, filename, options);
             
             const storageRef = this.storage.ref(storagePath);
@@ -359,7 +350,6 @@ class UploadManager {
     }
 
     getStoragePath(type, userId, filename, options) {
-        // FIXED: Include userId in all paths to avoid collisions
         const paths = {
             'profile': `users/${userId}/profile-pictures/${filename}`,
             'property': `properties/${options.propertyId || `temp_${userId}`}/images/${filename}`,
@@ -652,13 +642,11 @@ class UploadManager {
         }
     }
 
-    // FIXED: Delete image and remove from Firestore
     async deletePropertyImage(imageUrl) {
         try {
             const storageRef = this.storage.refFromURL(imageUrl);
             await storageRef.delete();
             
-            // Also remove from Firestore if associated with a property
             const propertyId = this.getCurrentPropertyId();
             if (propertyId) {
                 const propertyRef = this.propertyCollection.doc(propertyId);
@@ -798,14 +786,12 @@ class UploadManager {
     }
 }
 
-// Initialize upload manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     const uploadManager = new UploadManager();
     window.uploadManager = uploadManager;
     console.log('✅ Upload Manager initialized and ready');
 });
 
-// Global functions for HTML onclick
 function uploadPropertyImages() {
     if (window.uploadManager) {
         window.uploadManager.openImageUploader('property', { multiple: true });
@@ -827,5 +813,3 @@ function uploadMarketplaceImages() {
 window.uploadPropertyImages = uploadPropertyImages;
 window.uploadProfilePicture = uploadProfilePicture;
 window.uploadMarketplaceImages = uploadMarketplaceImages;
-
-console.log('✅ Uploads.js fully loaded with all fixes');

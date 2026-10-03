@@ -1,4 +1,3 @@
-// VikeServe Service Worker - Enhanced Version
 const CACHE_NAME = 'vikeserve-v2';
 const DYNAMIC_CACHE = 'vikeserve-dynamic-v1';
 const OFFLINE_URL = '/offline.html';
@@ -11,7 +10,6 @@ const urlsToCache = [
   '/manifest.json'
 ];
 
-// Helper: Check if request is external API
 function isExternalAPI(url) {
   return url.includes('firebase') ||
          url.includes('googleapis') ||
@@ -19,12 +17,10 @@ function isExternalAPI(url) {
          url.includes('firestore.googleapis.com');
 }
 
-// Helper: Check if request is image
 function isImage(url) {
   return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
 }
 
-// Install event - cache core files
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -37,17 +33,14 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Fetch event - intelligent caching strategy
 self.addEventListener('fetch', event => {
   const url = event.request.url;
   
-  // Skip external APIs
   if (isExternalAPI(url)) {
     event.respondWith(fetch(event.request));
     return;
   }
   
-  // HTML pages - Network first, fallback to cache, then offline page
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -69,7 +62,6 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Images - Cache first (fastest)
   if (isImage(url)) {
     event.respondWith(
       caches.match(event.request)
@@ -78,7 +70,6 @@ self.addEventListener('fetch', event => {
           return fetch(event.request).then(response => {
             const copy = response.clone();
             caches.open(DYNAMIC_CACHE).then(cache => {
-              // Check size before caching
               const size = response.headers.get('content-length');
               if (!size || parseInt(size) < 5 * 1024 * 1024) {
                 cache.put(event.request, copy);
@@ -91,7 +82,6 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Default: Cache first, network fallback
   event.respondWith(
     caches.match(event.request)
       .then(cached => {
@@ -107,7 +97,6 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME, DYNAMIC_CACHE];
   event.waitUntil(
@@ -127,7 +116,6 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Push notification event
 self.addEventListener('push', event => {
   let data = { title: 'VikeServe', body: 'New update!' };
   
@@ -157,7 +145,6 @@ self.addEventListener('push', event => {
   );
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   
@@ -178,14 +165,12 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// Message event for client communication
 self.addEventListener('message', event => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }
 });
 
-// Background sync for offline actions
 self.addEventListener('sync', event => {
   if (event.tag === 'sync-pending') {
     event.waitUntil(syncPendingActions());
@@ -208,5 +193,3 @@ async function syncPendingActions() {
     }
   }
 }
-
-console.log('🚀 VikeServe Service Worker loaded');

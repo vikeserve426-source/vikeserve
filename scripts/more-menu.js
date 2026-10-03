@@ -27,7 +27,6 @@ class MoreMenuManager {
         this.replaceAllTabContent();
         this.setupEventListeners();
         await this.loadDataFromFirestore();
-        console.log('✅ More Menu Manager ready with Firestore');
     }
     
     async initializeFirestoreData() {
@@ -448,26 +447,6 @@ class MoreMenuManager {
                             <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
                         </ul>
                         <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
-                    </div>
-                </div>
-                
-                <!-- FAQ 3: Payment Security -->
-                <div class="faq-item">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
-                        <strong><i class="fas fa-lock" style="color: var(--primary); margin-right: 10px;"></i> Is my payment secure?</strong>
-                        <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                        <p>✅ Yes, your payments are completely secure! Here's why:</p>
-                        <ul style="margin: 8px 0 0 20px; padding-left: 0;">
-                            <li>🔒 All transactions are encrypted using SSL/TLS technology</li>
-                            <li>🏦 Payments are processed through <strong>IntaSend</strong>, a PCI-DSS compliant payment gateway</li>
-                            <li>💳 We never store your card information on our servers</li>
-                            <li>🛡️ All transactions are monitored for fraudulent activity</li>
-                            <li>📧 You'll receive a receipt via email after every payment</li>
-                            <li>🔄 Refund policy available for failed transactions</li>
-                        </ul>
-                        <p style="margin-top: 8px;">For any payment issues, contact us at <strong>vikeserve426@gmail.com</strong></p>
                     </div>
                 </div>
             </div>
@@ -1260,7 +1239,6 @@ class MoreMenuManager {
                 return;
             }
             
-            // Fetch user names for all participants
             const userIds = new Set();
             conversations.forEach(conv => {
                 conv.participants.forEach(p => {
@@ -1283,7 +1261,6 @@ class MoreMenuManager {
                 }
             }));
             
-            // Get unread counts
             const unreadCounts = {};
             for (const conv of conversations) {
                 try {
@@ -1349,7 +1326,6 @@ class MoreMenuManager {
                 `;
             }).join('');
             
-            // Add click handlers for conversation items
             document.querySelectorAll('.conversation-item').forEach(item => {
                 const newItem = item.cloneNode(true);
                 item.parentNode.replaceChild(newItem, item);
@@ -1358,7 +1334,6 @@ class MoreMenuManager {
                 });
             });
             
-            // Add click handlers for delete buttons
             document.querySelectorAll('.delete-chat-btn').forEach(btn => {
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
@@ -1377,7 +1352,6 @@ class MoreMenuManager {
         }
     }
     
-    // ========== CONFIRM DELETE CHAT ==========
     confirmDeleteChat(chatId, chatName, isGroup) {
         const chatType = isGroup ? 'group' : 'conversation';
         const modalContent = `
@@ -1418,7 +1392,6 @@ class MoreMenuManager {
         }, 100);
     }
     
-    // ========== DELETE CHAT ==========
     async deleteChat(chatId, isGroup) {
         try {
             const chatRef = this.db.collection('chats').doc(chatId);
@@ -1431,7 +1404,6 @@ class MoreMenuManager {
             
             const chatData = chatDoc.data();
             
-            // If group, check if user is admin
             if (isGroup) {
                 const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
                 if (!isAdmin) {
@@ -1440,15 +1412,12 @@ class MoreMenuManager {
                 }
             }
             
-            // Check if user is participant
             if (!chatData.participants || !chatData.participants.includes(this.currentUser.uid)) {
                 this.showToast('You are not a participant of this chat', 'error');
                 return;
             }
             
-            // If group and admin, delete the entire group
             if (isGroup && chatData.admins && chatData.admins.includes(this.currentUser.uid)) {
-                // Delete all messages in the group
                 const messagesSnapshot = await chatRef.collection('messages').get();
                 const batch = this.db.batch();
                 messagesSnapshot.forEach(doc => {
@@ -1456,20 +1425,16 @@ class MoreMenuManager {
                 });
                 await batch.commit();
                 
-                // Delete the group document
                 await chatRef.delete();
                 this.showToast('Group deleted successfully', 'success');
             } else {
-                // For individual chat or non-admin group member: remove user from participants
                 const participants = chatData.participants || [];
                 const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
                 
                 if (newParticipants.length === 0) {
-                    // If no participants left, delete the chat
                     await chatRef.delete();
                     this.showToast('Chat deleted successfully', 'success');
                 } else {
-                    // Remove user from participants
                     const participantNames = chatData.participantNames || {};
                     delete participantNames[this.currentUser.uid];
                     
@@ -1478,7 +1443,6 @@ class MoreMenuManager {
                         participantNames: participantNames
                     });
                     
-                    // If user was admin, remove from admins
                     if (chatData.admins) {
                         const admins = chatData.admins.filter(uid => uid !== this.currentUser.uid);
                         await chatRef.update({ admins: admins });
@@ -1488,10 +1452,8 @@ class MoreMenuManager {
                 }
             }
             
-            // Close chat window if open
             this.closeChatWindow();
             
-            // Refresh conversations
             await this.loadConversations();
             
         } catch (error) {
@@ -1500,7 +1462,6 @@ class MoreMenuManager {
         }
     }
     
-    // ========== CLEAR CHAT HISTORY ==========
     async clearChatHistory(chatId) {
         try {
             const chatRef = this.db.collection('chats').doc(chatId);
@@ -1511,7 +1472,6 @@ class MoreMenuManager {
                 return;
             }
             
-            // Delete all messages
             const messagesSnapshot = await chatRef.collection('messages').get();
             const batch = this.db.batch();
             messagesSnapshot.forEach(doc => {
@@ -1519,7 +1479,6 @@ class MoreMenuManager {
             });
             await batch.commit();
             
-            // Update last message
             await chatRef.update({
                 lastMessage: 'Chat history cleared',
                 lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1739,7 +1698,6 @@ class MoreMenuManager {
         this.loadChatMessages(chatId);
     }
     
-    // ========== SHOW GROUP INFO - FIXED ==========
 async showGroupInfo(chatId) {
     try {
         const chatDoc = await this.db.collection('chats').doc(chatId).get();
@@ -1754,10 +1712,8 @@ async showGroupInfo(chatId) {
             return;
         }
         
-        // ===== FIX: Determine if user is admin or creator =====
         const isCreator = chatData.adminId === this.currentUser.uid;
         const isAdmin = chatData.admins && chatData.admins.includes(this.currentUser.uid);
-        // User is admin if they are in admins array OR they are the creator
         const userIsAdmin = isAdmin || isCreator;
         
         const participants = chatData.participants || [];
@@ -1767,7 +1723,6 @@ async showGroupInfo(chatId) {
         console.log('🔍 Group admins:', chatData.admins);
         console.log('🔍 Current user:', this.currentUser.uid);
         
-        // Build member list HTML with clickable names
         let membersHtml = await Promise.all(participants.map(async (uid) => {
             let name = participantNames[uid] || 'User';
             
@@ -1790,7 +1745,6 @@ async showGroupInfo(chatId) {
             if (isMemberAdmin && !isMemberCreator) badges += '<span class="role-badge admin" style="background: #2E86DE; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">🛡️ Admin</span>';
             if (isCurrentUser) badges += '<span class="role-badge you" style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: 4px;">👤 You</span>';
             
-            // Can manage if current user is admin and this member is not the creator and not the current user
             const canManage = userIsAdmin && !isMemberCreator && uid !== this.currentUser.uid;
             
             return `
@@ -1877,9 +1831,7 @@ async showGroupInfo(chatId) {
         
         this.showModalWithContent('group-info-modal', modalContent);
         
-        // ========== EVENT HANDLERS ==========
         setTimeout(() => {
-            // Click on group name to edit
             const groupNameClick = document.getElementById('group-name-click');
             if (groupNameClick && userIsAdmin) {
                 groupNameClick.addEventListener('click', () => {
@@ -1888,7 +1840,6 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Click on member to show options
             document.querySelectorAll('.member-item').forEach(item => {
                 const userId = item.getAttribute('data-user-id');
                 const userName = item.getAttribute('data-user-name');
@@ -1907,7 +1858,6 @@ async showGroupInfo(chatId) {
                 });
             });
             
-            // Edit Group Name button
             const editNameBtn = document.getElementById('edit-group-name-btn');
             if (editNameBtn) {
                 editNameBtn.addEventListener('click', () => {
@@ -1916,7 +1866,6 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Add Members button
             const addMembersBtn = document.getElementById('add-group-members-btn');
             if (addMembersBtn) {
                 addMembersBtn.addEventListener('click', () => {
@@ -1925,7 +1874,6 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Leave Group button
             const leaveBtn = document.getElementById('leave-group-btn');
             if (leaveBtn) {
                 leaveBtn.addEventListener('click', () => {
@@ -1936,7 +1884,6 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Delete Group button (admin only)
             const deleteBtn = document.getElementById('delete-group-btn');
             if (deleteBtn && userIsAdmin) {
                 deleteBtn.addEventListener('click', () => {
@@ -1947,7 +1894,6 @@ async showGroupInfo(chatId) {
                 });
             }
             
-            // Report Group button
             const reportGroupBtn = document.getElementById('report-group-btn');
             if (reportGroupBtn) {
                 reportGroupBtn.addEventListener('click', () => {
@@ -1964,7 +1910,6 @@ async showGroupInfo(chatId) {
     }
 }
 
-// ========== SHOW MEMBER OPTIONS ==========
 showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     const modalContent = `
         <div class="modal-content" style="max-width: 360px; z-index: 20003;">
@@ -1998,7 +1943,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     this.showModalWithContent('member-options-modal', modalContent);
     
     setTimeout(() => {
-        // Make Admin
         const makeAdminBtn = document.getElementById('member-make-admin-btn');
         if (makeAdminBtn) {
             makeAdminBtn.addEventListener('click', async () => {
@@ -2010,7 +1954,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
             });
         }
         
-        // Remove Admin
         const removeAdminBtn = document.getElementById('member-remove-admin-btn');
         if (removeAdminBtn) {
             removeAdminBtn.addEventListener('click', async () => {
@@ -2022,7 +1965,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
             });
         }
         
-        // Remove Member
         const removeBtn = document.getElementById('member-remove-btn');
         if (removeBtn) {
             removeBtn.addEventListener('click', async () => {
@@ -2034,7 +1976,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
             });
         }
         
-        // Report Member
         const reportBtn = document.getElementById('member-report-btn');
         if (reportBtn) {
             reportBtn.addEventListener('click', () => {
@@ -2045,7 +1986,6 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     }, 100);
 }
 
-// ========== SHOW MEMBER REPORT ONLY (For non-admins) ==========
 showMemberReportOnlyModal(chatId, userId, userName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 360px; z-index: 20003;">
@@ -2110,7 +2050,6 @@ showMemberReportOnlyModal(chatId, userId, userName) {
     }, 100);
 }
 
-// ========== MAKE GROUP ADMIN ==========
 async makeGroupAdmin(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
@@ -2125,7 +2064,6 @@ async makeGroupAdmin(chatId, userId) {
     }
 }
 
-// ========== REMOVE GROUP ADMIN ==========
 async removeGroupAdmin(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
@@ -2140,7 +2078,6 @@ async removeGroupAdmin(chatId, userId) {
     }
 }
 
-// ========== REPORT GROUP ==========
 showReportGroupModal(chatId, groupName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20003;">
@@ -2204,7 +2141,6 @@ showReportGroupModal(chatId, groupName) {
     }, 100);
 }
 
-// ========== REPORT MEMBER ==========
 showReportMemberModal(chatId, userId, userName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20003;">
@@ -2269,7 +2205,6 @@ showReportMemberModal(chatId, userId, userName) {
     }, 100);
 }
 
-// ========== REMOVE MEMBER FROM GROUP ==========
 async showRemoveMemberModal(chatId) {
     try {
         const chatDoc = await this.db.collection('chats').doc(chatId).get();
@@ -2282,7 +2217,6 @@ async showRemoveMemberModal(chatId) {
         const participants = chatData.participants || [];
         const participantNames = chatData.participantNames || {};
         
-        // Filter out the current user (can't remove self)
         const membersToRemove = participants.filter(uid => uid !== this.currentUser.uid);
         
         if (membersToRemove.length === 0) {
@@ -2352,14 +2286,12 @@ async showRemoveMemberModal(chatId) {
     }
 }
 
-// ========== REMOVE MEMBER FROM GROUP ==========
 async removeMemberFromGroup(chatId, userId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
         const chatDoc = await chatRef.get();
         const chatData = chatDoc.data();
         
-        // Can't remove admin/creator
         if (chatData.adminId === userId) {
             this.showToast('Cannot remove the group creator', 'warning');
             return;
@@ -2386,7 +2318,6 @@ async removeMemberFromGroup(chatId, userId) {
     }
 }
 
-// ========== EDIT GROUP NAME ==========
 async showEditGroupNameModal(chatId, currentName) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
@@ -2439,7 +2370,6 @@ async updateGroupName(chatId, newName) {
     }
 }
 
-// ========== ADD MEMBERS TO GROUP ==========
 async showAddGroupMembersModal(chatId) {
     const modalContent = `
         <div class="modal-content" style="max-width: 400px; z-index: 20002;">
@@ -2469,7 +2399,6 @@ async showAddGroupMembersModal(chatId) {
     let allUsers = [];
     let selectedNewMembers = new Set();
     
-    // Get current group members
     const chatDoc = await this.db.collection('chats').doc(chatId).get();
     const chatData = chatDoc.data();
     const currentParticipants = chatData.participants || [];
@@ -2573,7 +2502,6 @@ async addMembersToGroup(chatId, newMemberIds) {
         const currentParticipants = chatData.participants || [];
         const currentParticipantNames = chatData.participantNames || {};
         
-        // Fetch names for new members
         const newNames = {};
         for (const uid of newMemberIds) {
             try {
@@ -2607,7 +2535,6 @@ async addMembersToGroup(chatId, newMemberIds) {
     }
 }
 
-// ========== LEAVE GROUP ==========
 async leaveGroup(chatId) {
     try {
         const chatRef = this.db.collection('chats').doc(chatId);
@@ -2617,22 +2544,18 @@ async leaveGroup(chatId) {
         const participants = chatData.participants || [];
         const newParticipants = participants.filter(uid => uid !== this.currentUser.uid);
         
-        // Remove participant names
         const participantNames = chatData.participantNames || {};
         delete participantNames[this.currentUser.uid];
         
         if (newParticipants.length === 0) {
-            // If no members left, delete the group
             await chatRef.delete();
             this.showToast('Group deleted (no members left)', 'info');
         } else {
-            // Update participants
             await chatRef.update({
                 participants: newParticipants,
                 participantNames: participantNames
             });
             
-            // If admin left, assign new admin
             if (chatData.adminId === this.currentUser.uid && newParticipants.length > 0) {
                 await chatRef.update({
                     adminId: newParticipants[0]
@@ -2732,22 +2655,18 @@ async loadChatMessages(chatId, loadMore = false) {
             const oldScrollHeight = messagesContainer.scrollHeight;
             const oldScrollTop = messagesContainer.scrollTop;
             
-            // Remove existing load more button
             const existingBtn = document.getElementById('chat-load-more-btn');
             if (existingBtn) existingBtn.remove();
             
-            // Add messages at the top
             messages.forEach(msg => {
                 const msgElement = this.createMessageElement(msg);
                 msgElement.setAttribute('data-message-id', msg.id || Date.now());
                 messagesContainer.insertBefore(msgElement, messagesContainer.firstChild);
             });
             
-            // Restore scroll position
             const newScrollHeight = messagesContainer.scrollHeight;
             messagesContainer.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
             
-            // Add load more button again if needed
             if (snapshot.docs.length >= 50) {
                 this.addLoadMoreButton(chatId, messagesContainer);
             }
@@ -2876,7 +2795,6 @@ async sendChatMessage(chatId) {
     
     if (!message) return;
     
-    // Prevent duplicate sends
     if (this.pendingMessage === message) {
         console.log('Duplicate message prevented');
         return;
@@ -3097,17 +3015,15 @@ appendNewMessage(message) {
     const messagesContainer = document.getElementById('chat-messages-area');
     if (!messagesContainer) return;
     
-    // Remove empty state if present
     const emptyState = messagesContainer.querySelector('.empty-chat');
     if (emptyState) {
         messagesContainer.innerHTML = '';
     }
     
-    // Check if message already exists (prevent duplicates)
     const existingMessages = messagesContainer.querySelectorAll('.chat-message');
     for (const el of existingMessages) {
         if (el.getAttribute('data-message-id') === message.id) {
-            return; // Message already exists
+            return;
         }
     }
     
@@ -3178,7 +3094,6 @@ async startNewChat() {
     
     this.showModalWithContent('new-chat-options-modal', modalContent);
     
-    // Fix: Use arrow functions to preserve 'this' context
     setTimeout(() => {
         const individualBtn = document.getElementById('new-individual-chat-btn');
         if (individualBtn) {
@@ -3196,7 +3111,6 @@ async startNewChat() {
             });
         }
         
-        // Also handle close button by ID
         const closeBtn = document.querySelector('#new-chat-options-modal .close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -3206,7 +3120,6 @@ async startNewChat() {
     }, 100);
 }
 
-// ========== INDIVIDUAL CHAT MODAL ==========
 async showIndividualChatModal() {
     if (!this.currentUser) return;
     
@@ -3238,12 +3151,10 @@ async showIndividualChatModal() {
     
     this.showModalWithContent('individual-chat-modal', modalContent);
     
-    // Store reference to this for use in nested functions
     const self = this;
     let allUsers = [];
     let selectedUserId = null;
     
-    // Load users
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -3285,7 +3196,6 @@ async showIndividualChatModal() {
             </div>
         `).join('');
         
-        // Click handler for user selection
         container.querySelectorAll('.user-search-item').forEach(item => {
             item.addEventListener('click', function() {
                 container.querySelectorAll('.user-search-item').forEach(el => {
@@ -3316,7 +3226,6 @@ async showIndividualChatModal() {
         });
     }
     
-    // Search functionality
     setTimeout(() => {
         const searchInput = document.getElementById('chat-user-search');
         if (searchInput) {
@@ -3353,7 +3262,6 @@ async showIndividualChatModal() {
     }, 200);
 }
 
-// ========== GROUP CHAT MODAL ==========
 async showGroupChatModal() {
     if (!this.currentUser) return;
     
@@ -3397,7 +3305,6 @@ async showGroupChatModal() {
     let allUsers = [];
     let selectedMembers = new Set();
     
-    // Load users
     try {
         const usersSnapshot = await this.db.collection('users').limit(100).get();
         allUsers = usersSnapshot.docs
@@ -3492,7 +3399,6 @@ async showGroupChatModal() {
         });
     }
     
-    // Search functionality
     setTimeout(() => {
         const searchInput = document.getElementById('group-user-search');
         if (searchInput) {
@@ -3530,17 +3436,14 @@ async showGroupChatModal() {
     }, 200);
 }
 
-// ========== CREATE GROUP CHAT ==========
 async createGroupChat(groupName, memberIds, initialMessage) {
     if (!this.currentUser) {
         this.showToast('Please sign in to create a group', 'warning');
         return;
     }
     
-    // Prevent duplicate creation
     const allParticipants = [this.currentUser.uid, ...memberIds];
     
-    // Fetch user names for all participants
     const userNames = {};
     for (const uid of allParticipants) {
         if (uid === this.currentUser.uid) {
@@ -3560,7 +3463,6 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         }
     }
     
-    // Check if group with same participants already exists (regardless of name)
     const existingGroups = await this.db.collection('chats')
         .where('isGroup', '==', true)
         .get();
@@ -3568,7 +3470,6 @@ async createGroupChat(groupName, memberIds, initialMessage) {
     for (const doc of existingGroups.docs) {
         const data = doc.data();
         const participants = data.participants || [];
-        // Check if all participants match (order doesn't matter)
         const allMatch = allParticipants.every(p => participants.includes(p)) && 
                          participants.every(p => allParticipants.includes(p));
         if (allMatch) {
@@ -3594,7 +3495,6 @@ async createGroupChat(groupName, memberIds, initialMessage) {
     try {
         const chatRef = await this.db.collection('chats').add(chatData);
         
-        // Send initial message
         await chatRef.collection('messages').add({
             senderId: this.currentUser.uid,
             senderName: this.currentUser.displayName || this.currentUser.email || 'User',
@@ -3605,7 +3505,6 @@ async createGroupChat(groupName, memberIds, initialMessage) {
         
         this.showToast('✅ Group chat created successfully!', 'success');
         
-        // Close the modal properly
         const groupModal = document.getElementById('group-chat-modal');
         if (groupModal) {
             groupModal.style.display = 'none';
@@ -3617,7 +3516,6 @@ async createGroupChat(groupName, memberIds, initialMessage) {
             }, 300);
         }
         
-        // Refresh conversations and open the new group chat
         await this.loadConversations();
         setTimeout(() => {
             this.loadChat(chatRef.id);
@@ -3641,7 +3539,6 @@ async startChatWithUser(userId, initialMessage) {
         return;
     }
     
-    // Check for existing chat
     const existingChat = await this.db.collection('chats')
         .where('participants', 'array-contains', this.currentUser.uid)
         .get();
@@ -4451,13 +4348,11 @@ window.addAppAnnouncement = async function(title, message) {
     }
 };
 
-// ========== GLOBAL MODAL CLOSE FUNCTION ==========
 window.closeModalById = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.remove();
     }
-    // Also try to close via the manager
     if (window.moreMenuManager && typeof window.moreMenuManager.closeModal === 'function') {
         window.moreMenuManager.closeModal(modalId);
     }

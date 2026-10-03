@@ -390,7 +390,6 @@ class HousingManager {
 
 function initializeHousingManager() {
     window.housingManager = new HousingManager();
-    console.log("✅ Housing Manager initialized with propertyListings collection");
 }
 
 if (typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth) {

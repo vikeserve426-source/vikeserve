@@ -291,7 +291,6 @@ function initAdminManager() {
     if (!adminManager) {
         adminManager = new AdminManager();
         window.adminManager = adminManager;
-        console.log('✅ Admin Manager initialized');
     }
     return adminManager;
 }
@@ -621,8 +620,7 @@ function toggleMaintenanceMode(enabled) {
 
 async function savePlatformSettings() {
     const maintenanceMode = document.getElementById('maintenance-mode-toggle')?.checked || false;
-    
-    // Save to Firestore
+
     try {
         await collections.systemSettings().doc('platform').set({
             maintenanceMode: maintenanceMode,

@@ -129,7 +129,6 @@ div.style.cssText = `
     div.setAttribute('data-ad-id', item.id);
     div.setAttribute('data-category', item.category);
     div.setAttribute('data-seller-id', item.userId);
-    // Add inline styles to force mobile width
     div.style.width = '100%';
     div.style.maxWidth = '100%';
     div.style.boxSizing = 'border-box';
@@ -319,7 +318,6 @@ itemsWithRatings.forEach(item => {
     container.appendChild(createMarketplaceItemElement(item));
 });
 
-// Add footer after items
 if (!document.getElementById('marketplace-footer')) {
     const footer = document.createElement('div');
     footer.id = 'marketplace-footer';
@@ -1185,7 +1183,6 @@ function showGasRefillPostModal() {
         modal.style.zIndex = '10001';
         document.body.style.overflow = 'hidden';
         
-        // ========== FIX: Ensure close button works ==========
         setTimeout(() => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
@@ -1324,7 +1321,6 @@ function showWaterDeliveryPostModal() {
         modal.style.zIndex = '10001';
         document.body.style.overflow = 'hidden';
         
-        // ========== FIX: Ensure close button works ==========
         setTimeout(() => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
@@ -1409,7 +1405,6 @@ function showHotelPostModal() {
         modal.style.zIndex = '10001';
         document.body.style.overflow = 'hidden';
         
-        // ========== FIX: Ensure close button works ==========
         setTimeout(() => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
@@ -1494,7 +1489,6 @@ function showPropertyPostModal() {
         modal.style.zIndex = '10001';
         document.body.style.overflow = 'hidden';
         
-        // ========== FIX: Ensure close button works ==========
         setTimeout(() => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
@@ -1580,7 +1574,6 @@ function showLandPostModal() {
         modal.style.zIndex = '10001';
         document.body.style.overflow = 'hidden';
         
-        // ========== FIX: Ensure close button works ==========
         setTimeout(() => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
@@ -1747,7 +1740,6 @@ function setupMarketplaceButtons() {
 
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
-        // Force marketplace container to single column
         const container = document.getElementById('marketplace-items-container');
         if (container) {
             container.style.display = 'flex';
@@ -1765,7 +1757,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 300);
 });
 
-// ========== FIX: Marketplace Modal Buttons ==========
 function setupMarketplaceModalButtons() {
     console.log('🔧 Setting up marketplace modal buttons...');
     
@@ -1793,7 +1784,6 @@ function setupMarketplaceModalButtons() {
         }
     });
     
-    // Submit buttons
     const submitBtns = [
         { id: 'submit-marketplace-btn', handler: submitMarketplaceItem },
         { id: 'submit-gas-btn', handler: submitGasRefillListing },
@@ -1817,10 +1807,8 @@ function setupMarketplaceModalButtons() {
         }
     });
     
-    console.log('✅ Marketplace buttons setup complete');
 }
 
-// Make sure it runs on tab switch to marketplace
 document.addEventListener('tabChanged', function(e) {
     if (e.detail && e.detail.tabId === 'marketplace-tab') {
         setTimeout(setupMarketplaceModalButtons, 300);

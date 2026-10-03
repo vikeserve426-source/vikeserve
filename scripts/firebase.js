@@ -64,17 +64,12 @@ let selectedLanguage = localStorage.getItem('vikeserve_language') || "en";
 
 console.log("Firebase initialized successfully!");
 
-// ========== REMOTE CONFIG (Feature Toggles) ==========
 const remoteConfig = firebase.remoteConfig();
 
-// Set default values (used when offline or before fetch)
 remoteConfig.defaultConfig = {
-    // Feature toggles - set to false to disable features
-    'feature_adPromotion': 'false',        // Ad promotion (View Packages, Promote buttons)
-    'feature_wifiConnect': 'false',        // VikeServe Connect (WiFi reselling)
-    'feature_showComingSoon': 'true',      // Show "Coming Soon" badges
-    
-    // Main features (always enabled)
+    'feature_adPromotion': 'false',
+    'feature_wifiConnect': 'false',
+    'feature_showComingSoon': 'true',
     'feature_marketplace': 'true',
     'feature_services': 'true',
     'feature_bookings': 'true',
@@ -86,25 +81,20 @@ remoteConfig.defaultConfig = {
     'feature_settings': 'true'
 };
 
-// Fetch and activate remote config
 remoteConfig.fetchAndActivate()
     .then(() => {
-        console.log('✅ Remote Config loaded successfully');
-        // Dispatch event to notify app that remote config is ready
         window.dispatchEvent(new Event('remoteConfigReady'));
     })
     .catch(error => {
         console.error('Error loading remote config:', error);
     });
 
-// Helper function to check if a feature is enabled
 function isFeatureEnabled(featureKey) {
     try {
         const value = remoteConfig.getValue(featureKey);
         return value.asBoolean();
     } catch (error) {
         console.warn('Remote config not available, using default:', featureKey);
-        // Fallback defaults
         const defaults = {
             'feature_adPromotion': false,
             'feature_wifiConnect': false,
@@ -123,7 +113,6 @@ function isFeatureEnabled(featureKey) {
     }
 }
 
-// Get all feature toggles at once (useful for debugging)
 function getAllFeatures() {
     const features = {};
     const keys = [
@@ -151,9 +140,6 @@ window.remoteConfig = remoteConfig;
 window.isFeatureEnabled = isFeatureEnabled;
 window.getAllFeatures = getAllFeatures;
 
-console.log('✅ Remote Config initialized');
-
-// ========== USER PREFERENCES ==========
 function saveUserPreferences(country, language) {
     selectedCountry = country;
     selectedLanguage = language;
@@ -306,7 +292,6 @@ async function ensureUserProfile(user) {
             });
             console.log("New user profile created with points");
         } else {
-            // Ensure points field exists for existing users
             const userData = userDoc.data();
             if (userData.points === undefined) {
                 await collections.users().doc(user.uid).update({

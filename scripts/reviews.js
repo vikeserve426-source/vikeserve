@@ -1,17 +1,11 @@
-// ========== REVIEWS MANAGER - COMPLETE FIXED VERSION ==========
-// Uses Firestore collections pattern (collections.reviews(), collections.users())
-// ADDED: Points system - award points when users receive reviews
-
 class ReviewsManager {
     constructor() {
-        // FIXED: Use collections pattern (not firebaseCollections)
         this.db = db;
         this.reviewsCollection = collections.reviews();
         this.usersCollection = collections.users();
         this.bookingsCollection = collections.bookings();
     }
 
-    // Add a new review with validation
     async addReview(reviewData) {
         try {
             const user = auth.currentUser;
@@ -19,12 +13,10 @@ class ReviewsManager {
                 return { success: false, error: 'User must be logged in to add a review' };
             }
 
-            // Validate rating range (1-5)
             if (!reviewData.rating || reviewData.rating < 1 || reviewData.rating > 5) {
                 return { success: false, error: 'Rating must be between 1 and 5' };
             }
 
-            // Check for duplicate review (same user, same reviewed user, same context)
             const existingReview = await this.reviewsCollection
                 .where('authorId', '==', user.uid)
                 .where('reviewedUserId', '==', reviewData.reviewedUserId)
@@ -46,11 +38,8 @@ class ReviewsManager {
 
             const docRef = await this.reviewsCollection.add(review);
             
-            // Update user's average rating
             await this.updateUserRating(reviewData.reviewedUserId);
             
-            // ========== AWARD POINTS TO THE REVIEWED USER ==========
-            // Get points based on rating (uses POINTS_CONFIG from utils.js)
             const pointsEarned = typeof window.getPointsForRating === 'function' 
                 ? window.getPointsForRating(reviewData.rating) 
                 : 0;
@@ -70,7 +59,6 @@ class ReviewsManager {
         }
     }
 
-    // Get reviews for a specific user with pagination
     async getUserReviews(userId, limit = 10, startAfter = null) {
         try {
             let query = this.reviewsCollection
@@ -96,7 +84,6 @@ class ReviewsManager {
         }
     }
 
-    // Get reviews written by a specific user with pagination
     async getReviewsByUser(userId, limit = 10, startAfter = null) {
         try {
             let query = this.reviewsCollection
@@ -121,16 +108,14 @@ class ReviewsManager {
         }
     }
 
-    // Calculate average rating for a user (returns number)
     async getUserAverageRating(userId) {
         try {
-            const result = await this.getUserReviews(userId, 100); // Get up to 100 reviews
+            const result = await this.getUserReviews(userId, 100);
             const userReviews = result.reviews;
             
             if (userReviews.length === 0) return 0;
 
             const totalRating = userReviews.reduce((sum, review) => sum + (review.rating || 0), 0);
-            // Return as number, not string
             return parseFloat((totalRating / userReviews.length).toFixed(1));
         } catch (error) {
             console.error('Error calculating average rating:', error);
@@ -138,7 +123,6 @@ class ReviewsManager {
         }
     }
 
-    // Get review statistics for dashboard
     async getReviewStats(userId) {
         try {
             const [userReviewsResult, reviewsByUserResult] = await Promise.all([
@@ -167,7 +151,6 @@ class ReviewsManager {
         }
     }
 
-    // Get rating distribution
     getRatingBreakdown(reviews) {
         const breakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
         reviews.forEach(review => {
@@ -178,14 +161,12 @@ class ReviewsManager {
         return breakdown;
     }
 
-    // Update user's average rating in Firebase (using merge to avoid overwrite)
     async updateUserRating(userId) {
         try {
             const averageRating = await this.getUserAverageRating(userId);
             const userReviewsResult = await this.getUserReviews(userId, 100);
             const reviewCount = userReviewsResult.reviews.length;
 
-            // FIXED: Use set with merge instead of update (prevents errors if doc doesn't exist)
             await this.usersCollection.doc(userId).set({
                 averageRating: averageRating,
                 totalReviews: reviewCount,
@@ -198,9 +179,7 @@ class ReviewsManager {
         }
     }
 
-    // Render stars (handles invalid ratings)
     renderStars(rating) {
-        // Handle invalid input
         let numericRating = typeof rating === 'string' ? parseFloat(rating) : rating;
         if (isNaN(numericRating)) numericRating = 0;
         
@@ -217,7 +196,6 @@ class ReviewsManager {
         return stars;
     }
 
-    // Render reviews in a container with pagination
     async renderReviews(containerId, userId = null, type = 'received', limit = 10, loadMore = false) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -260,7 +238,6 @@ class ReviewsManager {
                 container.appendChild(reviewElement);
             });
 
-            // Add "Load More" button if there are more reviews
             if (result.lastVisible) {
                 let loadMoreBtn = document.getElementById(`load-more-${containerId}`);
                 if (!loadMoreBtn) {
@@ -285,7 +262,6 @@ class ReviewsManager {
         }
     }
 
-    // Create individual review element
     createReviewElement(review, type) {
         const div = document.createElement('div');
         div.className = 'review-item';
@@ -324,7 +300,6 @@ class ReviewsManager {
         return div;
     }
 
-    // Show respond modal
     showRespondModal(reviewId, authorName) {
         const modalContent = `
             <div class="modal-content" style="max-width: 400px;">
@@ -349,9 +324,7 @@ class ReviewsManager {
             window.showModalWithContent('respond-modal', modalContent);
         }
         
-        // ========== FIX: Setup close buttons ==========
         setTimeout(() => {
-            // Close button for modal
             const closeBtn = document.querySelector('#respond-modal .close-modal-btn');
             if (closeBtn) {
                 const newCloseBtn = closeBtn.cloneNode(true);
@@ -385,7 +358,6 @@ class ReviewsManager {
                     const result = await this.addReviewResponse(reviewId, response);
                     if (result.success) {
                         this.showToast('Response added!', 'success');
-                        // Close modal
                         const modal = document.getElementById('respond-modal');
                         if (modal) {
                             modal.style.display = 'none';
@@ -396,7 +368,6 @@ class ReviewsManager {
                                 }
                             }, 300);
                         }
-                        // Refresh reviews display
                         const containerId = 'user-reviews-container';
                         const currentUser = auth.currentUser;
                         if (currentUser) {
@@ -410,7 +381,6 @@ class ReviewsManager {
         }, 100);
     }
 
-    // Add response to a review
     async addReviewResponse(reviewId, response) {
         try {
             const user = auth.currentUser;
@@ -431,7 +401,6 @@ class ReviewsManager {
         }
     }
 
-    // Show review modal for writing a review (with pre-submission check)
     async showReviewModal(reviewedUserId, reviewedUserName, context = 'service', bookingId = null) {
         const currentUser = auth.currentUser;
         if (!currentUser) {
@@ -440,7 +409,6 @@ class ReviewsManager {
             return;
         }
 
-        // Check if user can review (pre-submission check)
         const canReview = await this.canUserReview(reviewedUserId, context, bookingId);
         if (!canReview) {
             this.showToast('You have already reviewed this user/service', 'warning');
@@ -483,7 +451,6 @@ class ReviewsManager {
             window.showModalWithContent('review-modal', modalContent);
         }
 
-        // Setup star rating
         let selectedRating = 0;
         const stars = document.querySelectorAll('#review-modal .star-rating-input i');
         
@@ -522,10 +489,8 @@ class ReviewsManager {
             });
         });
 
-        // Setup form submission
         const submitBtn = document.getElementById('submit-review-btn');
         if (submitBtn) {
-            // Remove old listener by cloning
             const newSubmitBtn = submitBtn.cloneNode(true);
             submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
             
@@ -542,7 +507,6 @@ class ReviewsManager {
                     return;
                 }
 
-                // Show loading state
                 newSubmitBtn.disabled = true;
                 newSubmitBtn.innerHTML = '<div class="spinner"></div> Submitting...';
 
@@ -555,15 +519,12 @@ class ReviewsManager {
                     bookingId: bookingId
                 });
 
-                // Reset button
                 newSubmitBtn.disabled = false;
                 newSubmitBtn.innerHTML = 'Submit Review';
 
                 if (result.success) {
                     this.showToast('✅ Review submitted successfully!', 'success');
                     
-                    // ========== CLOSE ALL MODALS ==========
-                    // Close review modal
                     const reviewModal = document.getElementById('review-modal');
                     if (reviewModal) {
                         reviewModal.style.display = 'none';
@@ -574,7 +535,6 @@ class ReviewsManager {
                         }, 300);
                     }
                     
-                    // Close seller profile modal
                     const sellerProfileModal = document.getElementById('seller-profile-modal');
                     if (sellerProfileModal) {
                         sellerProfileModal.style.display = 'none';
@@ -585,7 +545,6 @@ class ReviewsManager {
                         }, 300);
                     }
                     
-                    // Close provider profile modal
                     const providerProfileModal = document.getElementById('provider-profile-modal');
                     if (providerProfileModal) {
                         providerProfileModal.style.display = 'none';
@@ -596,13 +555,11 @@ class ReviewsManager {
                         }, 300);
                     }
                     
-                    // Refresh reviews display
                     const container = document.getElementById('user-reviews-container');
                     if (container) {
                         this.renderReviews('user-reviews-container', reviewedUserId, 'received', 10);
                     }
                     
-                    // Update stats
                     this.updateReviewStats();
                 } else {
                     this.showToast('Error: ' + result.error, 'error');
@@ -611,7 +568,6 @@ class ReviewsManager {
         }
     }
 
-    // Check if user can review (hasn't reviewed before for same context)
     async canUserReview(reviewedUserId, context = 'service', bookingId = null) {
         try {
             const currentUser = auth.currentUser;
@@ -622,7 +578,6 @@ class ReviewsManager {
                 .where('reviewedUserId', '==', reviewedUserId)
                 .where('context', '==', context);
 
-            // If bookingId is provided, use it for more specific check
             if (bookingId) {
                 query = query.where('bookingId', '==', bookingId);
             }
@@ -635,7 +590,6 @@ class ReviewsManager {
         }
     }
 
-    // Get recent reviews for dashboard
     async getRecentReviews(limit = 10) {
         try {
             const snapshot = await this.reviewsCollection
@@ -651,7 +605,6 @@ class ReviewsManager {
         }
     }
 
-    // Delete a review (author only)
     async deleteReview(reviewId) {
         try {
             const currentUser = auth.currentUser;
@@ -670,7 +623,6 @@ class ReviewsManager {
 
             await this.reviewsCollection.doc(reviewId).delete();
             
-            // Update the reviewed user's rating
             await this.updateUserRating(reviewDoc.data().reviewedUserId);
 
             return { success: true };
@@ -680,7 +632,6 @@ class ReviewsManager {
         }
     }
 
-    // Update review stats in UI
     async updateReviewStats() {
         const currentUser = auth.currentUser;
         if (!currentUser) return;
@@ -688,19 +639,16 @@ class ReviewsManager {
         try {
             const stats = await this.getReviewStats(currentUser.uid);
             
-            // Update review count in profile
             const reviewCountElements = document.querySelectorAll('.profile-stat-value');
             if (reviewCountElements.length >= 3) {
                 reviewCountElements[2].textContent = stats.totalReceived;
             }
 
-            // Update rating display
             const ratingElement = document.querySelector('.profile-rating-value');
             if (ratingElement) {
                 ratingElement.textContent = stats.averageRating.toFixed(1);
             }
 
-            // Update star rating display
             const starRatingElement = document.querySelector('.profile-star-rating');
             if (starRatingElement) {
                 starRatingElement.innerHTML = this.renderStars(stats.averageRating);
@@ -710,9 +658,6 @@ class ReviewsManager {
         }
     }
 
-    // ========== POINTS SYSTEM METHODS ==========
-    
-    // Award points to a user when they receive a review
     async awardPoints(userId, points, reviewData = {}) {
         if (!userId || points <= 0) return false;
         
@@ -731,7 +676,6 @@ class ReviewsManager {
                 });
             });
             
-            // Log the transaction
             await this.db.collection('points_transactions').add({
                 userId: userId,
                 amount: points,
@@ -751,7 +695,6 @@ class ReviewsManager {
         }
     }
     
-    // Redeem points for ad promotion discount
     async redeemPointsForDiscount(userId, requiredPoints, packageName) {
         if (!userId || requiredPoints <= 0) return { success: false, error: 'Invalid points' };
         
@@ -792,7 +735,6 @@ class ReviewsManager {
         }
     }
     
-    // Get user's current points balance
     async getUserPoints(userId) {
         try {
             const userDoc = await this.usersCollection.doc(userId).get();
@@ -803,7 +745,6 @@ class ReviewsManager {
         }
     }
     
-    // Get user's points transaction history
     async getUserPointsHistory(userId, limit = 20) {
         try {
             const snapshot = await this.db.collection('points_transactions')
@@ -819,7 +760,6 @@ class ReviewsManager {
         }
     }
 
-    // Helper: Escape HTML
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -827,7 +767,6 @@ class ReviewsManager {
         return div.innerHTML;
     }
 
-    // Helper: Format date
     formatDate(timestamp) {
         if (!timestamp) return 'Recently';
         try {
@@ -857,23 +796,17 @@ class ReviewsManager {
 
 }
 
-// ========== GLOBAL FUNCTIONS ==========
 const reviewsManager = new ReviewsManager();
 
-// Make available globally
 window.reviewsManager = reviewsManager;
-window.reviews = reviewsManager; // Backward compatibility
+window.reviews = reviewsManager;
 
-// Global functions for UI interactions
 window.showReviewModal = function(reviewedUserId, reviewedUserName, context = 'service', bookingId = null) {
     reviewsManager.showReviewModal(reviewedUserId, reviewedUserName, context, bookingId);
 };
 
-// Initialize when auth state changes
 auth.onAuthStateChanged(user => {
     if (user) {
         reviewsManager.updateReviewStats();
     }
 });
-
-console.log('✅ Reviews.js fully loaded with all fixes and points system');

@@ -243,7 +243,6 @@ class QuickActionsManager {
         return titles[actionType] || 'Services';
     }
 
-    // ========== WIFI CONNECT COMING SOON MODAL ==========
     showWifiComingSoonModal() {
         const modalContent = `
             <div class="modal-content" style="max-width: 400px; text-align: center;">

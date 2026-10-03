@@ -1,26 +1,13 @@
-/* ========================================
-   VIKESERVE - Complete Style Sheet
-   Version: 1.0.0
-   Description: Mobile-first, dark mode ready
-   ======================================== */
-
-/* ========================================
-   01: CSS VARIABLES / THEME
-   ======================================== */
-
 :root {
-    /* --- Primary Colors --- */
     --primary: #2E86DE;
     --primary-dark: #1a6bb0;
     --primary-light: #5ba3e6;
     --primary-gradient: linear-gradient(135deg, #2E86DE 0%, #1a6bb0 100%);
     
-    /* --- Secondary Colors --- */
     --secondary: #6c5ce7;
     --secondary-dark: #5a4bd1;
     --secondary-light: #a29bfe;
     
-    /* --- Status Colors --- */
     --success: #10b981;
     --success-bg: #d1fae5;
     --success-text: #065f46;
@@ -52,20 +39,17 @@
     --border-light: #f1f5f9;
     --border-dark: #cbd5e1;
     
-    /* --- Shadows --- */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
     --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.16);
     
-    /* --- Radius --- */
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
     --radius-xl: 20px;
     --radius-full: 9999px;
     
-    /* --- Spacing --- */
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 12px;
@@ -74,7 +58,6 @@
     --space-2xl: 24px;
     --space-3xl: 32px;
     
-    /* --- Typography --- */
     --font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-size-xs: 0.65rem;
     --font-size-sm: 0.75rem;
@@ -86,24 +69,20 @@
     --font-size-3xl: 1.875rem;
     --font-size-4xl: 2.25rem;
     
-    /* --- Navigation --- */
     --nav-height: 64px;
     --nav-bg: #ffffff;
     --nav-active-color: var(--primary);
     --nav-inactive-color: var(--text-tertiary);
     
-    /* --- Quick Actions --- */
     --action-size: 80px;
     --action-radius: 16px;
     --action-bg: var(--bg-tertiary);
     --action-icon-size: 32px;
     
-    /* --- Badges --- */
     --badge-radius: 9999px;
     --badge-padding: 2px 10px;
     --badge-font-size: 0.6rem;
     
-    /* --- Status Badge Colors --- */
     --status-pending: #f59e0b;
     --status-pending-bg: #fef3c7;
     --status-confirmed: #3b82f6;
@@ -117,7 +96,6 @@
     --status-rejected: #6b7280;
     --status-rejected-bg: #f3f4f6;
     
-    /* --- Upload --- */
     --upload-progress-height: 8px;
     --upload-progress-radius: 4px;
     --upload-progress-bg: #e5e7eb;
@@ -125,38 +103,29 @@
     --upload-progress-success: var(--success);
     --upload-progress-error: var(--danger);
     
-    /* --- Chat --- */
     --chat-bubble-user: var(--primary);
     --chat-bubble-user-text: #ffffff;
     --chat-bubble-other: #ffffff;
     --chat-bubble-other-text: var(--text-primary);
     --chat-bubble-radius: 18px;
     
-    /* --- More Menu --- */
     --more-menu-bg: #ffffff;
     --more-menu-radius: 20px 20px 0 0;
     --more-menu-max-height: 80vh;
     
-    /* --- Points --- */
     --points-gradient-start: #667eea;
     --points-gradient-end: #764ba2;
     --points-color: #ffffff;
     
-    /* --- Toggle --- */
     --toggle-width: 48px;
     --toggle-height: 26px;
     --toggle-bg: #d1d5db;
     --toggle-active: var(--primary);
     --toggle-knob: #ffffff;
     
-    /* --- Container --- */
     --container-max-width: 480px;
     --container-padding: 16px;
 }
-
-/* ========================================
-   02: DARK MODE THEME
-   ======================================== */
 
 [data-theme="dark"] {
     --bg-primary: #0f0f1a;
@@ -203,10 +172,6 @@
     --info-bg: #1a2a4a;
 }
 
-/* ========================================
-   03: RESET & BASE STYLES
-   ======================================== */
-
 *,
 *::before,
 *::after {
@@ -233,7 +198,6 @@ body {
     padding-bottom: calc(var(--nav-height) + 20px);
 }
 
-/* --- Scrollbar --- */
 ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -246,13 +210,11 @@ body {
     border-radius: 9999px;
 }
 
-/* --- Selection --- */
 ::selection {
     background: var(--primary);
     color: white;
 }
 
-/* --- Links --- */
 a {
     color: var(--primary);
     text-decoration: none;
@@ -261,22 +223,16 @@ a:hover {
     color: var(--primary-dark);
 }
 
-/* --- Images --- */
 img {
     max-width: 100%;
     height: auto;
     display: block;
 }
 
-/* --- Buttons --- */
 button {
     font-family: inherit;
     cursor: pointer;
 }
-
-/* ========================================
-   04: CONTAINER & LAYOUT
-   ======================================== */
 
 .container {
     max-width: var(--container-max-width);
@@ -290,7 +246,6 @@ button {
     padding-bottom: 80px;
 }
 
-/* --- Tab Content --- */
 .tab-content {
     display: none;
     animation: fadeIn 0.3s ease;
@@ -309,10 +264,6 @@ button {
         transform: translateY(0);
     }
 }
-
-/* ========================================
-   05: TYPOGRAPHY
-   ======================================== */
 
 h1,
 h2,
@@ -338,10 +289,6 @@ h6 {
     color: var(--primary);
 }
 
-/* ========================================
-   06: APP HEADER
-   ======================================== */
-
 .app-header {
     display: flex;
     align-items: center;
@@ -349,7 +296,6 @@ h6 {
     padding: var(--space-md) var(--container-padding);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    /* CHANGE: Use relative positioning for the parent */
     position: relative !important;
     z-index: 100;
     min-height: 56px;
@@ -358,7 +304,6 @@ h6 {
     margin: 0 auto;
 }
 
-/* User profile wrapper - MUST be the positioning parent */
 .user-profile-wrapper {
     position: relative !important;
     display: flex !important;
@@ -388,10 +333,6 @@ h6 {
     font-size: var(--font-size-md);
 }
 
-/* ========================================
-   07: USER MENU DROPDOWN
-   ======================================== */
-
 .user-menu {
     position: absolute !important;
     top: calc(100% + 6px) !important;
@@ -411,7 +352,6 @@ h6 {
     margin: 0 !important;
 }
 
-/* Small arrow pointing to profile icon - FIXED */
 .user-menu::before {
     content: '' !important;
     position: absolute !important;
@@ -426,7 +366,6 @@ h6 {
     pointer-events: none !important;
 }
 
-/* Dark mode arrow */
 [data-theme="dark"] .user-menu::before {
     border-bottom-color: var(--bg-secondary) !important;
 }
@@ -447,7 +386,6 @@ h6 {
     }
 }
 
-/* User menu items - ensure they are styled correctly */
 .user-menu .user-menu-header {
     padding: var(--space-lg) !important;
     background: var(--bg-tertiary) !important;
@@ -519,7 +457,6 @@ h6 {
     border-bottom: none !important;
 }
 
-/* Dark mode arrow */
 [data-theme="dark"] .user-menu::before {
     border-bottom-color: var(--bg-secondary) !important;
 }
@@ -539,10 +476,6 @@ h6 {
         transform: translateY(0);
     }
 }
-
-/* ========================================
-   08: SEARCH BAR
-   ======================================== */
 
 .search-bar {
     display: flex;
@@ -577,10 +510,6 @@ h6 {
 .search-input::placeholder {
     color: var(--text-tertiary);
 }
-
-/* ========================================
-   09: QUICK ACTIONS
-   ======================================== */
 
 .quick-actions {
     display: grid;
@@ -634,7 +563,6 @@ h6 {
     line-height: 1.2;
 }
 
-/* --- Coming Soon --- */
 .coming-soon-action {
     opacity: 0.7;
     position: relative;
@@ -656,10 +584,6 @@ h6 {
     z-index: 5;
     letter-spacing: 0.3px;
 }
-
-/* ========================================
-   10: STATS CARDS
-   ======================================== */
 
 .stats-container {
     display: grid;
@@ -686,10 +610,6 @@ h6 {
     color: var(--text-tertiary);
     margin-top: var(--space-xs);
 }
-
-/* ========================================
-   11: CARDS (General)
-   ======================================== */
 
 .module-card {
     background: var(--bg-secondary);
@@ -727,10 +647,6 @@ h6 {
     text-decoration: underline;
 }
 
-/* ========================================
-   12: WARNING ITEMS
-   ======================================== */
-
 .warning-item {
     padding: var(--space-md);
     border-radius: var(--radius-sm);
@@ -762,10 +678,6 @@ h6 {
     margin-top: var(--space-xs);
     padding-left: calc(20px + var(--space-sm));
 }
-
-/* ========================================
-   13: BOTTOM NAVIGATION
-   ======================================== */
 
 .bottom-nav {
     position: fixed;
@@ -822,11 +734,6 @@ h6 {
     border-radius: 0 0 3px 3px;
 }
 
-/* ========================================
-   14: MORE MENU (Slide-up Panel) - FIXED
-   ======================================== */
-
-/* Overlay for when More Menu is open */
 .more-overlay {
     position: fixed;
     top: 0;
@@ -873,7 +780,6 @@ h6 {
     pointer-events: all !important;
 }
 
-/* Hide app content when more menu is open */
 body.more-open .app-content,
 body.more-open .bottom-nav,
 body.more-open .app-header {
@@ -883,7 +789,6 @@ body.more-open .app-header {
     transition: filter 0.3s ease;
 }
 
-/* More header */
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -896,10 +801,6 @@ body.more-open .app-header {
     z-index: 1;
     border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
 }
-
-/* ========================================
-   15: BUTTONS
-   ======================================== */
 
 .btn {
     display: inline-flex;
@@ -987,10 +888,6 @@ body.more-open .app-header {
     justify-content: center;
 }
 
-/* ========================================
-   16: FORMS
-   ======================================== */
-
 .form-group {
     margin-bottom: var(--space-md);
 }
@@ -1055,7 +952,6 @@ select.form-input {
     flex: 1;
 }
 
-/* --- Password Toggle --- */
 .password-container {
     position: relative;
 }
@@ -1076,10 +972,6 @@ select.form-input {
 .password-toggle:hover {
     color: var(--text-secondary);
 }
-
-/* ========================================
-   17: MODALS
-   ======================================== */
 
 .modal {
     position: fixed;
@@ -1164,10 +1056,6 @@ select.form-input {
     padding: var(--space-lg);
 }
 
-/* ========================================
-   18: AUTH MODAL
-   ======================================== */
-
 .auth-providers {
     display: flex;
     flex-direction: column;
@@ -1240,10 +1128,6 @@ select.form-input {
 .auth-link:hover {
     text-decoration: underline;
 }
-
-/* ========================================
-   19: SERVICE & JOB CARDS
-   ======================================== */
 
 .service-card,
 .job-card {
@@ -1327,7 +1211,7 @@ select.form-input {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-clamp: 2; /* Standard property for future compatibility */
+    line-clamp: 2;
     overflow: hidden;
 }
 
@@ -1389,10 +1273,6 @@ select.form-input {
     flex: 1;
     min-width: 80px;
 }
-
-/* ========================================
-   20: MARKETPLACE ITEMS
-   ======================================== */
 
 .market-item {
     background: var(--bg-secondary);
@@ -1518,7 +1398,6 @@ select.form-input {
     flex: 1;
 }
 
-/* --- Filters --- */
 .market-filters {
     display: flex;
     gap: var(--space-sm);
@@ -1551,10 +1430,6 @@ select.form-input {
     color: white;
     border-color: var(--primary);
 }
-
-/* ========================================
-   21: HOUSING / PROPERTY LISTINGS
-   ======================================== */
 
 .property-listing {
     background: var(--bg-secondary);
@@ -1641,10 +1516,6 @@ select.form-input {
     flex: 1;
 }
 
-/* ========================================
-   22: BOOKING ITEMS
-   ======================================== */
-
 .booking-item {
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
@@ -1718,10 +1589,6 @@ select.form-input {
     min-width: 70px;
 }
 
-/* ========================================
-   23: REVIEWS & RATINGS
-   ======================================== */
-
 .review-item {
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
@@ -1785,7 +1652,6 @@ select.form-input {
     color: var(--warning);
 }
 
-/* --- Rating Breakdown --- */
 .rating-breakdown .rating-row {
     display: flex;
     align-items: center;
@@ -1806,10 +1672,6 @@ select.form-input {
     border-radius: 3px;
     transition: width 0.3s;
 }
-
-/* ========================================
-   24: PROFILE
-   ======================================== */
 
 .profile-header {
     display: flex;
@@ -1881,10 +1743,6 @@ select.form-input {
     color: var(--text-tertiary);
 }
 
-/* ========================================
-   25: TOAST NOTIFICATIONS
-   ======================================== */
-
 .toast {
     position: fixed;
     bottom: 80px;
@@ -1932,10 +1790,6 @@ select.form-input {
 .toast-info .toast-icon {
     color: var(--info);
 }
-
-/* ========================================
-   26: CHAT UI
-   ======================================== */
 
 .conversation-item {
     display: flex;
@@ -1990,7 +1844,6 @@ select.form-input {
     padding: 0 4px;
 }
 
-/* --- Chat Messages --- */
 .chat-messages-area {
     flex: 1;
     overflow-y: auto;
@@ -2038,10 +1891,6 @@ select.form-input {
     object-fit: cover;
     cursor: pointer;
 }
-
-/* ========================================
-   27: UPLOAD PROGRESS
-   ======================================== */
 
 .upload-progress-modal .upload-item {
     padding: var(--space-sm) 0;
@@ -2141,10 +1990,6 @@ select.form-input {
 .image-preview-item .remove-image-btn:hover {
     transform: scale(1.1);
 }
-
-/* ========================================
-   28: PAYMENT / PROMOTION
-   ======================================== */
 
 .promotion-steps {
     display: flex;
@@ -2313,10 +2158,6 @@ select.form-input {
     border-bottom: 2px solid var(--primary);
 }
 
-/* ========================================
-   29: ADMIN / ROLES
-   ======================================== */
-
 .role-badge {
     padding: 2px 10px;
     border-radius: var(--radius-full);
@@ -2360,10 +2201,6 @@ select.form-input {
     gap: var(--space-sm);
 }
 
-/* ========================================
-   30: LOADING STATES
-   ======================================== */
-
 .loading-spinner {
     text-align: center;
     padding: var(--space-xl);
@@ -2385,7 +2222,6 @@ select.form-input {
     }
 }
 
-/* --- Skeleton Loading --- */
 .skeleton {
     background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
@@ -2400,10 +2236,6 @@ select.form-input {
         opacity: 0.5;
     }
 }
-
-/* ========================================
-   31: EMPTY STATES
-   ======================================== */
 
 .empty-state {
     text-align: center;
@@ -2424,10 +2256,6 @@ select.form-input {
 .empty-state p {
     font-size: var(--font-size-sm);
 }
-
-/* ========================================
-   32: TOGGLE SWITCH
-   ======================================== */
 
 .switch {
     position: relative;
@@ -2470,11 +2298,6 @@ select.form-input {
     transform: translateX(calc(var(--toggle-width) - var(--toggle-height)));
 }
 
-/* ========================================
-   33: RESPONSIVE BREAKPOINTS
-   ======================================== */
-
-/* --- Small Phones (320px - 374px) --- */
 @media (max-width: 374px) {
     .quick-actions {
         grid-template-columns: repeat(3, 1fr);
@@ -2512,7 +2335,6 @@ select.form-input {
     }
 }
 
-/* --- Standard Phones (375px - 767px) --- */
 @media (min-width: 375px) and (max-width: 767px) {
     .quick-actions {
         grid-template-columns: repeat(4, 1fr);
@@ -2525,7 +2347,6 @@ select.form-input {
     }
 }
 
-/* --- Tablets (768px - 1023px) --- */
 @media (min-width: 768px) and (max-width: 1023px) {
     :root {
         --container-max-width: 600px;
@@ -2538,7 +2359,6 @@ select.form-input {
     }
 }
 
-/* --- Desktops (1024px+) --- */
 @media (min-width: 1024px) {
     :root {
         --container-max-width: 480px;
@@ -2568,7 +2388,6 @@ select.form-input {
     }
 }
 
-/* --- Dark mode responsive adjustments --- */
 [data-theme="dark"] .quick-action {
     border-color: var(--border-color);
 }
@@ -2590,10 +2409,6 @@ select.form-input {
 [data-theme="dark"] .image-upload-area:hover {
     border-color: var(--primary);
 }
-
-/* ========================================
-   34: UTILITY CLASSES
-   ======================================== */
 
 .text-center {
     text-align: center;
@@ -2700,7 +2515,6 @@ select.form-input {
     display: block !important;
 }
 
-/* --- Print --- */
 @media print {
     .bottom-nav,
     .more-section,
@@ -2719,11 +2533,6 @@ select.form-input {
     }
 }
 
-/* ========================================
-   FIX: More Menu Overlay and Background Blur
-   ======================================== */
-
-/* More Menu Overlay */
 .more-overlay {
     position: fixed;
     top: 0;
@@ -2743,12 +2552,10 @@ select.form-input {
     opacity: 1;
 }
 
-/* Body state when more menu is open */
 body.more-open {
     overflow: hidden;
 }
 
-/* Blur background content when more menu is open */
 body.more-open .app-content,
 body.more-open .bottom-nav,
 body.more-open .app-header {
@@ -2758,7 +2565,6 @@ body.more-open .app-header {
     transition: filter 0.3s ease;
 }
 
-/* More Section - slide up */
 .more-section {
     position: fixed;
     bottom: 0;
@@ -2782,7 +2588,6 @@ body.more-open .app-header {
     transform: translateX(-50%) translateY(0);
 }
 
-/* More header - sticky */
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -2795,7 +2600,6 @@ body.more-open .app-header {
     z-index: 1;
 }
 
-/* More tab nav - sticky */
 .more-tab-nav {
     display: flex;
     overflow-x: auto;
@@ -2811,7 +2615,6 @@ body.more-open .app-header {
     height: 0;
 }
 
-/* More tab content - scrollable */
 .more-tab-content {
     display: none;
     padding: var(--space-lg);
@@ -2827,7 +2630,6 @@ body.more-open .app-header {
     animation: fadeIn 0.2s ease;
 }
 
-/* Scrollable containers inside tabs */
 #education-content,
 #alerts-content,
 #messages-content,
@@ -2841,7 +2643,6 @@ body.more-open .app-header {
     box-sizing: border-box;
 }
 
-/* Chat messages area */
 #chat-messages-area {
     overflow-y: auto !important;
     flex: 1 1 auto !important;
@@ -2849,12 +2650,10 @@ body.more-open .app-header {
     max-height: 50vh !important;
 }
 
-/* Dark mode adjustments */
 [data-theme="dark"] .more-overlay {
     background: rgba(0, 0, 0, 0.7);
 }
 
-/* Fix: Logo should not overlap with user menu */
 .logo {
     display: flex !important;
     align-items: center !important;
@@ -2880,10 +2679,6 @@ body.more-open .app-header {
     font-size: var(--font-size-lg) !important;
     color: var(--text-primary) !important;
 }
-
-/* ========================================
-   FIX: Role Badges in Profile
-   ======================================== */
 
 .role-badge {
     display: inline-flex;
@@ -2927,7 +2722,6 @@ body.more-open .app-header {
     color: white;
 }
 
-/* Dark mode adjustments */
 [data-theme="dark"] .role-badge.founder {
     color: #1a1a2e;
 }
@@ -2935,10 +2729,6 @@ body.more-open .app-header {
 [data-theme="dark"] .role-badge.user {
     background: linear-gradient(135deg, #3d3d5c, #4a4a6a);
 }
-
-/* ========================================
-   FIX: More Menu Close Button - Bigger
-   ======================================== */
 
 .more-close {
     width: 44px !important;
@@ -2970,10 +2760,6 @@ body.more-open .app-header {
     font-size: 1.4rem !important;
 }
 
-/* ========================================
-   FIX: Modal Close Buttons - Consistent & Touch-Friendly
-   ======================================== */
-
 .close-modal-btn {
     width: 40px !important;
     height: 40px !important;
@@ -3001,14 +2787,9 @@ body.more-open .app-header {
     transform: scale(0.95);
 }
 
-/* Ensure close button is always visible and touchable */
 .modal-header .close-modal-btn {
     margin-left: auto;
 }
-
-/* ========================================
-   FIX: More Menu Tab Content Scroll
-   ======================================== */
 
 .more-tab-content {
     display: none;
@@ -3025,7 +2806,6 @@ body.more-open .app-header {
     animation: fadeIn 0.2s ease;
 }
 
-/* Scrollable containers inside tabs */
 #education-content,
 #alerts-content,
 #messages-content,
@@ -3039,7 +2819,6 @@ body.more-open .app-header {
     box-sizing: border-box;
 }
 
-/* Chat messages area */
 #chat-messages-area {
     overflow-y: auto !important;
     flex: 1 1 auto !important;
