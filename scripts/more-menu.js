@@ -10,6 +10,11 @@ class MoreMenuManager {
         this.firstMessageDoc = null;
         this.pendingMessage = null;
         this.init();
+        this._lastEducationLoad = 0;
+        this._educationCacheMs = 60000;
+        this._founderCache = null;
+        this._founderCacheTime = 0;
+        this._founderCacheMs = 120000;
     }
     
     async init() {
@@ -317,19 +322,7 @@ class MoreMenuManager {
     }
     
     async getSettingsHTML() {
-        const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-        const founder = founderDoc.exists ? founderDoc.data() : { 
-            name: 'VikeServe', 
-            totalStars: 0, 
-            ratingCount: 0, 
-            averageRating: 5.0, 
-            portfolioUrl: 'https://vike-store.netlify.app/',
-            county: 'Bungoma',
-            country: 'Kenya',
-            schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
-            achievements: 'TIE experience',
-            bio: 'Telecommunication and information engineer.'
-        };
+        const founder = await this.getFounderData();
         
         return `
             <div class="section-title"><i class="fas fa-cog"></i> Settings & Preferences</div>
@@ -523,12 +516,18 @@ class MoreMenuManager {
         });
         
         const closeBtn = document.querySelector('.more-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                if (window.app && window.app.closeMoreMenu) window.app.closeMoreMenu();
-            });
+if (closeBtn) {
+    const newCloseBtn = closeBtn.cloneNode(true);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+    newCloseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.app && typeof window.app.closeMoreMenu === 'function') {
+            window.app.closeMoreMenu();
         }
-        
+    });
+}
+
         document.getElementById('more-section')?.addEventListener('click', async (e) => {
             if (e.target.closest('.post-teacher-btn')) this.showSubmitModal('teacher');
             if (e.target.closest('.post-internship-btn')) this.showSubmitModal('internship');
@@ -544,9 +543,16 @@ class MoreMenuManager {
             if (e.target.closest('.new-chat-btn')) this.startNewChat();
             
             if (e.target.closest('.emergency-call-btn')) {
-                const number = e.target.closest('.emergency-call-btn').getAttribute('data-number');
-                if (number) window.location.href = `tel:${number}`;
-            }
+    const number = e.target.closest('.emergency-call-btn').getAttribute('data-number');
+    if (number) {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+            window.location.href = `tel:${number}`;
+        } else {
+            this.showToast(`Emergency Number: ${number}`, 'info');
+        }
+    }
+}
             
             if (e.target.closest('.vikeserve-support-btn')) {
                 this.showToast('Contact support: vikeserve426@gmail.com', 'info');
@@ -560,11 +566,6 @@ class MoreMenuManager {
             
             if (e.target.closest('.rate-founder-btn') && !this.hasRated) {
                 this.showRatingModal();
-                return;
-            }
-
-            if (e.target.closest('#view-points-history-btn')) {
-                this.showPointsHistory();
                 return;
             }
 
@@ -626,20 +627,81 @@ class MoreMenuManager {
     }
     
     filterConversations(searchTerm) {
-        const conversationItems = document.querySelectorAll('#conversations-list-container .conversation-item');
-        const term = searchTerm.toLowerCase();
-        
-        conversationItems.forEach(item => {
-            const title = item.querySelector('.conversation-title')?.innerText.toLowerCase() || '';
-            const lastMessage = item.querySelector('.conversation-last-message')?.innerText.toLowerCase() || '';
+    const wrappers = document.querySelectorAll('#conversations-list-container .conversation-item-wrapper');
+    const term = (searchTerm || '').toLowerCase().trim();
+    
+    wrappers.forEach(wrapper => {
+        const haystack = wrapper.getAttribute('data-search') || '';
+        if (!term || haystack.includes(term)) {
+            wrapper.style.display = 'flex';
+        } else {
+            wrapper.style.display = 'none';
+        }
+    });
+}
+
+setupSettingsContentListeners() {
+    const settingsContent = document.getElementById('settings-content');
+    if (!settingsContent) return;
+    
+    settingsContent.querySelectorAll('.faq-question').forEach(question => {
+        const newQ = question.cloneNode(true);
+        question.parentNode.replaceChild(newQ, question);
+        newQ.addEventListener('click', function() {
+            const answer = this.nextElementSibling;
+            const icon = this.querySelector('.faq-icon');
+            if (!answer) return;
             
-            if (title.includes(term) || lastMessage.includes(term)) {
-                item.style.display = 'flex';
+            if (answer.style.display === 'none' || !answer.style.display) {
+                answer.style.display = 'block';
+                if (icon) {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                }
             } else {
-                item.style.display = 'none';
+                answer.style.display = 'none';
+                if (icon) {
+                    icon.classList.remove('fa-chevron-up');
+                    icon.classList.add('fa-chevron-down');
+                }
             }
         });
+    });
+    
+    const darkToggle = settingsContent.querySelector('.dark-mode-toggle-settings');
+    if (darkToggle) {
+        const newToggle = darkToggle.cloneNode(true);
+        darkToggle.parentNode.replaceChild(newToggle, darkToggle);
+        newToggle.addEventListener('change', (e) => {
+            this.toggleDarkMode(e.target.checked);
+        });
     }
+    
+    const pointsBtn = settingsContent.querySelector('#view-points-history-btn');
+    if (pointsBtn) {
+        const newBtn = pointsBtn.cloneNode(true);
+        pointsBtn.parentNode.replaceChild(newBtn, pointsBtn);
+        newBtn.addEventListener('click', () => this.showPointsHistory());
+    }
+    
+    settingsContent.querySelectorAll('.support-option').forEach(option => {
+        const newOpt = option.cloneNode(true);
+        option.parentNode.replaceChild(newOpt, option);
+        newOpt.addEventListener('click', () => {
+            const action = newOpt.getAttribute('data-action');
+            this.handleSettingsAction(action);
+        });
+    });
+  
+    const notifToggle = settingsContent.querySelector('.notifications-toggle');
+    if (notifToggle) {
+        const newToggle = notifToggle.cloneNode(true);
+        notifToggle.parentNode.replaceChild(newToggle, notifToggle);
+        newToggle.addEventListener('change', (e) => {
+            this.showToast(e.target.checked ? 'Notifications enabled' : 'Notifications disabled', 'info');
+        });
+    }
+}
     
     async showSubmitModal(type) {
         if (!this.currentUser) {
@@ -973,10 +1035,12 @@ class MoreMenuManager {
         if (!container) return;
         
         try {
-            const snapshot = await this.db.collection('community_alerts')
-                .orderBy('createdAt', 'desc')
-                .limit(30)
-                .get();
+    container.innerHTML = '';
+    
+    const snapshot = await this.db.collection('community_alerts')
+        .orderBy('createdAt', 'desc')
+        .limit(30)
+        .get();
             
             const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
@@ -1217,140 +1281,148 @@ class MoreMenuManager {
     }
     
     async loadConversations() {
-        const container = document.getElementById('conversations-list-container');
-        if (!container) return;
+    const container = document.getElementById('conversations-list-container');
+    if (!container) return;
+    
+    if (!this.currentUser) {
+        container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
+        return;
+    }
+    
+    try {
+        const snapshot = await this.db.collection('chats')
+            .where('participants', 'array-contains', this.currentUser.uid)
+            .orderBy('lastMessageAt', 'desc')
+            .limit(50)
+            .get();
         
-        if (!this.currentUser) {
-            container.innerHTML = '<div class="empty-state">Sign in to view your messages</div>';
+        const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        this.allConversations = conversations;
+        
+        if (conversations.length === 0) {
+            container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
             return;
         }
         
-        try {
-            const snapshot = await this.db.collection('chats')
-                .where('participants', 'array-contains', this.currentUser.uid)
-                .orderBy('lastMessageAt', 'desc')
-                .limit(50)
-                .get();
-            
-            const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            if (conversations.length === 0) {
-                container.innerHTML = '<div class="empty-state">No messages yet. Start a conversation!</div>';
-                return;
-            }
-            
-            const userIds = new Set();
-            conversations.forEach(conv => {
-                conv.participants.forEach(p => {
-                    if (p !== this.currentUser.uid) userIds.add(p);
-                });
+        const userIds = new Set();
+        conversations.forEach(conv => {
+            (conv.participants || []).forEach(p => {
+                if (p !== this.currentUser.uid) userIds.add(p);
             });
-            
-            const userNames = {};
-            await Promise.all([...userIds].map(async (uid) => {
-                try {
-                    const userDoc = await this.db.collection('users').doc(uid).get();
-                    if (userDoc.exists) {
-                        const data = userDoc.data();
-                        userNames[uid] = data.displayName || data.userName || data.name || 'User';
-                    } else {
-                        userNames[uid] = 'User';
-                    }
-                } catch (e) {
+        });
+        
+        const userNames = {};
+        await Promise.all([...userIds].map(async (uid) => {
+            try {
+                const userDoc = await this.db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    userNames[uid] = data.displayName || data.userName || data.name || 'User';
+                } else {
                     userNames[uid] = 'User';
                 }
-            }));
-            
-            const unreadCounts = {};
-            for (const conv of conversations) {
-                try {
-                    const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
-                        .where('senderId', '!=', this.currentUser.uid)
-                        .where('read', '==', false)
-                        .get();
-                    unreadCounts[conv.id] = unreadSnapshot.size;
-                } catch (e) {
-                    unreadCounts[conv.id] = 0;
-                }
+            } catch (e) {
+                userNames[uid] = 'User';
             }
-            
-            container.innerHTML = conversations.map(conv => {
-                const isGroup = conv.isGroup === true;
-                const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
-                
-                let displayName = 'User';
-                let avatarInitial = 'U';
-                
-                if (isGroup) {
-                    displayName = conv.groupName || 'Group Chat';
-                    avatarInitial = '👥';
-                } else {
-                    const otherParticipantId = conv.participants.find(p => p !== this.currentUser.uid);
-                    if (otherParticipantId && conv.participantNames && conv.participantNames[otherParticipantId]) {
-                        displayName = conv.participantNames[otherParticipantId];
-                    } else if (otherParticipantId && userNames[otherParticipantId]) {
-                        displayName = userNames[otherParticipantId];
-                    } else if (otherParticipantId) {
-                        displayName = 'User';
-                    }
-                    avatarInitial = displayName.charAt(0).toUpperCase();
-                }
-                
-                const unreadCount = unreadCounts[conv.id] || 0;
-                const hasUnread = unreadCount > 0;
-                const lastMessage = conv.lastMessage || 'No messages';
-                const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
-                const time = this.formatDate(conv.lastMessageAt);
-                
-                return `
-                    <div class="conversation-item-wrapper" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--grey);">
-                        <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; flex: 1; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1); border-radius: 8px;' : ''}">
-                            <div class="conversation-avatar" style="width: 50px; height: 50px; background: ${isGroup ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'var(--primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
-                                ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
-                            </div>
-                            <div style="flex: 1; min-width: 0;">
-                                <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${groupIcon}${this.escapeHtml(displayName)}</div>
-                                <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
-                                ${isGroup ? `<div style="font-size: 0.65rem; color: var(--grey-dark);">${conv.participants ? conv.participants.length : 0} members</div>` : ''}
-                            </div>
-                            <div style="text-align: right; flex-shrink: 0;">
-                                <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
-                                ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
-                            </div>
-                        </div>
-                        <!-- DELETE BUTTON -->
-                        <button class="delete-chat-btn" data-chat-id="${conv.id}" data-chat-name="${this.escapeHtml(displayName)}" data-is-group="${isGroup}" style="background: none; border: none; color: var(--grey-dark); cursor: pointer; padding: 8px; opacity: 0.5; transition: opacity 0.2s; flex-shrink: 0; font-size: 1rem;" title="Delete Chat">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-            
-            document.querySelectorAll('.conversation-item').forEach(item => {
-                const newItem = item.cloneNode(true);
-                item.parentNode.replaceChild(newItem, item);
-                newItem.addEventListener('click', () => {
-                    this.openChat(newItem.getAttribute('data-chat-id'));
-                });
-            });
-            
-            document.querySelectorAll('.delete-chat-btn').forEach(btn => {
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-                newBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const chatId = newBtn.getAttribute('data-chat-id');
-                    const chatName = newBtn.getAttribute('data-chat-name');
-                    const isGroup = newBtn.getAttribute('data-is-group') === 'true';
-                    this.confirmDeleteChat(chatId, chatName, isGroup);
-                });
-            });
-            
-        } catch (error) {
-            console.error('Error loading conversations:', error);
-            container.innerHTML = '<div class="error-state">Error loading messages</div>';
-        }
+        }));
+        this._userNamesCache = userNames;
+        
+        const unreadCounts = {};
+        await Promise.all(conversations.map(async (conv) => {
+            try {
+                const unreadSnapshot = await this.db.collection('chats').doc(conv.id).collection('messages')
+                    .where('senderId', '!=', this.currentUser.uid)
+                    .where('read', '==', false)
+                    .limit(50)
+                    .get();
+                unreadCounts[conv.id] = unreadSnapshot.size;
+            } catch (e) {
+                unreadCounts[conv.id] = 0;
+            }
+        }));
+        this._unreadCountsCache = unreadCounts;
+        
+        this.renderConversations(conversations, userNames, unreadCounts);
+        
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+        container.innerHTML = '<div class="error-state">Error loading messages</div>';
     }
+}
+
+renderConversations(conversations, userNames, unreadCounts) {
+    const container = document.getElementById('conversations-list-container');
+    if (!container) return;
+    
+    container.innerHTML = conversations.map(conv => {
+        const isGroup = conv.isGroup === true;
+        const groupIcon = isGroup ? '<i class="fas fa-users" style="font-size: 0.9rem; margin-right: 4px;"></i>' : '';
+        
+        let displayName = 'User';
+        let avatarInitial = 'U';
+        
+        if (isGroup) {
+            displayName = conv.groupName || 'Group Chat';
+            avatarInitial = '👥';
+        } else {
+            const otherParticipantId = (conv.participants || []).find(p => p !== this.currentUser.uid);
+            if (otherParticipantId && conv.participantNames && conv.participantNames[otherParticipantId]) {
+                displayName = conv.participantNames[otherParticipantId];
+            } else if (otherParticipantId && userNames[otherParticipantId]) {
+                displayName = userNames[otherParticipantId];
+            }
+            avatarInitial = displayName.charAt(0).toUpperCase();
+        }
+        
+        const unreadCount = unreadCounts[conv.id] || 0;
+        const hasUnread = unreadCount > 0;
+        const lastMessage = conv.lastMessage || 'No messages';
+        const lastMessagePreview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
+        const time = this.formatDate(conv.lastMessageAt);
+        
+        return `
+            <div class="conversation-item-wrapper" style="position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--grey);" data-search="${this.escapeHtml((displayName + ' ' + lastMessagePreview).toLowerCase())}">
+                <div class="conversation-item" data-chat-id="${conv.id}" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; flex: 1; ${hasUnread ? 'background: rgba(46, 134, 222, 0.1); border-radius: 8px;' : ''}">
+                    <div class="conversation-avatar" style="width: 50px; height: 50px; background: ${isGroup ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'var(--primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
+                        ${isGroup ? '<i class="fas fa-users" style="font-size: 1.2rem;"></i>' : this.escapeHtml(avatarInitial)}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="conversation-title" style="font-weight: 600; font-size: 0.9rem;">${groupIcon}${this.escapeHtml(displayName)}</div>
+                        <div class="conversation-last-message" style="font-size: 0.8rem; color: var(--grey-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(lastMessagePreview)}</div>
+                        ${isGroup ? `<div style="font-size: 0.65rem; color: var(--grey-dark);">${conv.participants ? conv.participants.length : 0} members</div>` : ''}
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0;">
+                        <div class="conversation-time" style="font-size: 0.7rem; color: var(--grey-dark);">${time}</div>
+                        ${hasUnread ? `<div class="unread-badge" style="background: var(--primary); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; margin-top: 5px; padding: 0 4px;">${unreadCount}</div>` : ''}
+                    </div>
+                </div>
+                <button class="delete-chat-btn" data-chat-id="${conv.id}" data-chat-name="${this.escapeHtml(displayName)}" data-is-group="${isGroup}" style="background: none; border: none; color: var(--grey-dark); cursor: pointer; padding: 8px; opacity: 0.5; transition: opacity 0.2s; flex-shrink: 0; font-size: 1rem;" title="Delete Chat">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+    
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        newItem.addEventListener('click', () => {
+            this.openChat(newItem.getAttribute('data-chat-id'));
+        });
+    });
+    
+    document.querySelectorAll('.delete-chat-btn').forEach(btn => {
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const chatId = newBtn.getAttribute('data-chat-id');
+            const chatName = newBtn.getAttribute('data-chat-name');
+            const isGroup = newBtn.getAttribute('data-is-group') === 'true';
+            this.confirmDeleteChat(chatId, chatName, isGroup);
+        });
+    });
+}
     
     confirmDeleteChat(chatId, chatName, isGroup) {
         const chatType = isGroup ? 'group' : 'conversation';
@@ -1934,7 +2006,9 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
                     <button id="member-report-btn" class="btn btn-warning" style="width: 100%; background: var(--warning); color: white;">
                         <i class="fas fa-flag"></i> Report Member
                     </button>
-                    <button class="btn btn-outline" onclick="closeModalById('member-options-modal')" style="width: 100%;">Cancel</button>
+                    <button id="member-back-btn" class="btn btn-outline" style="width: 100%;">
+    <i class="fas fa-arrow-left"></i> Back to Group
+</button>
                 </div>
             </div>
         </div>
@@ -1943,38 +2017,49 @@ showMemberOptionsModal(chatId, userId, userName, isAdmin) {
     this.showModalWithContent('member-options-modal', modalContent);
     
     setTimeout(() => {
-        const makeAdminBtn = document.getElementById('member-make-admin-btn');
-        if (makeAdminBtn) {
-            makeAdminBtn.addEventListener('click', async () => {
-                if (confirm(`Make ${userName} an admin?`)) {
-                    await this.makeGroupAdmin(chatId, userId);
-                    this.closeModal('member-options-modal');
-                    setTimeout(() => this.showGroupInfo(chatId), 300);
-                }
-            });
+        const closeAndReopen = (chatId) => {
+        const m = document.getElementById('member-options-modal');
+        if (m) m.remove();
+        setTimeout(() => this.showGroupInfo(chatId), 350);
+    };
+        const backBtn = document.getElementById('member-back-btn');
+if (backBtn) {
+    backBtn.addEventListener('click', () => {
+        const m = document.getElementById('member-options-modal');
+        if (m) m.remove();
+        setTimeout(() => this.showGroupInfo(chatId), 300);
+    });
+}
+
+const makeAdminBtn = document.getElementById('member-make-admin-btn');
+if (makeAdminBtn) {
+    makeAdminBtn.addEventListener('click', async () => {
+        if (confirm(`Make ${userName} an admin?`)) {
+            await this.makeGroupAdmin(chatId, userId);
+            closeAndReopen(chatId);
         }
-        
-        const removeAdminBtn = document.getElementById('member-remove-admin-btn');
-        if (removeAdminBtn) {
-            removeAdminBtn.addEventListener('click', async () => {
-                if (confirm(`Remove ${userName} as admin?`)) {
-                    await this.removeGroupAdmin(chatId, userId);
-                    this.closeModal('member-options-modal');
-                    setTimeout(() => this.showGroupInfo(chatId), 300);
-                }
-            });
+    });
+}
+
+const removeAdminBtn = document.getElementById('member-remove-admin-btn');
+if (removeAdminBtn) {
+    removeAdminBtn.addEventListener('click', async () => {
+        if (confirm(`Remove ${userName} as admin?`)) {
+            await this.removeGroupAdmin(chatId, userId);
+            closeAndReopen(chatId);
         }
-        
-        const removeBtn = document.getElementById('member-remove-btn');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', async () => {
-                if (confirm(`Remove ${userName} from this group?`)) {
-                    await this.removeMemberFromGroup(chatId, userId);
-                    this.closeModal('member-options-modal');
-                    setTimeout(() => this.showGroupInfo(chatId), 300);
-                }
-            });
+    });
+}
+
+const removeBtn = document.getElementById('member-remove-btn');
+if (removeBtn) {
+    removeBtn.addEventListener('click', async () => {
+        if (confirm(`Remove ${userName} from this group?`)) {
+            await this.removeMemberFromGroup(chatId, userId);
+            closeAndReopen(chatId);
         }
+    });
+}
         
         const reportBtn = document.getElementById('member-report-btn');
         if (reportBtn) {
@@ -2584,7 +2669,7 @@ closeChatWindow() {
         this.typingUnsubscribe = null;
     }
     this.firstMessageDoc = null;
-    this.pendingMessage = null;
+    this._isSending = false;
     
     const chatContainer = document.getElementById('chat-window-container');
     if (chatContainer) {
@@ -2645,13 +2730,11 @@ async loadChatMessages(chatId, loadMore = false) {
         
         const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        if (snapshot.docs.length > 0 && !loadMore) {
-            this.firstMessageDoc = snapshot.docs[0];
-        }
-        
-        if (!loadMore) {
-            messagesContainer.innerHTML = '';
-        } else {
+        if (loadMore) {
+            if (snapshot.docs.length > 0) {
+                this.firstMessageDoc = snapshot.docs[0];
+            }
+            
             const oldScrollHeight = messagesContainer.scrollHeight;
             const oldScrollTop = messagesContainer.scrollTop;
             
@@ -2660,7 +2743,7 @@ async loadChatMessages(chatId, loadMore = false) {
             
             messages.forEach(msg => {
                 const msgElement = this.createMessageElement(msg);
-                msgElement.setAttribute('data-message-id', msg.id || Date.now());
+                msgElement.setAttribute('data-message-id', msg.id);
                 messagesContainer.insertBefore(msgElement, messagesContainer.firstChild);
             });
             
@@ -2673,9 +2756,12 @@ async loadChatMessages(chatId, loadMore = false) {
             return;
         }
         
+        this.firstMessageDoc = snapshot.docs[0] || null;
+        messagesContainer.innerHTML = '';
+        
         messages.forEach(msg => {
             const msgElement = this.createMessageElement(msg);
-            msgElement.setAttribute('data-message-id', msg.id || Date.now());
+            msgElement.setAttribute('data-message-id', msg.id);
             messagesContainer.appendChild(msgElement);
         });
         
@@ -2795,11 +2881,11 @@ async sendChatMessage(chatId) {
     
     if (!message) return;
     
-    if (this.pendingMessage === message) {
-        console.log('Duplicate message prevented');
+    if (this._isSending) {
+        console.log('Already sending, please wait');
         return;
     }
-    this.pendingMessage = message;
+    this._isSending = true;
     
     const sendBtn = document.getElementById('chat-send-btn');
     if (sendBtn) {
@@ -2826,13 +2912,12 @@ async sendChatMessage(chatId) {
         
         input.value = '';
         input.style.height = 'auto';
-        this.pendingMessage = null;
         
     } catch (error) {
         console.error('Error sending message:', error);
         this.showToast('Error sending message', 'error');
-        this.pendingMessage = null;
     } finally {
+        this._isSending = false;
         if (sendBtn) {
             sendBtn.disabled = false;
             sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
@@ -2928,13 +3013,12 @@ setupChatListener(chatId) {
             snapshot.docChanges().forEach(change => {
                 if (change.type === 'added') {
                     const message = { id: change.doc.id, ...change.doc.data() };
-                    // Check if message already exists before appending
                     const messagesContainer = document.getElementById('chat-messages-area');
-                    if (messagesContainer) {
-                        const existing = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
-                        if (!existing) {
-                            this.appendNewMessage(message);
-                        }
+                    if (!messagesContainer) return;
+                    
+                    const existing = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
+                    if (!existing) {
+                        this.appendNewMessage(message);
                     }
                     
                     if (message.senderId !== this.currentUser?.uid && !message.read) {
@@ -2993,17 +3077,24 @@ async sendTypingIndicator(chatId, isTyping) {
 async markMessagesAsRead(chatId) {
     if (!this.currentUser) return;
     
-    const messagesRef = this.db.collection('chats').doc(chatId).collection('messages');
-    const unreadSnapshot = await messagesRef
-        .where('senderId', '!=', this.currentUser.uid)
-        .where('read', '==', false)
-        .get();
-    
-    const batch = this.db.batch();
-    unreadSnapshot.forEach(doc => {
-        batch.update(doc.ref, { read: true });
-    });
-    await batch.commit();
+    try {
+        const messagesRef = this.db.collection('chats').doc(chatId).collection('messages');
+        const unreadSnapshot = await messagesRef
+            .where('senderId', '!=', this.currentUser.uid)
+            .where('read', '==', false)
+            .limit(400)
+            .get();
+        
+        if (unreadSnapshot.empty) return;
+        
+        const batch = this.db.batch();
+        unreadSnapshot.forEach(doc => {
+            batch.update(doc.ref, { read: true });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+    }
 }
 
 async markMessageAsRead(chatId, messageId) {
@@ -3020,15 +3111,15 @@ appendNewMessage(message) {
         messagesContainer.innerHTML = '';
     }
     
-    const existingMessages = messagesContainer.querySelectorAll('.chat-message');
-    for (const el of existingMessages) {
-        if (el.getAttribute('data-message-id') === message.id) {
-            return;
-        }
+    if (message.id) {
+        const existing = messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
+        if (existing) return;
     }
     
     const msgElement = this.createMessageElement(message);
-    msgElement.setAttribute('data-message-id', message.id || Date.now());
+    if (message.id) {
+        msgElement.setAttribute('data-message-id', message.id);
+    }
     messagesContainer.appendChild(msgElement);
     this.scrollToBottom(messagesContainer);
 }
@@ -3584,8 +3675,8 @@ async startChatWithUser(userId, initialMessage) {
 filterAlerts(filter) {
     document.querySelectorAll('.filter-alert-btn').forEach(btn => {
         btn.classList.remove('active');
-        btn.style.background = 'var(--light)';
-        btn.style.color = 'var(--dark)';
+        btn.style.background = 'var(--bg-tertiary)';
+        btn.style.color = 'var(--text-secondary)';
     });
     const activeBtn = document.querySelector(`.filter-alert-btn[data-filter="${filter}"]`);
     if (activeBtn) {
@@ -3602,7 +3693,6 @@ filterAlerts(filter) {
         }
     });
 }
-
 switchSafetyCategory(cat) {
     document.querySelectorAll('[data-safety-content]').forEach(content => {
         content.style.display = 'none';
@@ -3611,8 +3701,8 @@ switchSafetyCategory(cat) {
     if (selectedContent) selectedContent.style.display = 'block';
     
     document.querySelectorAll('.safety-cat-btn').forEach(btn => {
-        btn.style.background = 'var(--light)';
-        btn.style.color = 'var(--dark)';
+        btn.style.background = 'var(--bg-tertiary)';
+        btn.style.color = 'var(--text-secondary)';
     });
     const activeBtn = document.querySelector(`.safety-cat-btn[data-cat="${cat}"]`);
     if (activeBtn) {
@@ -3646,12 +3736,34 @@ switchMoreTab(tabId) {
         messagesContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
     }
     
-    const chatModals = document.querySelectorAll('.modal:not(#auth-modal)');
-    chatModals.forEach(modal => {
-        if (modal.id !== 'auth-modal' && modal.id !== 'rating-modal') {
-            modal.remove();
-        }
-    });
+    const moreMenuModalsToRemove = [
+    'chat-window-modal',
+    'group-info-modal',
+    'member-options-modal',
+    'member-report-only-modal',
+    'report-group-modal',
+    'report-member-modal',
+    'remove-member-modal',
+    'edit-group-name-modal',
+    'add-members-modal',
+    'confirm-delete-modal',
+    'new-chat-options-modal',
+    'individual-chat-modal',
+    'group-chat-modal',
+    'contact-poster-modal',
+    'reply-modal',
+    'report-modal',
+    'teacher-modal',
+    'internship-modal',
+    'attachment-modal',
+    'training-modal',
+    'alert-modal'
+];
+
+moreMenuModalsToRemove.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.remove();
+});
     
     this.currentMoreTab = tabId;
     
@@ -3693,23 +3805,55 @@ switchMoreTab(tabId) {
     }
     if (tabId === 'alerts') this.loadAlerts();
     if (tabId === 'education') {
+    const now = Date.now();
+    const shouldReload = (now - this._lastEducationLoad) > this._educationCacheMs;
+    if (shouldReload) {
+        this._lastEducationLoad = now;
         this.loadTeachers();
         this.loadInternships();
         this.loadAttachments();
         this.loadTraining();
     }
+}
     if (tabId === 'settings') {
-        this.getSettingsHTML().then(html => {
-            const settingsContent = document.getElementById('settings-content');
-            if (settingsContent) {
-                settingsContent.innerHTML = html;
-                settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
-            }
-            this.setupEventListeners();
-            setTimeout(() => {
-                this.loadUserPoints();
-            }, 100);
-        });
+    this.getSettingsHTML().then(html => {
+        const settingsContent = document.getElementById('settings-content');
+        if (settingsContent) {
+            settingsContent.innerHTML = html;
+            settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
+        }
+        this.setupSettingsContentListeners();
+        setTimeout(() => {
+            this.loadUserPoints();
+        }, 100);
+    });
+}
+}
+
+async getFounderData(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && this._founderCache && (now - this._founderCacheTime) < this._founderCacheMs) {
+        return this._founderCache;
+    }
+    try {
+        const doc = await this.db.collection('system_settings').doc('founder').get();
+        this._founderCache = doc.exists ? doc.data() : {
+            name: 'VikeServe',
+            totalStars: 0,
+            ratingCount: 0,
+            averageRating: 5.0,
+            portfolioUrl: 'https://vike-store.netlify.app/',
+            county: 'Bungoma',
+            country: 'Kenya',
+            schools: 'St josephs Nalondo Boys High School, Kirinyaga University (KYU)',
+            achievements: 'TIE experience',
+            bio: 'Telecommunication and information engineer.'
+        };
+        this._founderCacheTime = now;
+        return this._founderCache;
+    } catch (e) {
+        console.error('Error loading founder data:', e);
+        return this._founderCache || {};
     }
 }
 
@@ -3839,25 +3983,30 @@ async submitRating(rating) {
 }
 
 async showFounderProfile() {
-    const founderDoc = await this.db.collection('system_settings').doc('founder').get();
-    const founder = founderDoc.data() || { 
-        name: 'VikeServe', 
-        totalStars: 0, 
-        ratingCount: 0, 
-        averageRating: 5.0, 
-        email: 'vikeserve426@gmail.com', 
-        county: 'Bungoma', 
-        country: 'Kenya', 
-        schools: 'Nalondo Boys High School, KYU', 
-        achievements: 'Telecommunication & Information Engineer (TIE)', 
-        bio: 'Telecommunication and information engineer.' 
-    };
+    const founder = await this.getFounderData();
     
+    let announcements = [];
+try {
     const announcementsSnapshot = await this.db.collection('announcements')
         .orderBy('date', 'desc')
         .limit(10)
         .get();
-    const announcements = announcementsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    announcements = announcementsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+} catch (err) {
+    console.warn('Announcements query failed, falling back:', err.message);
+    try {
+        const fallback = await this.db.collection('announcements').limit(10).get();
+        announcements = fallback.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => {
+                const da = a.date?.toDate ? a.date.toDate() : new Date(0);
+                const db = b.date?.toDate ? b.date.toDate() : new Date(0);
+                return db - da;
+            });
+    } catch (e2) {
+        console.warn('Announcements fallback failed:', e2.message);
+    }
+}
     
     const modalContent = `
         <div class="modal-content" style="max-width: 500px; z-index: 20002; max-height: 80vh; overflow-y: auto;">

@@ -2810,3 +2810,18 @@ body.more-open .app-header {
 body.more-open .more-bottom-nav {
     display: flex !important;
 }
+
+body.more-open {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+    touch-action: none;
+}
+
+body.more-open .more-tab-content,
+body.more-open .more-tab-nav,
+body.more-open #chat-messages-area,
+body.more-open #conversations-list-container {
+    touch-action: auto;
+    -webkit-overflow-scrolling: touch;
+}

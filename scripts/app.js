@@ -319,6 +319,7 @@ if (window.FEATURES?.adPromotion) {
         if (moreBottomNav) moreBottomNav.style.display = 'flex';
         
         document.body.classList.add('more-open');
+        document.body.style.top = `-${window.scrollY}px`;
         
         document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
             item.classList.remove('active');
@@ -373,6 +374,10 @@ if (window.FEATURES?.adPromotion) {
         
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
             window.moreMenuManager.onMenuClose();
+        }
+
+        if (typeof window.setupAllModalHandlers === 'function') {
+            setTimeout(() => window.setupAllModalHandlers(), 200);
         }
     }
 
