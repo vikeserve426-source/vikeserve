@@ -133,6 +133,10 @@ class ServicesManager {
     async uploadServiceImages(files, serviceId) {
     const imageUrls = [];
     
+    if (!window.FEATURES?.imageUploads) {
+        return imageUrls;
+    }
+    
     if (!files || files.length === 0) return imageUrls;
     
     if (!this.storage) {
@@ -379,7 +383,7 @@ div.style.cssText = `
     const ratingCount = service.ratingCount || service.totalReviews || 0;
     const ratingStars = generateStarRating(rating);
     
-    const promoteButtonHtml = isOwner ? `
+    const promoteButtonHtml = (isOwner && window.FEATURES?.adPromotion) ? `
     <button class="btn-promote promote-service-btn" data-service-id="${service.id}">
         <i class="fas fa-rocket"></i> Promote
     </button>

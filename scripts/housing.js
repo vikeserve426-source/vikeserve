@@ -151,8 +151,12 @@ class HousingManager {
     }
 
     async uploadHousingImages(files, listingId) {
-        try {
-            const imageUrls = [];
+    try {
+        const imageUrls = [];
+        
+        if (!window.FEATURES?.imageUploads) {
+            return { success: true, urls: imageUrls };
+        }
             
             for (const file of files) {
                 const fileExtension = file.name.split('.').pop();

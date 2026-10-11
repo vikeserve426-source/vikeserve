@@ -1,3 +1,9 @@
+window.FEATURES = {
+    adPromotion: false,
+    imageUploads: false,
+    wifiConnect: false 
+};
+
 (function() {
     window.switchTab = function(tabId) {
         if (window.app && typeof window.app.switchTab === 'function') {
@@ -79,6 +85,7 @@ class VikeServeApp {
     }
 
     async init() {
+        this.hideDisabledFeatures();
         this.applyGlobalFixes();
         this.setupEventListeners();
         setTimeout(() => this.setupCloseButtons(), 300);
@@ -90,8 +97,10 @@ class VikeServeApp {
         this.loadInitialData();
         await this.loadStatsCounts();
         this.ensureMoreMenuConnection();
-        this.setupAdPromotionButtons();
-        this.setupFeatureToggles();
+if (window.FEATURES?.adPromotion) {
+    this.setupAdPromotionButtons();
+    this.setupFeatureToggles();
+}
         this.handleInitialTabFromURL();
     }
 
@@ -186,6 +195,20 @@ class VikeServeApp {
             const totalUsersContainer = document.getElementById('total-users-count')?.closest('.stat-card');
             if (totalUsersContainer) totalUsersContainer.style.display = 'none';
             return { activeServices: 0, verifiedWorkers: 0, totalUsers: 0, marketplaceItems: 0, totalBookings: 0, totalReviews: 0 };
+        }
+    }
+
+        hideDisabledFeatures() {
+        if (!window.FEATURES?.adPromotion) {
+            document.querySelectorAll('.ad-container, [data-feature="adPromotion"], #view-packages-btn, #post-ad-btn, .promote-service-btn, .btn-promote').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
+        
+        if (!window.FEATURES?.imageUploads) {
+            document.querySelectorAll('.image-upload-area, input[type="file"]').forEach(el => {
+                el.style.display = 'none';
+            });
         }
     }
 
@@ -911,7 +934,8 @@ class VikeServeApp {
     }
 
     setupAdPromotionButtons() {
-        const handlePromotionClick = () => {
+    if (!window.FEATURES?.adPromotion) return;
+    const handlePromotionClick = () => {
             if (!this.currentUser) {
                 if (typeof window.showAuthModal === 'function') {
                     window.showAuthModal();
@@ -970,7 +994,8 @@ class VikeServeApp {
     }
 
     setupFeatureToggles() {
-        window.addEventListener('remoteConfigReady', () => {
+    if (!window.FEATURES?.adPromotion) return;
+    window.addEventListener('remoteConfigReady', () => {
             this.applyFeatureToggles();
         });
         

@@ -71,6 +71,10 @@ function generateStarRating(rating) {
 async function uploadMarketplaceImages(files, itemId) {
     const imageUrls = [];
     
+    if (!window.FEATURES?.imageUploads) {
+        return imageUrls;
+    }
+    
     if (typeof firebase === 'undefined' || !firebase.storage) {
         console.warn('Firebase Storage not available');
         if (typeof window.showToast === 'function') {
