@@ -370,7 +370,12 @@ if (window.FEATURES?.adPromotion) {
         if (mainNav) mainNav.style.display = 'flex';
         if (moreBottomNav) moreBottomNav.style.display = 'none';
         
+        const scrollY = document.body.style.top;
         document.body.classList.remove('more-open');
+        document.body.style.top = '';
+        if (scrollY) {
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        }
         
         if (window.moreMenuManager && typeof window.moreMenuManager.onMenuClose === 'function') {
             window.moreMenuManager.onMenuClose();
