@@ -419,29 +419,6 @@ class MoreMenuManager {
                         <p style="margin-top: 8px;">✅ Your service will be visible to all users immediately after posting.</p>
                     </div>
                 </div>
-                
-                <!-- FAQ 2: Promote Ad (Coming Soon) -->
-                <div class="faq-item" style="border-bottom: 1px solid var(--border-color);">
-                    <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; user-select: none;">
-                        <strong><i class="fas fa-rocket" style="color: var(--primary); margin-right: 10px;"></i> How do I promote my ad?</strong>
-                        <i class="fas fa-chevron-down faq-icon" style="transition: transform 0.3s; color: var(--text-tertiary);"></i>
-                    </div>
-                    <div class="faq-answer" style="display: none; padding: 0 0 16px 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                        <div style="background: var(--warning-bg); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--warning);">
-                            <i class="fas fa-clock" style="color: var(--warning);"></i>
-                            <strong style="margin-left: 8px;">Coming Soon!</strong>
-                            <p style="margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">Ad promotion is currently under development. We're working hard to bring this feature to you soon!</p>
-                        </div>
-                        <p><strong>How it will work:</strong></p>
-                        <ul style="margin: 8px 0 0 20px; padding-left: 0;">
-                            <li>📌 <strong>Basic Boost</strong> (KES 100) - 3 days visibility</li>
-                            <li>⭐ <strong>Premium Reach</strong> (KES 250) - 7 days visibility</li>
-                            <li>🔥 <strong>Pro Featured</strong> (KES 500) - 14 days visibility</li>
-                            <li>👑 <strong>VIP Spotlight</strong> (KES 1000) - 30 days visibility</li>
-                        </ul>
-                        <p style="margin-top: 8px;">💡 You'll also be able to use your <strong>points</strong> to get up to 30% discount!</p>
-                    </div>
-                </div>
             </div>
             
             <!-- ========== QUICK LINKS ========== -->
@@ -571,23 +548,6 @@ if (closeBtn) {
 
             if (e.target.closest('.view-points-history-btn') || e.target.closest('#view-points-history-btn')) {
                 this.showPointsHistory();
-                return;
-            }
-            
-            if (e.target.closest('.faq-question')) {
-                const question = e.target.closest('.faq-question');
-                const answer = question.nextElementSibling;
-                const icon = question.querySelector('.faq-icon');
-                
-                if (answer.style.display === 'none') {
-                    answer.style.display = 'block';
-                    icon.classList.remove('fa-chevron-down');
-                    icon.classList.add('fa-chevron-up');
-                } else {
-                    answer.style.display = 'none';
-                    icon.classList.remove('fa-chevron-up');
-                    icon.classList.add('fa-chevron-down');
-                }
                 return;
             }
             
@@ -4115,22 +4075,19 @@ async showTermsPopup() {
                 <h4>3. Prohibited Activities</h4>
                 <p>You may not post false information, spam, or engage in fraudulent activities.</p>
                 
-                <h4>4. Payments and Fees</h4>
-                <p>Service fees apply for promoted ads. All payments are processed securely through IntaSend.</p>
-                
-                <h4>5. Intellectual Property</h4>
+                <h4>4. Intellectual Property</h4>
                 <p>All content on VikeServe is protected by copyright and may not be used without permission.</p>
                 
-                <h4>6. Limitation of Liability</h4>
+                <h4>5. Limitation of Liability</h4>
                 <p>VikeServe is not responsible for transactions between users. Always verify services before payment.</p>
                 
-                <h4>7. Termination</h4>
+                <h4>6. Termination</h4>
                 <p>We reserve the right to suspend accounts that violate these terms.</p>
                 
-                <h4>8. Changes to Terms</h4>
+                <h4>7. Changes to Terms</h4>
                 <p>We may update terms. Continued use means acceptance of changes.</p>
                 
-                <h4>9. Contact</h4>
+                <h4>8. Contact</h4>
                 <p>For questions, contact vikeserve426@gmail.com</p>
             `;
         }
