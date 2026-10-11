@@ -149,6 +149,10 @@ div.style.cssText = `
     
     if (isPromoted) div.classList.add('promoted-ad');
 
+const isSold = item.status === 'sold';
+const isOutOfStock = item.status === 'out_of_stock' || item.stock === 0;
+const isInactive = item.status === 'inactive';
+
 if (isSold || isOutOfStock || isInactive) {
     div.style.opacity = '0.6';
     div.style.filter = 'grayscale(50%)';
@@ -166,10 +170,6 @@ div.onclick = (e) => {
     const sellerRating = item.sellerRating || item.rating || 0;
     const sellerRatingCount = item.sellerRatingCount || item.ratingCount || 0;
     const ratingStars = generateStarRating(sellerRating);
-    
-    const isSold = item.status === 'sold';
-const isOutOfStock = item.status === 'out_of_stock' || item.stock === 0;
-const isInactive = item.status === 'inactive';
 
 const statusBadge = isSold 
     ? '<div class="sold-badge" style="background: #e74c3c;">SOLD</div>' 
