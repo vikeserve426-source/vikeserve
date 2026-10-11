@@ -2565,29 +2565,6 @@ body.more-open .app-header {
     transition: filter 0.3s ease;
 }
 
-.more-section {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%) translateY(100%);
-    width: 100%;
-    max-width: var(--container-max-width);
-    background: var(--more-menu-bg);
-    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
-    box-shadow: var(--shadow-xl);
-    max-height: var(--more-menu-max-height);
-    z-index: 899;
-    display: none;
-    flex-direction: column;
-    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-    overflow: hidden;
-    height: var(--more-menu-max-height);
-}
-.more-section.active {
-    display: flex !important;
-    transform: translateX(-50%) translateY(0);
-}
-
 .more-header {
     display: flex;
     justify-content: space-between;
@@ -2824,4 +2801,12 @@ body.more-open .app-header {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: 50vh !important;
+}
+
+.more-bottom-nav {
+    display: none !important;
+}
+
+body.more-open .more-bottom-nav {
+    display: flex !important;
 }
