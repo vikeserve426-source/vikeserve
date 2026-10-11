@@ -131,15 +131,16 @@ class HousingManager {
             }
 
             const listingWithMetadata = {
-                ...listingData,
-                userId: user.uid,
-                userName: user.displayName || user.email,
-                images: imageUrls,
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                viewCount: 0
-            };
+    ...listingData,
+    userId: user.uid,
+    userName: user.displayName || user.email,
+    images: imageUrls,
+    status: 'active',
+    availability: 'available',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    viewCount: 0
+};
 
             const docRef = await this.housingCollection.add(listingWithMetadata);
             return { success: true, id: docRef.id, imageUrls: imageUrls };
@@ -432,14 +433,23 @@ div.style.cssText = `
     `;
 
     div.setAttribute('data-id', listing.id);
-    div.innerHTML = `
+
+const isUnavailable = listing.status === 'rented' || listing.status === 'sold' || listing.status === 'inactive';
+if (isUnavailable) {
+    div.style.opacity = '0.7';
+    div.style.filter = 'grayscale(50%)';
+}
+
+div.innerHTML = `
         <div class="property-image" style="cursor: pointer;">
             ${listing.images && listing.images.length > 0 ? 
                 `<img src="${listing.images[0]}" alt="${escapeHtml(listing.title)}" loading="lazy">` : 
                 `<div style="height: 180px; background: var(--light); display: flex; align-items: center; justify-content: center;"><i class="fas fa-home" style="font-size: 3rem; color: var(--grey-dark);"></i></div>`
             }
             ${listing.urgent ? '<div class="property-badge urgent">Urgent</div>' : ''}
-            ${listing.status === 'rented' ? '<div class="property-badge rented">Rented</div>' : ''}
+${listing.status === 'rented' ? '<div class="property-badge rented" style="background: #3498db;">RENTED</div>' : ''}
+${listing.status === 'sold' ? '<div class="property-badge" style="background: #27ae60;">SOLD</div>' : ''}
+${listing.status === 'inactive' ? '<div class="property-badge" style="background: #95a5a6;">INACTIVE</div>' : ''}
         </div>
         <div class="property-info">
             <div class="property-title">${escapeHtml(listing.title)}</div>
@@ -457,12 +467,19 @@ div.style.cssText = `
                 ${listing.furnished ? '<div class="property-meta-item"><i class="fas fa-couch"></i> Furnished</div>' : ''}
             </div>
             <div class="property-actions">
-                <button class="btn btn-sm btn-primary contact-lister-btn" data-id="${listing.id}">Contact</button>
-                <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
-                <button class="btn btn-sm btn-outline favorite-btn" data-id="${listing.id}">
-                    <i class="far fa-heart"></i>
-                </button>
-            </div>
+    ${listing.userId === firebase.auth().currentUser?.uid ? `
+        <button class="btn btn-sm btn-primary manage-listing-btn" data-id="${listing.id}" data-status="${listing.status || 'active'}" style="flex: 1;">
+            <i class="fas fa-cog"></i> Manage
+        </button>
+        <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
+    ` : `
+        <button class="btn btn-sm btn-primary contact-lister-btn" data-id="${listing.id}" ${isUnavailable ? 'disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;"' : ''}>Contact</button>
+        <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
+        <button class="btn btn-sm btn-outline favorite-btn" data-id="${listing.id}">
+            <i class="far fa-heart"></i>
+        </button>
+    `}
+</div>
         </div>
     `;
     
@@ -488,15 +505,90 @@ div.style.cssText = `
     }
     
     const favBtn = div.querySelector('.favorite-btn');
-    if (favBtn) {
-        favBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleHousingFavorite(listing.id, favBtn);
-        });
+if (favBtn) {
+    favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleHousingFavorite(listing.id, favBtn);
+    });
+}
+
+const manageBtn = div.querySelector('.manage-listing-btn');
+if (manageBtn) {
+    manageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showManageHousingModal(listing.id, manageBtn.getAttribute('data-status'));
+    });
+}
+
+return div;
+}
+
+function showManageHousingModal(listingId, currentStatus) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-cog"></i> Manage Property</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Update the status of this property:</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="manage-housing-status" class="form-input">
+                        <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>✅ Active (Available)</option>
+                        <option value="rented" ${currentStatus === 'rented' ? 'selected' : ''}>🔑 Rented</option>
+                        <option value="sold" ${currentStatus === 'sold' ? 'selected' : ''}>💰 Sold</option>
+                        <option value="inactive" ${currentStatus === 'inactive' ? 'selected' : ''}>🚫 Inactive (Hide)</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-manage-housing-btn" data-listing-id="${listingId}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('manage-housing-modal', modalContent);
     }
     
-    return div;
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-manage-housing-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newStatus = document.getElementById('manage-housing-status')?.value;
+                
+                try {
+                    await firebase.firestore().collection('property_listings').doc(listingId).update({
+                        status: newStatus,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    window.showToast('✅ Property updated!', 'success');
+                    
+                    const modal = document.getElementById('manage-housing-modal');
+                    if (modal) modal.remove();
+                    
+                    setTimeout(() => {
+                        if (window.currentHousingType) {
+                            loadHousingListings(window.currentHousingType);
+                        } else {
+                            loadHousingListings('rooms');
+                        }
+                    }, 500);
+                } catch (error) {
+                    console.error('Error updating property:', error);
+                    window.showToast('Error updating property: ' + error.message, 'error');
+                }
+            });
+        }
+    }, 100);
 }
+
+window.showManageHousingModal = showManageHousingModal;
 
 async function contactHousingLister(listingId) {
     if (!auth.currentUser) {

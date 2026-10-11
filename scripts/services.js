@@ -67,18 +67,19 @@ class ServicesManager {
         });
 
         const serviceWithMetadata = {
-            ...cleanedData,
-            userId: user.uid,
-            userName: user.displayName || user.email,
-            status: 'active',
-            images: imageUrls,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            rating: 0,
-            ratingCount: 0,
-            viewCount: 0,
-            isJob: false
-        };
+    ...cleanedData,
+    userId: user.uid,
+    userName: user.displayName || user.email,
+    status: 'active',
+    availability: 'available',
+    images: imageUrls,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    rating: 0,
+    ratingCount: 0,
+    viewCount: 0,
+    isJob: false
+};
         
         const docRef = await this.servicesCollection.add(serviceWithMetadata);
         return { success: true, id: docRef.id, imageUrls };
@@ -106,19 +107,20 @@ class ServicesManager {
         });
 
         const jobWithMetadata = {
-            ...cleanedData,
-            userId: user.uid,
-            userName: user.displayName || user.email,
-            images: imageUrls,
-            status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            viewCount: 0,
-            applicants: 0,
-            isJob: true,
-            rating: 0,
-            ratingCount: 0
-        };
+    ...cleanedData,
+    userId: user.uid,
+    userName: user.displayName || user.email,
+    images: imageUrls,
+    status: 'active',
+    jobStatus: 'open',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    viewCount: 0,
+    applicants: 0,
+    isJob: true,
+    rating: 0,
+    ratingCount: 0
+};
         
         const docRef = await this.servicesCollection.add(jobWithMetadata);
         return { success: true, id: docRef.id };
@@ -248,24 +250,43 @@ div.style.cssText = `
     `;
 
     const isJob = job.isJob || job.type === 'job';
-    const typeBadge = isJob ? '<span class="job-tag job-type">Job</span>' : '<span class="job-tag service-type">Service</span>';
-    
-    div.innerHTML = `
-        <div class="job-title"><i class="fas fa-briefcase"></i> ${escapeHtml(job.title)}</div>
+const typeBadge = isJob ? '<span class="job-tag job-type">Job</span>' : '<span class="job-tag service-type">Service</span>';
+
+const isFilled = job.jobStatus === 'filled';
+const isInactive = job.status === 'inactive';
+
+const statusBadge = isFilled 
+    ? '<span class="job-tag" style="background: #27ae60; color: white;">FILLED</span>' 
+    : isInactive 
+        ? '<span class="job-tag" style="background: #95a5a6; color: white;">INACTIVE</span>' 
+        : '';
+
+div.innerHTML = `
+    <div class="job-title"><i class="fas fa-briefcase"></i> ${escapeHtml(job.title)} ${statusBadge}</div>
         <div class="job-poster"><div class="job-poster-img">${(job.postedBy || job.userName || 'U').charAt(0)}</div><span>Posted by: ${job.postedBy || job.userName || 'Unknown'}</span></div>
         <div class="job-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(job.location || 'Nairobi')}</div>
         <div class="job-detail"><i class="fas fa-money-bill-wave"></i> ${job.price ? `KES ${job.price}` : 'Price negotiable'}</div>
         ${job.rating > 0 ? `<div class="job-detail"><i class="fas fa-star"></i> ${job.rating.toFixed(1)} (${job.ratingCount} reviews)</div>` : ''}
         <div class="job-tags">${typeBadge}<span class="job-tag">${escapeHtml(job.category)}</span>${job.urgent ? '<span class="job-tag urgent">Urgent</span>' : ''}</div>
         <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}">View Details</button>
-    `;
-    
-    const viewBtn = div.querySelector('.view-job-detail-btn');
-    if (viewBtn) {
-        viewBtn.addEventListener('click', () => viewJobDetails(job.id));
-    }
-    
-    return div;
+${job.userId === firebase.auth().currentUser?.uid ? `
+    <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="background: var(--warning); color: white; margin-top: 8px;">Manage Job</button>
+` : ''}
+`;
+
+const viewBtn = div.querySelector('.view-job-detail-btn');
+if (viewBtn) {
+    viewBtn.addEventListener('click', () => viewJobDetails(job.id));
+}
+
+const manageBtn = div.querySelector('.manage-job-btn');
+if (manageBtn) {
+    manageBtn.addEventListener('click', () => {
+        showManageJobModal(job.id, manageBtn.getAttribute('data-status'));
+    });
+}
+
+return div;
 }
 
 async function loadServices(category = null, limit = 20) {
@@ -359,16 +380,25 @@ div.style.cssText = `
     const ratingStars = generateStarRating(rating);
     
     const promoteButtonHtml = isOwner ? `
-        <button class="btn-promote promote-service-btn" data-service-id="${service.id}">
-            <i class="fas fa-rocket"></i> Promote
-        </button>
-    ` : '';
-    
-    div.innerHTML = `
-        <div class="service-header">
-            <div class="service-title">${escapeHtml(service.title)}</div>
-            <div class="service-price">KES ${service.price}</div>
-        </div>
+    <button class="btn-promote promote-service-btn" data-service-id="${service.id}">
+        <i class="fas fa-rocket"></i> Promote
+    </button>
+` : '';
+
+const isInactive = service.status === 'inactive';
+const isUnavailable = service.availability === 'unavailable';
+
+const statusBadge = isInactive 
+    ? '<span class="service-tag" style="background: #95a5a6; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem;">INACTIVE</span>' 
+    : isUnavailable 
+        ? '<span class="service-tag" style="background: #f39c12; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem;">UNAVAILABLE</span>' 
+        : '';
+
+div.innerHTML = `
+    <div class="service-header">
+        <div class="service-title">${escapeHtml(service.title)} ${statusBadge}</div>
+        <div class="service-price">KES ${service.price}</div>
+    </div>
         <div class="service-provider" data-provider-id="${service.userId}">
             <div class="provider-avatar">${(service.providerName || service.userName || 'P').charAt(0)}</div>
             <div class="provider-info">
@@ -385,9 +415,13 @@ div.style.cssText = `
             <span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span>
         </div>
         <div class="service-actions">
-            <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}"><i class="fas fa-info-circle"></i> Details</button>
-            <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}"><i class="fas fa-user"></i> Profile</button>
-        </div>
+    <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}"><i class="fas fa-info-circle"></i> Details</button>
+    ${isOwner ? `
+        <button class="btn-sm btn-warning manage-service-btn" data-service-id="${service.id}" data-status="${service.status || 'active'}" data-availability="${service.availability || 'available'}" style="background: var(--warning); color: white;"><i class="fas fa-cog"></i> Manage</button>
+    ` : `
+        <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}"><i class="fas fa-user"></i> Profile</button>
+    `}
+</div>
         ${promoteButtonHtml}
     `;
     
@@ -403,6 +437,75 @@ div.style.cssText = `
             }
         });
     }
+
+    function showManageServiceModal(serviceId, currentStatus, currentAvailability) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-cog"></i> Manage Service</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Update the status of this service:</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Service Status</label>
+                    <select id="manage-service-status" class="form-input">
+                        <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>✅ Active (Visible)</option>
+                        <option value="inactive" ${currentStatus === 'inactive' ? 'selected' : ''}>🚫 Inactive (Hidden)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Availability</label>
+                    <select id="manage-service-availability" class="form-input">
+                        <option value="available" ${currentAvailability === 'available' ? 'selected' : ''}>✅ Available</option>
+                        <option value="unavailable" ${currentAvailability === 'unavailable' ? 'selected' : ''}>⚠️ Unavailable</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-manage-service-btn" data-service-id="${serviceId}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('manage-service-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-manage-service-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newStatus = document.getElementById('manage-service-status')?.value;
+                const newAvailability = document.getElementById('manage-service-availability')?.value;
+                
+                try {
+                    await firebase.firestore().collection('services').doc(serviceId).update({
+                        status: newStatus,
+                        availability: newAvailability,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    window.showToast('✅ Service updated!', 'success');
+                    
+                    const modal = document.getElementById('manage-service-modal');
+                    if (modal) modal.remove();
+                    
+                    setTimeout(() => loadServices(), 500);
+                } catch (error) {
+                    console.error('Error updating service:', error);
+                    window.showToast('Error updating service: ' + error.message, 'error');
+                }
+            });
+        }
+    }, 100);
+}
+
+window.showManageServiceModal = showManageServiceModal;
     
     const detailBtn = div.querySelector('.view-service-detail-btn');
     if (detailBtn) {
@@ -426,14 +529,22 @@ div.style.cssText = `
     }
     
     const promoteBtn = div.querySelector('.promote-service-btn');
-    if (promoteBtn) {
-        promoteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            promoteService(service.id);
-        });
-    }
-    
-    return div;
+if (promoteBtn) {
+    promoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        promoteService(service.id);
+    });
+}
+
+const manageBtn = div.querySelector('.manage-service-btn');
+if (manageBtn) {
+    manageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showManageServiceModal(service.id, manageBtn.getAttribute('data-status'), manageBtn.getAttribute('data-availability'));
+    });
+}
+
+return div;
 }
 
 async function viewJobDetails(serviceId) {
@@ -1905,3 +2016,65 @@ async function viewProviderProfile(providerId) {
 }
 
 window.viewProviderProfile = viewProviderProfile;
+
+function showManageJobModal(jobId, currentJobStatus) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-cog"></i> Manage Job</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Update the status of this job:</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Job Status</label>
+                    <select id="manage-job-status" class="form-input">
+                        <option value="open" ${currentJobStatus === 'open' ? 'selected' : ''}>✅ Open (Hiring)</option>
+                        <option value="filled" ${currentJobStatus === 'filled' ? 'selected' : ''}>✅ Filled (Hired)</option>
+                        <option value="closed" ${currentJobStatus === 'closed' ? 'selected' : ''}>🚫 Closed (Cancelled)</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-manage-job-btn" data-job-id="${jobId}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('manage-job-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-manage-job-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newStatus = document.getElementById('manage-job-status')?.value;
+                const isActive = newStatus === 'open';
+                
+                try {
+                    await firebase.firestore().collection('services').doc(jobId).update({
+                        jobStatus: newStatus,
+                        status: isActive ? 'active' : 'inactive',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    window.showToast('✅ Job updated!', 'success');
+                    
+                    const modal = document.getElementById('manage-job-modal');
+                    if (modal) modal.remove();
+                    
+                    setTimeout(() => loadServices(), 500);
+                } catch (error) {
+                    console.error('Error updating job:', error);
+                    window.showToast('Error updating job: ' + error.message, 'error');
+                }
+            });
+        }
+    }, 100);
+}
+
+window.showManageJobModal = showManageJobModal;

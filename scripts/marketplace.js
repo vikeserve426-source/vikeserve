@@ -144,11 +144,16 @@ div.style.cssText = `
     }
     
     if (isPromoted) div.classList.add('promoted-ad');
-    
-    div.onclick = (e) => {
-        if (e.target.closest('.market-item-actions')) return;
-        viewListingDetails(item.id);
-    };
+
+if (isSold || isOutOfStock || isInactive) {
+    div.style.opacity = '0.6';
+    div.style.filter = 'grayscale(50%)';
+}
+
+div.onclick = (e) => {
+    if (e.target.closest('.market-item-actions')) return;
+    viewListingDetails(item.id);
+};
     
     const icon = getCategoryIcon(item.category);
     const priceText = formatPrice(item);
@@ -158,14 +163,26 @@ div.style.cssText = `
     const sellerRatingCount = item.sellerRatingCount || item.ratingCount || 0;
     const ratingStars = generateStarRating(sellerRating);
     
-    div.innerHTML = `
-        <div class="market-item-img">
-            ${item.images && item.images.length > 0 ? 
-                `<img src="${item.images[0]}" alt="${escapeHtml(item.title)}" loading="lazy" style="width:100%;height:120px;object-fit:cover;">` : 
-                `<i class="${icon}" style="font-size:2rem;"></i>`
-            }
-            ${item.status === 'sold' ? '<div class="sold-badge">Sold</div>' : ''}
-        </div>
+    const isSold = item.status === 'sold';
+const isOutOfStock = item.status === 'out_of_stock' || item.stock === 0;
+const isInactive = item.status === 'inactive';
+
+const statusBadge = isSold 
+    ? '<div class="sold-badge" style="background: #e74c3c;">SOLD</div>' 
+    : isOutOfStock 
+        ? '<div class="sold-badge" style="background: #f39c12;">OUT OF STOCK</div>' 
+        : isInactive
+            ? '<div class="sold-badge" style="background: #95a5a6;">INACTIVE</div>'
+            : '';
+
+div.innerHTML = `
+    <div class="market-item-img">
+        ${item.images && item.images.length > 0 ? 
+            `<img src="${item.images[0]}" alt="${escapeHtml(item.title)}" loading="lazy" style="width:100%;height:120px;object-fit:cover;${isSold || isOutOfStock ? 'filter: grayscale(100%); opacity: 0.7;' : ''}">` : 
+            `<i class="${icon}" style="font-size:2rem;"></i>`
+        }
+        ${statusBadge}
+    </div>
         <div class="market-item-info">
             <div class="market-item-title">
                 ${escapeHtml(item.title)}
@@ -188,13 +205,22 @@ div.style.cssText = `
                 </div>
             </div>
             <div class="market-item-actions" style="display: flex; gap: 8px;">
-                <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="flex: 1;">
-                    <i class="fas fa-comment"></i> Contact
-                </button>
-                <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" data-seller-name="${escapeHtml(item.userName || 'Seller')}" style="flex: 1;">
-                    <i class="fas fa-user"></i> Profile
-                </button>
-            </div>
+    ${item.userId === firebase.auth().currentUser?.uid ? `
+        <button class="btn btn-sm btn-primary manage-listing-btn" data-item-id="${item.id}" style="flex: 1;">
+            <i class="fas fa-cog"></i> Manage
+        </button>
+        <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" data-seller-name="${escapeHtml(item.userName || 'Seller')}" style="flex: 1;">
+            <i class="fas fa-user"></i> Profile
+        </button>
+    ` : `
+        <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="flex: 1;" ${isSold || isOutOfStock ? 'disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;"' : ''}>
+            <i class="fas fa-comment"></i> Contact
+        </button>
+        <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" data-seller-name="${escapeHtml(item.userName || 'Seller')}" style="flex: 1;">
+            <i class="fas fa-user"></i> Profile
+        </button>
+    `}
+</div>
         </div>
     `;
     
@@ -219,14 +245,22 @@ if (contactBtn) {
     }
     
     const sellerInfoDiv = div.querySelector('.market-item-seller');
-    if (sellerInfoDiv) {
-        sellerInfoDiv.addEventListener('click', (e) => {
-            e.stopPropagation();
-            viewSellerProfile(sellerInfoDiv.getAttribute('data-seller-id'));
-        });
-    }
-    
-    return div;
+if (sellerInfoDiv) {
+    sellerInfoDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewSellerProfile(sellerInfoDiv.getAttribute('data-seller-id'));
+    });
+}
+
+const manageBtn = div.querySelector('.manage-listing-btn');
+if (manageBtn) {
+    manageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showManageListingModal(item.id, item.status, item.stock);
+    });
+}
+
+return div;
 }
 
 let lastVisibleItem = null;
@@ -1029,24 +1063,25 @@ async function submitMarketplaceItem() {
     const itemId = firebase.firestore().collection('marketplace_items').doc().id;
     
     const itemData = {
-        category: category,
-        title: title,
-        description: description,
-        price: parseInt(price),
-        condition: condition,
-        location: location,
-        phone: phone,
-        whatsapp: whatsapp || phone,
-        negotiable: negotiable || false,
-        delivery: delivery || false,
-        status: 'active',
-        promoted: false,
-        images: [],
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || user.email || 'User',
-        userEmail: user.email
-    };
+    category: category,
+    title: title,
+    description: description,
+    price: parseInt(price),
+    condition: condition,
+    location: location,
+    phone: phone,
+    whatsapp: whatsapp || phone,
+    negotiable: negotiable || false,
+    delivery: delivery || false,
+    status: 'active',
+    stock: 1,
+    promoted: false,
+    images: [],
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    userId: user.uid,
+    userName: user.displayName || user.email || 'User',
+    userEmail: user.email
+};
     
     try {
         const imageInput = document.getElementById('market-images');
@@ -1174,6 +1209,75 @@ function setupMarketplaceSearch() {
         });
     }
 }
+
+function showManageListingModal(itemId, currentStatus, currentStock) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-cog"></i> Manage Listing</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Update the status of this listing:</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="manage-status" class="form-input">
+                        <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>✅ Active (Available)</option>
+                        <option value="out_of_stock" ${currentStatus === 'out_of_stock' ? 'selected' : ''}>⚠️ Out of Stock</option>
+                        <option value="sold" ${currentStatus === 'sold' ? 'selected' : ''}>💰 Sold</option>
+                        <option value="inactive" ${currentStatus === 'inactive' ? 'selected' : ''}>🚫 Inactive (Hide)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Stock Quantity</label>
+                    <input type="number" id="manage-stock" class="form-input" value="${currentStock || 1}" min="0">
+                    <div class="form-hint">Set to 0 to mark as Out of Stock</div>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-manage-btn" data-item-id="${itemId}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('manage-listing-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-manage-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newStatus = document.getElementById('manage-status')?.value;
+                const newStock = parseInt(document.getElementById('manage-stock')?.value) || 0;
+                
+                try {
+                    await firebase.firestore().collection('marketplace_items').doc(itemId).update({
+                        status: newStatus,
+                        stock: newStock,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    window.showToast('✅ Listing updated!', 'success');
+                    
+                    const modal = document.getElementById('manage-listing-modal');
+                    if (modal) modal.remove();
+                    
+                    setTimeout(() => loadMarketplaceItems(currentCategory || 'all'), 500);
+                } catch (error) {
+                    console.error('Error updating listing:', error);
+                    window.showToast('Error updating listing: ' + error.message, 'error');
+                }
+            });
+        }
+    }, 100);
+}
+
+window.showManageListingModal = showManageListingModal;
 
 function showGasRefillPostModal() {
     resetGasRefillForm();
@@ -1877,3 +1981,24 @@ async function startChatWithSeller(sellerId, sellerName) {
 }
 
 window.startChatWithSeller = startChatWithSeller;
+
+async function decrementStock(itemId) {
+    try {
+        const docRef = firebase.firestore().collection('marketplace_items').doc(itemId);
+        const doc = await docRef.get();
+        if (!doc.exists) return;
+        
+        const currentStock = doc.data().stock || 1;
+        const newStock = Math.max(0, currentStock - 1);
+        
+        await docRef.update({
+            stock: newStock,
+            status: newStock === 0 ? 'out_of_stock' : 'active',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+        console.error('Error decrementing stock:', error);
+    }
+}
+
+window.decrementStock = decrementStock;
