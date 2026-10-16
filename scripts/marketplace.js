@@ -217,9 +217,19 @@ div.innerHTML = `
             <i class="fas fa-user"></i> Profile
         </button>
     ` : `
-        <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="flex: 1;" ${isSold || isOutOfStock ? 'disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;"' : ''}>
-            <i class="fas fa-comment"></i> Contact
-        </button>
+        ${isSold ? `
+            <button class="btn btn-sm btn-outline" disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;">
+                <i class="fas fa-times-circle"></i> Sold
+            </button>
+        ` : isOutOfStock ? `
+            <button class="btn btn-sm btn-warning contact-seller-btn" data-item-id="${item.id}" style="flex: 1; background: var(--warning); color: white;">
+                <i class="fas fa-box-open"></i> Preorder
+            </button>
+        ` : `
+            <button class="btn btn-sm btn-primary contact-seller-btn" data-item-id="${item.id}" style="flex: 1;">
+                <i class="fas fa-comment"></i> Contact
+            </button>
+        `}
         <button class="btn btn-sm btn-outline view-seller-profile-btn" data-seller-id="${item.userId}" data-seller-name="${escapeHtml(item.userName || 'Seller')}" style="flex: 1;">
             <i class="fas fa-user"></i> Profile
         </button>
@@ -233,7 +243,10 @@ if (contactBtn) {
     contactBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (item.userId) {
-            startChatWithSeller(item.userId, item.userName);
+            const message = isOutOfStock 
+                ? `Hi! I see "${item.title}" is out of stock. Can I preorder it? How long until restock?` 
+                : `Hi! I'm interested in "${item.title}" on VikeServe.`;
+            startChatWithSeller(item.userId, item.userName, message);
         } else {
             window.showToast('Seller contact info coming soon', 'info');
         }
@@ -660,35 +673,39 @@ async function viewSellerProfile(sellerId) {
         };
         
         const contactBtn = document.getElementById('contact-seller-from-profile');
-        if (contactBtn) {
-            contactBtn.addEventListener('click', async () => {
-                const currentUser = firebase.auth().currentUser;
-                if (!currentUser) {
-                    window.showToast('Please sign in to send a message', 'warning');
-                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
-                    modal.remove();
-                    return;
-                }
-                
-                if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
-                    await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your listings on VikeServe.`);
-                    window.showToast('Chat started! Check your messages.', 'success');
-                    modal.remove();
-                    
-                    if (typeof window.switchTab === 'function') {
-                        window.switchTab('more-tab');
-                    }
-                    if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
-                        setTimeout(() => {
-                            window.moreMenuManager.switchMoreTab('messages');
-                        }, 500);
-                    }
-                } else {
-                    window.showToast('Opening chat...', 'info');
-                    modal.remove();
-                }
-            });
+if (contactBtn) {
+    contactBtn.addEventListener('click', async () => {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+            window.showToast('Please sign in to send a message', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            modal.remove();
+            return;
         }
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.closeChatWindow === 'function') {
+            window.moreMenuManager.closeChatWindow();
+        }
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+            await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your listings on VikeServe.`);
+            window.showToast('Chat started! Check your messages.', 'success');
+            modal.remove();
+            
+            if (typeof window.switchTab === 'function') {
+                window.switchTab('more-tab');
+            }
+            if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                setTimeout(() => {
+                    window.moreMenuManager.switchMoreTab('messages');
+                }, 500);
+            }
+        } else {
+            window.showToast('Opening chat...', 'info');
+            modal.remove();
+        }
+    });
+}
         
         const listingsBtn = document.getElementById('view-seller-listings');
         if (listingsBtn) {
@@ -1100,13 +1117,14 @@ async function submitMarketplaceItem() {
         console.log('Item saved to Firebase with ID:', itemId);
         
         window.showToast('✅ Item listed successfully!', 'success');
-        
-        const modal = document.getElementById('marketplace-post-modal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-        
-        resetMarketplaceForm();
+
+const modal = document.getElementById('marketplace-post-modal');
+if (modal) {
+    modal.style.display = 'none';
+}
+document.body.style.overflow = '';
+
+resetMarketplaceForm();
         
         setTimeout(() => {
             loadMarketplaceItems(currentCategory || 'all');
@@ -1944,7 +1962,7 @@ window.submitLandListing = submitLandListing;
 window.setupFilterButtons = setupFilterButtons;
 window.viewSellerProfile = viewSellerProfile;
 
-async function startChatWithSeller(sellerId, sellerName) {
+async function startChatWithSeller(sellerId, sellerName, customMessage = null) {
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) {
         window.showToast('Please sign in to send a message', 'warning');
@@ -1962,9 +1980,11 @@ async function startChatWithSeller(sellerId, sellerName) {
         return;
     }
     
+    const message = customMessage || `Hi! I'm interested in your items on VikeServe.`;
+    
     try {
         if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
-            await window.moreMenuManager.startChatWithUser(sellerId, `Hi! I'm interested in your items on VikeServe.`);
+            await window.moreMenuManager.startChatWithUser(sellerId, message);
             window.showToast('Chat started! Check your messages.', 'success');
             
             if (typeof window.switchTab === 'function') {

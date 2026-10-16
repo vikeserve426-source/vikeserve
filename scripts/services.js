@@ -34,20 +34,37 @@ class ServicesManager {
         }
     }
 
-    async getUrgentJobs(limit = 10) {
+async getUrgentJobs(limit = 10) {
+    try {
+        const snapshot = await this.servicesCollection
+            .where('urgent', '==', true)
+            .where('status', '==', 'active')
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }));
+    } catch (error) {
+        console.warn('Primary urgent jobs query failed, using fallback:', error.message);
         try {
-            const snapshot = await this.servicesCollection
-                .where('urgent', '==', true)
+            const fallback = await this.servicesCollection
                 .where('status', '==', 'active')
-                .orderBy('createdAt', 'desc')
-                .limit(limit)
+                .limit(100)
                 .get();
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }));
-        } catch (error) {
-            console.error('Error getting urgent jobs:', error);
+            return fallback.docs
+                .map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }))
+                .filter(j => j.urgent === true || j.isJob === true)
+                .sort((a, b) => {
+                    const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                    const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                    return tb - ta;
+                })
+                .slice(0, limit);
+        } catch (e2) {
+            console.error('Fallback urgent jobs query also failed:', e2);
             return [];
         }
     }
+}
 
     async createService(serviceData, imageFiles = []) {
     try {
@@ -272,10 +289,16 @@ div.innerHTML = `
         <div class="job-detail"><i class="fas fa-money-bill-wave"></i> ${job.price ? `KES ${job.price}` : 'Price negotiable'}</div>
         ${job.rating > 0 ? `<div class="job-detail"><i class="fas fa-star"></i> ${job.rating.toFixed(1)} (${job.ratingCount} reviews)</div>` : ''}
         <div class="job-tags">${typeBadge}<span class="job-tag">${escapeHtml(job.category)}</span>${job.urgent ? '<span class="job-tag urgent">Urgent</span>' : ''}</div>
-        <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}">View Details</button>
-${job.userId === firebase.auth().currentUser?.uid ? `
-    <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="background: var(--warning); color: white; margin-top: 8px;">Manage Job</button>
-` : ''}
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+    <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}" style="flex: 1;">View Details</button>
+    ${job.userId === firebase.auth().currentUser?.uid ? `
+        <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="flex: 1; background: var(--warning); color: white;">Manage</button>
+    ` : `
+        <button class="btn btn-outline book-job-btn" data-job-id="${job.id}" data-provider-id="${job.userId}" style="flex: 1;">
+            <i class="fas fa-calendar-check"></i> Book
+        </button>
+    `}
+</div>
 `;
 
 const viewBtn = div.querySelector('.view-job-detail-btn');
@@ -441,75 +464,6 @@ div.innerHTML = `
             }
         });
     }
-
-    function showManageServiceModal(serviceId, currentStatus, currentAvailability) {
-    const modalContent = `
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fas fa-cog"></i> Manage Service</div>
-                <button class="close-modal-btn">&times;</button>
-            </div>
-            <div style="padding: 20px;">
-                <p style="margin-bottom: 15px;">Update the status of this service:</p>
-                
-                <div class="form-group">
-                    <label class="form-label">Service Status</label>
-                    <select id="manage-service-status" class="form-input">
-                        <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>✅ Active (Visible)</option>
-                        <option value="inactive" ${currentStatus === 'inactive' ? 'selected' : ''}>🚫 Inactive (Hidden)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Availability</label>
-                    <select id="manage-service-availability" class="form-input">
-                        <option value="available" ${currentAvailability === 'available' ? 'selected' : ''}>✅ Available</option>
-                        <option value="unavailable" ${currentAvailability === 'unavailable' ? 'selected' : ''}>⚠️ Unavailable</option>
-                    </select>
-                </div>
-                
-                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-outline close-modal-btn">Cancel</button>
-                    <button class="btn btn-primary" id="save-manage-service-btn" data-service-id="${serviceId}">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    if (typeof window.showModalWithContent === 'function') {
-        window.showModalWithContent('manage-service-modal', modalContent);
-    }
-    
-    setTimeout(() => {
-        const saveBtn = document.getElementById('save-manage-service-btn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', async () => {
-                const newStatus = document.getElementById('manage-service-status')?.value;
-                const newAvailability = document.getElementById('manage-service-availability')?.value;
-                
-                try {
-                    await firebase.firestore().collection('services').doc(serviceId).update({
-                        status: newStatus,
-                        availability: newAvailability,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    window.showToast('✅ Service updated!', 'success');
-                    
-                    const modal = document.getElementById('manage-service-modal');
-                    if (modal) modal.remove();
-                    
-                    setTimeout(() => loadServices(), 500);
-                } catch (error) {
-                    console.error('Error updating service:', error);
-                    window.showToast('Error updating service: ' + error.message, 'error');
-                }
-            });
-        }
-    }, 100);
-}
-
-window.showManageServiceModal = showManageServiceModal;
     
     const detailBtn = div.querySelector('.view-service-detail-btn');
     if (detailBtn) {
@@ -703,7 +657,15 @@ function showServiceDetailsModal(service) {
                 <div class="service-contact"><i class="fas fa-phone"></i> ${escapeHtml(service.phone || 'Contact via app')}</div>
                 ${!isOwner ? `
     <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-        <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book Service</button>
+        ${service.availability === 'unavailable' ? `
+    <button class="btn btn-warning book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1; background: var(--warning); color: white;">
+        <i class="fas fa-clock"></i> Request Availability
+    </button>
+` : `
+    <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;">
+        <i class="fas fa-calendar-check"></i> Book Service
+    </button>
+`}
         <button class="btn btn-outline contact-provider-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
     </div>
 ` : `
@@ -734,25 +696,22 @@ if (contactBtn) {
     });
 }
         
-        const bookBtn = document.querySelector('#service-details-modal .book-service-btn');
-        if (bookBtn) {
-            bookBtn.addEventListener('click', async () => {
-                const user = firebase.auth().currentUser;
-                if (!user) {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('Please sign in to book this service', 'warning');
-                    }
-                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
-                    return;
-                }
-                
-                const serviceId = bookBtn.getAttribute('data-service-id');
-                const result = await servicesManager.getServiceById(serviceId);
-                if (result.success) {
-                    showBookingModal(result.data);
-                }
-            });
+        const bookBtn = div.querySelector('.book-job-btn');
+if (bookBtn) {
+    bookBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const jobId = bookBtn.getAttribute('data-job-id');
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            if (typeof window.showToast === 'function') window.showToast('Please sign in to book', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
         }
+        if (typeof window.viewJobDetails === 'function') {
+            await window.viewJobDetails(jobId);
+        }
+    });
+}
         
         const editBtn = document.querySelector('#service-details-modal .edit-service-btn');
 if (editBtn) {
@@ -1117,11 +1076,10 @@ Object.keys(serviceData).forEach(key => {
     
     if (result.success) {
         window.showToast('✅ Service posted successfully!', 'success');
-        
-        const modal = document.getElementById('service-post-modal');
-        if (modal) modal.style.display = 'none';
-        
-        resetServicePostForm();
+const modal = document.getElementById('service-post-modal');
+if (modal) modal.style.display = 'none';
+document.body.style.overflow = '';
+resetServicePostForm();
         setTimeout(() => loadServices(), 500);
     } else {
         window.showToast(`Error: ${result.error}`, 'error');
@@ -1961,35 +1919,39 @@ async function viewProviderProfile(providerId) {
         };
         
         const contactBtn = document.getElementById('contact-provider-from-profile');
-        if (contactBtn) {
-            contactBtn.addEventListener('click', async () => {
-                const currentUser = firebase.auth().currentUser;
-                if (!currentUser) {
-                    window.showToast('Please sign in to send a message', 'warning');
-                    if (typeof window.openAuthModal === 'function') window.openAuthModal();
-                    modal.remove();
-                    return;
-                }
-                
-                if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
-                    await window.moreMenuManager.startChatWithUser(providerId, `Hi! I'm interested in your services on VikeServe.`);
-                    window.showToast('Chat started! Check your messages.', 'success');
-                    modal.remove();
-                    
-                    if (typeof window.switchTab === 'function') {
-                        window.switchTab('more-tab');
-                    }
-                    if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
-                        setTimeout(() => {
-                            window.moreMenuManager.switchMoreTab('messages');
-                        }, 500);
-                    }
-                } else {
-                    window.showToast('Opening chat...', 'info');
-                    modal.remove();
-                }
-            });
+if (contactBtn) {
+    contactBtn.addEventListener('click', async () => {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+            window.showToast('Please sign in to send a message', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            modal.remove();
+            return;
         }
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.closeChatWindow === 'function') {
+            window.moreMenuManager.closeChatWindow();
+        }
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+            await window.moreMenuManager.startChatWithUser(providerId, `Hi! I'm interested in your services on VikeServe.`);
+            window.showToast('Chat started! Check your messages.', 'success');
+            modal.remove();
+            
+            if (typeof window.switchTab === 'function') {
+                window.switchTab('more-tab');
+            }
+            if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                setTimeout(() => {
+                    window.moreMenuManager.switchMoreTab('messages');
+                }, 500);
+            }
+        } else {
+            window.showToast('Opening chat...', 'info');
+            modal.remove();
+        }
+    });
+}
         
         const servicesBtn = document.getElementById('view-provider-services');
         if (servicesBtn) {
@@ -2018,6 +1980,75 @@ async function viewProviderProfile(providerId) {
         window.showToast('Error loading provider profile: ' + error.message, 'error');
     }
 }
+
+function showManageServiceModal(serviceId, currentStatus, currentAvailability) {
+    const modalContent = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-cog"></i> Manage Service</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 15px;">Update the status of this service:</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Service Status</label>
+                    <select id="manage-service-status" class="form-input">
+                        <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>✅ Active (Visible)</option>
+                        <option value="inactive" ${currentStatus === 'inactive' ? 'selected' : ''}>🚫 Inactive (Hidden)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Availability</label>
+                    <select id="manage-service-availability" class="form-input">
+                        <option value="available" ${currentAvailability === 'available' ? 'selected' : ''}>✅ Available</option>
+                        <option value="unavailable" ${currentAvailability === 'unavailable' ? 'selected' : ''}>⚠️ Unavailable</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button class="btn btn-primary" id="save-manage-service-btn" data-service-id="${serviceId}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('manage-service-modal', modalContent);
+    }
+    
+    setTimeout(() => {
+        const saveBtn = document.getElementById('save-manage-service-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const newStatus = document.getElementById('manage-service-status')?.value;
+                const newAvailability = document.getElementById('manage-service-availability')?.value;
+                
+                try {
+                    await firebase.firestore().collection('services').doc(serviceId).update({
+                        status: newStatus,
+                        availability: newAvailability,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    window.showToast('✅ Service updated!', 'success');
+                    
+                    const modal = document.getElementById('manage-service-modal');
+                    if (modal) modal.remove();
+                    
+                    setTimeout(() => loadServices(), 500);
+                } catch (error) {
+                    console.error('Error updating service:', error);
+                    window.showToast('Error updating service: ' + error.message, 'error');
+                }
+            });
+        }
+    }, 100);
+}
+
+window.showManageServiceModal = showManageServiceModal;
 
 window.viewProviderProfile = viewProviderProfile;
 

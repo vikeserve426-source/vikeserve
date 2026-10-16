@@ -477,7 +477,19 @@ ${listing.status === 'inactive' ? '<div class="property-badge" style="background
         </button>
         <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
     ` : `
-        <button class="btn btn-sm btn-primary contact-lister-btn" data-id="${listing.id}" ${isUnavailable ? 'disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;"' : ''}>Contact</button>
+        ${listing.status === 'rented' ? `
+            <button class="btn btn-sm btn-warning contact-lister-btn" data-id="${listing.id}" style="flex: 1; background: var(--warning); color: white;">
+                <i class="fas fa-clock"></i> Ask About Similar
+            </button>
+        ` : listing.status === 'sold' ? `
+            <button class="btn btn-sm btn-outline" disabled style="flex: 1; opacity: 0.5; cursor: not-allowed;">
+                <i class="fas fa-times-circle"></i> Sold
+            </button>
+        ` : `
+            <button class="btn btn-sm btn-primary contact-lister-btn" data-id="${listing.id}" style="flex: 1;">
+                <i class="fas fa-comment"></i> Contact
+            </button>
+        `}
         <button class="btn btn-sm btn-outline view-details-btn" data-id="${listing.id}">Details</button>
         <button class="btn btn-sm btn-outline favorite-btn" data-id="${listing.id}">
             <i class="far fa-heart"></i>

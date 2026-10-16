@@ -882,54 +882,152 @@ if (window.FEATURES?.adPromotion) {
         }
 
         const homeSearchInput = document.querySelector('#home-tab .search-input');
-        if (homeSearchInput) {
-            const newInput = homeSearchInput.cloneNode(true);
-            homeSearchInput.parentNode.replaceChild(newInput, homeSearchInput);
+if (homeSearchInput) {
+    const newInput = homeSearchInput.cloneNode(true);
+    homeSearchInput.parentNode.replaceChild(newInput, homeSearchInput);
+    
+    let timeout;
+    newInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(async () => {
+            const value = e.target.value.trim();
+            if (value.length < 2) return;
             
-            let timeout;
-            newInput.addEventListener('input', (e) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => {
-                    const value = e.target.value;
-                    if (window.search && typeof window.search.handleSearch === 'function') {
-                        window.search.handleSearch(value);
-                    }
-                }, 300);
+            if (typeof window.globalSearch !== 'function') {
+                console.warn('globalSearch not available');
+                return;
+            }
+            
+            window.showToast(`Searching for "${value}"...`, 'info');
+            
+            const results = await window.globalSearch(value);
+            const total = results.services.length + results.marketplace.length + results.alerts.length + results.housing.length;
+            
+            if (total === 0) {
+                window.showToast(`No results for "${value}"`, 'info');
+                return;
+            }
+            
+            showGlobalSearchResults(value, results);
+        }, 400);
+    });
+}
+
+function showGlobalSearchResults(term, results) {
+    const esc = (t) => { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; };
+    
+    const renderGroup = (title, icon, items, type) => {
+        if (items.length === 0) return '';
+        return `
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;"><i class="${icon}"></i> ${title} (${items.length})</h4>
+                ${items.slice(0, 8).map(item => `
+                    <div class="search-result-item" data-type="${type}" data-id="${item.id}" style="padding: 12px; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                        <div style="font-weight: 600; font-size: 0.9rem;">${esc(item.title || item.name || item.company || 'Untitled')}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">${esc(item.category || item.location || '')}</div>
+                        ${item.price ? `<div style="font-size: 0.85rem; font-weight: bold; color: var(--primary); margin-top: 4px;">KES ${item.price}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    };
+    
+    const modalContent = `
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto; z-index: 20002;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-search"></i> Results for "${term}"</div>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div style="padding: 15px;">
+                ${renderGroup('Services', 'fas fa-tools', results.services, 'service')}
+                ${renderGroup('Marketplace', 'fas fa-store', results.marketplace, 'marketplace')}
+                ${renderGroup('Housing', 'fas fa-home', results.housing, 'housing')}
+                ${renderGroup('Alerts', 'fas fa-bell', results.alerts, 'alert')}
+            </div>
+        </div>
+    `;
+    
+    if (typeof window.showModalWithContent === 'function') {
+        window.showModalWithContent('global-search-results', modalContent);
+    }
+    
+    // Handle result clicks
+    setTimeout(() => {
+        document.querySelectorAll('#global-search-results .search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.getAttribute('data-type');
+                const id = item.getAttribute('data-id');
+                
+                // Close search modal
+                const modal = document.getElementById('global-search-results');
+                if (modal) modal.remove();
+                
+                // Route to detail view
+                if (type === 'service' && typeof window.viewServiceDetails === 'function') {
+                    window.viewServiceDetails(id);
+                } else if (type === 'marketplace' && typeof window.viewListingDetails === 'function') {
+                    window.viewListingDetails(id);
+                } else if (type === 'housing' && typeof window.viewHousingDetails === 'function') {
+                    window.viewHousingDetails(id);
+                } else if (type === 'alert') {
+                    if (typeof window.switchTab === 'function') window.switchTab('more-tab');
+                    setTimeout(() => {
+                        if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                            window.moreMenuManager.switchMoreTab('alerts');
+                        }
+                    }, 400);
+                }
             });
-        }
+        });
+    }, 200);
+}
+
+window.showGlobalSearchResults = showGlobalSearchResults;
     }
 
     setupCloseButtons() {
-        console.log('🔧 Setting up global close buttons...');
-        
-        document.querySelectorAll('.close-modal-btn').forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const modal = this.closest('.modal');
-                if (modal) {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = '';
-                    console.log('✅ Modal closed:', modal.id);
+    if (window._closeBtnHandlerAttached) return;
+    window._closeBtnHandlerAttached = true;
+    
+    document.addEventListener('click', function(e) {
+        const closeBtn = e.target.closest('.close-modal-btn');
+        if (closeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const modal = closeBtn.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+                if (modal.id && !['auth-modal', 'service-post-modal', 'job-post-modal',
+                    'marketplace-post-modal', 'gas-refill-post-modal', 'water-delivery-post-modal',
+                    'hotel-post-modal', 'property-post-modal', 'land-post-modal',
+                    'teacher-post-modal', 'internship-post-modal', 'attachment-post-modal',
+                    'training-post-modal', 'alert-post-modal', 'ad-packages-modal'].includes(modal.id)) {
+                    setTimeout(() => { if (modal.parentNode) modal.remove(); }, 300);
                 }
-            });
-        });
+                console.log('✅ Modal closed:', modal.id);
+            }
+        }
         
-        document.querySelectorAll('.modal').forEach(modal => {
-            const newModal = modal.cloneNode(true);
-            modal.parentNode.replaceChild(newModal, modal);
-            newModal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.style.display = 'none';
-                    document.body.style.overflow = '';
-                    console.log('✅ Modal closed by background click:', this.id);
-                }
+        if (e.target.classList && e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+            document.body.style.overflow = '';
+            console.log('✅ Modal closed by backdrop:', e.target.id);
+        }
+    }, true);
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const openModals = document.querySelectorAll('.modal[style*="display: flex"], .modal[style*="display: block"]');
+            openModals.forEach(m => {
+                m.style.display = 'none';
+                document.body.style.overflow = '';
             });
-        });
-    }
+        }
+    });
+    
+    console.log('✅ Universal close button handler attached');
+}
 
     toggleUserMenu() {
         const userMenu = document.getElementById('user-menu');

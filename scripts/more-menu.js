@@ -3590,25 +3590,53 @@ async startChatWithUser(userId, initialMessage) {
         return;
     }
     
-    const existingChat = await this.db.collection('chats')
+    if (userId === this.currentUser.uid) {
+        this.showToast('You cannot chat with yourself', 'info');
+        return;
+    }
+    
+    const existingChats = await this.db.collection('chats')
         .where('participants', 'array-contains', this.currentUser.uid)
         .get();
     
     let chatRef = null;
-    for (const doc of existingChat.docs) {
-        const participants = doc.data().participants;
-        if (participants.includes(userId)) {
+    for (const doc of existingChats.docs) {
+        const data = doc.data();
+        
+        if (data.isGroup === true) continue;
+        
+        const participants = data.participants || [];
+        
+        if (participants.length === 2 
+            && participants.includes(userId) 
+            && participants.includes(this.currentUser.uid)) {
             chatRef = doc.ref;
             break;
         }
     }
     
     if (!chatRef) {
+        const myName = this.currentUser.displayName || this.currentUser.email || 'User';
+        let theirName = 'User';
+        try {
+            const theirDoc = await this.db.collection('users').doc(userId).get();
+            if (theirDoc.exists) {
+                const d = theirDoc.data();
+                theirName = d.displayName || d.userName || d.name || d.email || 'User';
+            }
+        } catch (e) {}
+        
         const chatData = {
             participants: [this.currentUser.uid, userId],
+            participantNames: {
+                [this.currentUser.uid]: myName,
+                [userId]: theirName
+            },
+            isGroup: false,
             lastMessage: initialMessage,
             lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessageBy: this.currentUser.uid
         };
         chatRef = await this.db.collection('chats').add(chatData);
     }
@@ -3627,7 +3655,7 @@ async startChatWithUser(userId, initialMessage) {
         lastMessageBy: this.currentUser.uid
     });
     
-    this.showToast('Message sent!', 'success');
+    this.showToast('Chat opened!', 'success');
     await this.loadConversations();
     this.loadChat(chatRef.id);
 }
@@ -3741,6 +3769,7 @@ moreMenuModalsToRemove.forEach(modalId => {
         targetContent.classList.add('active');
         targetContent.style.display = 'block';
         targetContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
+        targetContent.scrollTop = 0;
     }
     
     if (tabId === 'messages') {
@@ -4192,9 +4221,7 @@ closeModal(modalId) {
     if (modal) {
         modal.style.display = 'none';
         setTimeout(() => {
-            if (modal.parentNode && modal.style.display === 'none') {
-                modal.remove();
-            }
+            if (modal.parentNode) modal.remove();
         }, 300);
     }
 }
@@ -4234,6 +4261,14 @@ showModalWithContent(modalId, content) {
         if (e.target === modal) {
             this.closeModal(modalId);
         }
+    });
+    
+    modal.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeModal(modalId);
+        });
     });
 }
 
@@ -4480,12 +4515,16 @@ window.updateFounderDetails = async function(details) {
         
         console.log('✅ Founder details updated:', details);
         
-        const settingsContent = document.getElementById('settings-content');
-        if (settingsContent) {
-            const newHTML = await window.moreMenuManager.getSettingsHTML();
-            settingsContent.innerHTML = newHTML;
-            settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
-            window.moreMenuManager.setupEventListeners();
+        if (window.moreMenuManager && typeof window.moreMenuManager.getSettingsHTML === 'function') {
+            const settingsContent = document.getElementById('settings-content');
+            if (settingsContent) {
+                const newHTML = await window.moreMenuManager.getSettingsHTML();
+                settingsContent.innerHTML = newHTML;
+                settingsContent.style.cssText = 'overflow-y: auto; flex: 1; height: 100%; padding: 16px; box-sizing: border-box;';
+                if (typeof window.moreMenuManager.setupEventListeners === 'function') {
+                    window.moreMenuManager.setupEventListeners();
+                }
+            }
         }
         
         return { success: true };
