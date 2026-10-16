@@ -243,10 +243,7 @@ if (contactBtn) {
     contactBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (item.userId) {
-            const message = isOutOfStock 
-                ? `Hi! I see "${item.title}" is out of stock. Can I preorder it? How long until restock?` 
-                : `Hi! I'm interested in "${item.title}" on VikeServe.`;
-            startChatWithSeller(item.userId, item.userName, message);
+            startChatWithSeller(item.userId, item.userName, item);
         } else {
             window.showToast('Seller contact info coming soon', 'info');
         }
@@ -1962,7 +1959,43 @@ window.submitLandListing = submitLandListing;
 window.setupFilterButtons = setupFilterButtons;
 window.viewSellerProfile = viewSellerProfile;
 
-async function startChatWithSeller(sellerId, sellerName, customMessage = null) {
+function buildListingMessage(item, introText) {
+    const esc = (t) => (t == null || t === '') ? '' : String(t);
+    const lines = [];
+    
+        const intro = item.status === 'out_of_stock'
+        ? `Hi! I see this item is out of stock — can I preorder it?`
+        : `Hi! I'm interested in this listing on VikeServe:`;
+    lines.push(intro);
+    lines.push('');
+    
+    if (item.title) lines.push(`📦 *${esc(item.title)}*`);
+    if (item.price) {
+        const priceLine = `💰 KES ${Number(item.price).toLocaleString()}`;
+        lines.push(item.negotiable ? `${priceLine} (Negotiable)` : priceLine);
+    }
+    if (item.condition) lines.push(`⭐ Condition: ${esc(item.condition)}`);
+    if (item.category) lines.push(`🏷️ Category: ${esc(item.category)}`);
+    if (item.location) lines.push(`📍 ${esc(item.location)}`);
+    if (item.phone) lines.push(`📞 ${esc(item.phone)}`);
+    if (item.whatsapp && item.whatsapp !== item.phone) lines.push(`💬 WhatsApp: ${esc(item.whatsapp)}`);
+    if (item.userName) lines.push(`👤 Listed by: ${esc(item.userName)}`);
+    if (item.delivery) lines.push(`🚚 Delivery available`);
+    
+    if (item.description) {
+        lines.push('');
+        lines.push(`📝 ${esc(item.description)}`);
+    }
+    
+    if (item.originalServiceId) {
+        lines.push('');
+        lines.push(`(Service ID: ${esc(item.originalServiceId)})`);
+    }
+    
+    return lines.join('\n');
+}
+
+async function startChatWithSeller(sellerId, sellerName, listing = null) {
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) {
         window.showToast('Please sign in to send a message', 'warning');
@@ -1980,7 +2013,15 @@ async function startChatWithSeller(sellerId, sellerName, customMessage = null) {
         return;
     }
     
-    const message = customMessage || `Hi! I'm interested in your items on VikeServe.`;
+    let message;
+    if (listing && typeof listing === 'object') {
+        message = buildListingMessage(listing);
+    } else if (typeof listing === 'string') {
+        // Legacy: caller passed a plain string message
+        message = listing;
+    } else {
+        message = `Hi! I'm interested in your items on VikeServe.`;
+    }
     
     try {
         if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
@@ -2005,6 +2046,7 @@ async function startChatWithSeller(sellerId, sellerName, customMessage = null) {
 }
 
 window.startChatWithSeller = startChatWithSeller;
+window.buildListingMessage = buildListingMessage;
 
 async function decrementStock(itemId) {
     try {

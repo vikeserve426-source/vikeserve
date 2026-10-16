@@ -234,6 +234,25 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+window.buildServiceMessage = function(service) {
+    const esc = (t) => (t == null || t === '') ? '' : String(t);
+    const lines = [];
+    lines.push(`Hi! I'm interested in this service on VikeServe:`);
+    lines.push('');
+    if (service.title) lines.push(`🔧 *${esc(service.title)}*`);
+    if (service.price) lines.push(`💰 KES ${Number(service.price).toLocaleString()}`);
+    if (service.serviceType) lines.push(`🏷️ Type: ${esc(service.serviceType)}`);
+    if (service.location) lines.push(`📍 ${esc(service.location)}`);
+    if (service.phone) lines.push(`📞 ${esc(service.phone)}`);
+    if (service.duration) lines.push(`⏱️ Duration: ${esc(service.duration)}`);
+    if (service.userName) lines.push(`👤 Provider: ${esc(service.userName)}`);
+    if (service.description) {
+        lines.push('');
+        lines.push(`📝 ${esc(service.description)}`);
+    }
+    return lines.join('\n');
+};
+
 async function loadUrgentJobs(limit = 5) {
     const container = document.getElementById('urgent-jobs-container');
     if (!container) return;
@@ -1754,11 +1773,11 @@ async function viewServiceDetails(serviceId) {
                     <div class="form-group"><label class="form-label">Contact</label><p><i class="fas fa-phone"></i> ${escapeHtml(service.phone || 'Contact via app')}</p></div>
                     
                     ${!isOwner ? `
-                        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book Service</button>
-                            <button class="btn btn-outline contact-provider-btn" data-phone="${service.phone}" style="flex: 1;"><i class="fas fa-phone"></i> Call</button>
-                        </div>
-                    ` : `
+    <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary book-service-from-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-calendar-check"></i> Book Service</button>
+        <button class="btn btn-outline message-provider-btn" data-provider-id="${service.userId}" style="flex: 1;"><i class="fas fa-comment"></i> Message</button>
+    </div>
+` : `
                         <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn btn-outline edit-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-edit"></i> Edit</button>
                             <button class="btn btn-danger delete-service-detail-btn" data-service-id="${service.id}" style="flex: 1;"><i class="fas fa-trash"></i> Delete</button>
@@ -1774,27 +1793,59 @@ async function viewServiceDetails(serviceId) {
         
         setTimeout(() => {
             const contactBtn = document.querySelector('#service-detail-modal .contact-provider-btn');
-            if (contactBtn) {
-                contactBtn.addEventListener('click', () => {
-                    const phone = contactBtn.getAttribute('data-phone');
-                    if (phone) window.location.href = `tel:${phone}`;
-                });
+if (contactBtn) {
+    contactBtn.addEventListener('click', () => {
+        const phone = contactBtn.getAttribute('data-phone');
+        if (phone) window.location.href = `tel:${phone}`;
+    });
+}
+
+const messageBtn = document.querySelector('#service-detail-modal .message-provider-btn');
+if (messageBtn) {
+    messageBtn.addEventListener('click', async () => {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            window.showToast('Please sign in to send a message', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.closeChatWindow === 'function') {
+            window.moreMenuManager.closeChatWindow();
+        }
+        
+        const providerId = messageBtn.getAttribute('data-provider-id');
+        const builtMessage = window.buildServiceMessage 
+            ? window.buildServiceMessage(service)
+            : `Hi! I'm interested in your service on VikeServe:\n\n🔧 ${service.title}\n💰 KES ${service.price}\n📍 ${service.location}`;
+        
+        if (window.moreMenuManager && typeof window.moreMenuManager.startChatWithUser === 'function') {
+            await window.moreMenuManager.startChatWithUser(providerId, builtMessage);
+            window.showToast('Chat started! Check your messages.', 'success');
+            if (typeof window.closeModal === 'function') window.closeModal('service-detail-modal');
+            
+            if (typeof window.switchTab === 'function') window.switchTab('more-tab');
+            if (window.moreMenuManager && typeof window.moreMenuManager.switchMoreTab === 'function') {
+                setTimeout(() => window.moreMenuManager.switchMoreTab('messages'), 500);
             }
+        }
+    });
+}
             
             const bookBtn = document.querySelector('#service-detail-modal .book-service-from-detail-btn');
-            if (bookBtn) {
-                bookBtn.addEventListener('click', async () => {
-                    const user = firebase.auth().currentUser;
-                    if (!user) {
-                        window.showToast('Please sign in to book this service', 'warning');
-                        if (typeof window.openAuthModal === 'function') window.openAuthModal();
-                        return;
-                    }
-                    if (typeof window.showBookingModal === 'function') {
-                        window.showBookingModal(service);
-                    }
-                });
-            }
+if (bookBtn) {
+    bookBtn.addEventListener('click', async () => {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            window.showToast('Please sign in to book this service', 'warning');
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
+            return;
+        }
+        if (typeof window.showBookingModal === 'function') {
+            window.showBookingModal(service);
+        }
+    });
+}
             
             const profileBtn = document.querySelector('#service-detail-modal .view-provider-detail-profile-btn');
             if (profileBtn) {

@@ -19,6 +19,26 @@ if (typeof window.showModalWithContent !== 'function') {
     };
 }
 
+window.buildHousingMessage = function(listing) {
+    const esc = (t) => (t == null || t === '') ? '' : String(t);
+    const lines = [];
+    lines.push(`Hi! I'm interested in this property on VikeServe:`);
+    lines.push('');
+    if (listing.title) lines.push(`🏠 *${esc(listing.title)}*`);
+    if (listing.price) lines.push(`💰 KES ${Number(listing.price).toLocaleString()}/month`);
+    if (listing.location) lines.push(`📍 ${esc(listing.location)}`);
+    if (listing.bedrooms) lines.push(`🛏️ ${listing.bedrooms} Bedroom(s)`);
+    if (listing.bathrooms) lines.push(`🛁 ${listing.bathrooms} Bathroom(s)`);
+    if (listing.furnished) lines.push(`🛋️ Furnished`);
+    if (listing.phone) lines.push(`📞 ${esc(listing.phone)}`);
+    if (listing.userName) lines.push(`👤 Lister: ${esc(listing.userName)}`);
+    if (listing.description) {
+        lines.push('');
+        lines.push(`📝 ${esc(listing.description)}`);
+    }
+    return lines.join('\n');
+};
+
 class HousingManager {
     constructor() {
         this.db = db;
@@ -642,25 +662,30 @@ function showContactMessageModal(listingId) {
     
     setTimeout(() => {
         const sendBtn = document.getElementById('send-message-btn');
-        if (sendBtn) {
-            sendBtn.addEventListener('click', async () => {
-                const message = document.getElementById('contact-message')?.value;
-                if (!message) {
-                    showToast('Please enter a message', 'error');
-                    return;
-                }
-                
-                const result = await housingManager.contactLister(listingId, message);
-                if (result.success) {
-                    showToast('Message sent to property owner!', 'success');
-                    if (typeof window.closeModal === 'function') {
-                        window.closeModal('contact-modal');
-                    }
-                } else {
-                    showToast('Error: ' + result.error, 'error');
-                }
-            });
+if (sendBtn) {
+    sendBtn.addEventListener('click', async () => {
+        const typedMessage = document.getElementById('contact-message')?.value || '';
+        
+        const listingResult = await housingManager.getHousingListing(listingId);
+        let finalMessage = typedMessage;
+        if (listingResult.success && typeof window.buildHousingMessage === 'function') {
+            const details = window.buildHousingMessage(listingResult.data);
+            finalMessage = typedMessage
+                ? `${details}\n\n---\n${typedMessage}`
+                : details;
         }
+        
+        const result = await housingManager.contactLister(listingId, finalMessage);
+        if (result.success) {
+            showToast('Message sent to property owner!', 'success');
+            if (typeof window.closeModal === 'function') {
+                window.closeModal('contact-modal');
+            }
+        } else {
+            showToast('Error: ' + result.error, 'error');
+        }
+    });
+}
     }, 100);
 }
 
