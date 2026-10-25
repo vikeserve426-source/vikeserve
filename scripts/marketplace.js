@@ -235,6 +235,12 @@ div.innerHTML = `
         </button>
     `}
 </div>
+<div class="market-item-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+    <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
+    <button class="btn btn-sm btn-outline share-btn" data-channel="whatsapp" data-item-id="${item.id}" style="flex: 1; color: #25D366; border-color: #25D366;" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i></button>
+    <button class="btn btn-sm btn-outline share-btn" data-channel="facebook" data-item-id="${item.id}" style="flex: 1; color: #1877F2; border-color: #1877F2;" title="Share on Facebook"><i class="fab fa-facebook"></i></button>
+    <button class="btn btn-sm btn-outline share-btn" data-channel="instagram" data-item-id="${item.id}" style="flex: 1; color: #E1306C; border-color: #E1306C;" title="Share on Instagram"><i class="fab fa-instagram"></i></button>
+</div>
         </div>
     `;
     
@@ -273,6 +279,24 @@ if (manageBtn) {
         showManageListingModal(item.id, item.status, item.stock);
     });
 }
+
+div.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const channel = btn.getAttribute('data-channel');
+        if (typeof window.shareListing === 'function') {
+            window.shareListing(channel, {
+                title: item.title,
+                price: item.price,
+                location: item.location,
+                category: item.category,
+                type: 'Marketplace'
+            });
+        } else {
+            window.showToast('Share feature loading, please refresh', 'warning');
+        }
+    });
+});
 
 return div;
 }

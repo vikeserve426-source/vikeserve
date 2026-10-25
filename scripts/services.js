@@ -309,10 +309,17 @@ div.innerHTML = `
         ${job.rating > 0 ? `<div class="job-detail"><i class="fas fa-star"></i> ${job.rating.toFixed(1)} (${job.ratingCount} reviews)</div>` : ''}
         <div class="job-tags">${typeBadge}<span class="job-tag">${escapeHtml(job.category)}</span>${job.urgent ? '<span class="job-tag urgent">Urgent</span>' : ''}</div>
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-    <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}" style="flex: 1;">View Details</button>
-    ${job.userId === firebase.auth().currentUser?.uid ? `
-        <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="flex: 1; background: var(--warning); color: white;">Manage</button>
-    ` : `
+            <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}">View Details</button>
+${job.userId === firebase.auth().currentUser?.uid ? `
+    <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="background: var(--warning); color: white; margin-top: 8px;">Manage Job</button>
+` : ''}
+<div class="job-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+    <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
+    <button class="btn btn-sm btn-outline share-job-btn" data-channel="whatsapp" style="flex: 1; color: #25D366; border-color: #25D366;" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i></button>
+    <button class="btn btn-sm btn-outline share-job-btn" data-channel="facebook" style="flex: 1; color: #1877F2; border-color: #1877F2;" title="Share on Facebook"><i class="fab fa-facebook"></i></button>
+    <button class="btn btn-sm btn-outline share-job-btn" data-channel="instagram" style="flex: 1; color: #E1306C; border-color: #E1306C;" title="Share on Instagram"><i class="fab fa-instagram"></i></button>
+</div>
+`;
         <button class="btn btn-outline book-job-btn" data-job-id="${job.id}" data-provider-id="${job.userId}" style="flex: 1;">
             <i class="fas fa-calendar-check"></i> Book
         </button>
@@ -331,6 +338,24 @@ if (manageBtn) {
         showManageJobModal(job.id, manageBtn.getAttribute('data-status'));
     });
 }
+
+div.querySelectorAll('.share-job-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const channel = btn.getAttribute('data-channel');
+        if (typeof window.shareListing === 'function') {
+            window.shareListing(channel, {
+                title: job.title,
+                price: job.price,
+                location: job.location,
+                category: job.category,
+                type: 'Job'
+            });
+        } else {
+            window.showToast('Share feature loading, please refresh', 'warning');
+        }
+    });
+});
 
 return div;
 }
@@ -460,13 +485,19 @@ div.innerHTML = `
             <span class="service-category">${escapeHtml(service.category)}</span>
             <span class="service-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(service.location)}</span>
         </div>
-        <div class="service-actions">
+                <div class="service-actions">
     <button class="btn-sm btn-primary view-service-detail-btn" data-service-id="${service.id}"><i class="fas fa-info-circle"></i> Details</button>
     ${isOwner ? `
         <button class="btn-sm btn-warning manage-service-btn" data-service-id="${service.id}" data-status="${service.status || 'active'}" data-availability="${service.availability || 'available'}" style="background: var(--warning); color: white;"><i class="fas fa-cog"></i> Manage</button>
     ` : `
         <button class="btn-sm btn-outline view-provider-profile-btn" data-provider-id="${service.userId}" data-provider-name="${escapeHtml(service.providerName || service.userName || 'Provider')}"><i class="fas fa-user"></i> Profile</button>
     `}
+</div>
+<div class="service-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+    <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
+    <button class="btn btn-sm btn-outline share-service-btn" data-channel="whatsapp" style="flex: 1; color: #25D366; border-color: #25D366;" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i></button>
+    <button class="btn btn-sm btn-outline share-service-btn" data-channel="facebook" style="flex: 1; color: #1877F2; border-color: #1877F2;" title="Share on Facebook"><i class="fab fa-facebook"></i></button>
+    <button class="btn btn-sm btn-outline share-service-btn" data-channel="instagram" style="flex: 1; color: #E1306C; border-color: #E1306C;" title="Share on Instagram"><i class="fab fa-instagram"></i></button>
 </div>
         ${promoteButtonHtml}
     `;
@@ -520,6 +551,24 @@ if (manageBtn) {
         showManageServiceModal(service.id, manageBtn.getAttribute('data-status'), manageBtn.getAttribute('data-availability'));
     });
 }
+
+div.querySelectorAll('.share-service-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const channel = btn.getAttribute('data-channel');
+        if (typeof window.shareListing === 'function') {
+            window.shareListing(channel, {
+                title: service.title,
+                price: service.price,
+                location: service.location,
+                category: service.category || service.serviceType,
+                type: 'Service'
+            });
+        } else {
+            window.showToast('Share feature loading, please refresh', 'warning');
+        }
+    });
+});
 
 return div;
 }

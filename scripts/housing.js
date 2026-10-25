@@ -490,7 +490,7 @@ ${listing.status === 'inactive' ? '<div class="property-badge" style="background
                 </div>
                 ${listing.furnished ? '<div class="property-meta-item"><i class="fas fa-couch"></i> Furnished</div>' : ''}
             </div>
-            <div class="property-actions">
+                    <div class="property-actions">
     ${listing.userId === firebase.auth().currentUser?.uid ? `
         <button class="btn btn-sm btn-primary manage-listing-btn" data-id="${listing.id}" data-status="${listing.status || 'active'}" style="flex: 1;">
             <i class="fas fa-cog"></i> Manage
@@ -515,6 +515,12 @@ ${listing.status === 'inactive' ? '<div class="property-badge" style="background
             <i class="far fa-heart"></i>
         </button>
     `}
+</div>
+<div class="property-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+    <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
+    <button class="btn btn-sm btn-outline share-house-btn" data-channel="whatsapp" style="flex: 1; color: #25D366; border-color: #25D366;"><i class="fab fa-whatsapp"></i></button>
+    <button class="btn btn-sm btn-outline share-house-btn" data-channel="facebook" style="flex: 1; color: #1877F2; border-color: #1877F2;"><i class="fab fa-facebook"></i></button>
+    <button class="btn btn-sm btn-outline share-house-btn" data-channel="instagram" style="flex: 1; color: #E1306C; border-color: #E1306C;"><i class="fab fa-instagram"></i></button>
 </div>
         </div>
     `;
@@ -555,6 +561,24 @@ if (manageBtn) {
         showManageHousingModal(listing.id, manageBtn.getAttribute('data-status'));
     });
 }
+
+div.querySelectorAll('.share-house-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const channel = btn.getAttribute('data-channel');
+        if (typeof window.shareListing === 'function') {
+            window.shareListing(channel, {
+                title: listing.title,
+                price: listing.price,
+                location: listing.location,
+                category: listing.type || listing.category,
+                type: 'Property'
+            });
+        } else {
+            window.showToast('Share feature loading, please refresh', 'warning');
+        }
+    });
+});
 
 return div;
 }

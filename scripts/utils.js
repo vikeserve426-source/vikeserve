@@ -393,3 +393,47 @@ function getRoleName(role) {
 
 window.getRoleDisplay = getRoleDisplay;
 window.getRoleName = getRoleName;
+
+window.buildShareText = function({ title, price, location, category, type }) {
+    const lines = [];
+    lines.push(`Check this out on VikeServe 👇`);
+    if (title) lines.push(`*${title}*`);
+    if (price) lines.push(`💰 KES ${Number(price).toLocaleString()}`);
+    if (category) lines.push(`🏷️ ${category}`);
+    if (location) lines.push(`📍 ${location}`);
+    if (type) lines.push(`#${type}`);
+    lines.push('');
+    lines.push(`Browse more: https://vikeserve.pages.dev`);
+    return lines.join('\n');
+};
+
+window.shareToWhatsApp = function(shareText) {
+    const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank');
+};
+
+window.shareToFacebook = function(appUrl) {
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(appUrl)}`;
+    window.open(url, '_blank', 'width=600,height=400');
+};
+
+window.shareToInstagram = async function(shareText) {
+    try {
+        await navigator.clipboard.writeText(shareText);
+        if (typeof window.showToast === 'function') {
+            window.showToast('Text copied! Paste it in your Instagram post or story.', 'success');
+        }
+    } catch (e) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Copy this to share on Instagram: ' + shareText, 'info');
+        }
+    }
+};
+
+window.shareListing = function(channel, data) {
+    const shareText = window.buildShareText(data);
+    const appUrl = 'https://vikeserve.pages.dev';
+    if (channel === 'whatsapp') return window.shareToWhatsApp(shareText);
+    if (channel === 'facebook') return window.shareToFacebook(appUrl);
+    if (channel === 'instagram') return window.shareToInstagram(shareText);
+};
