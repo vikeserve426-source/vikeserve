@@ -332,7 +332,17 @@ async function loadMarketplaceItems(category = 'all', loadMore = false) {
         }
         
         const snapshot = await query.get();
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const items = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(item => {
+                if (item.isJob === true || item.isJob === 'true') return false;
+                if (item.category === 'services' || item.category === 'service') return false;
+                if (item.originalServiceId) return false;
+                if (item.serviceType) return false;
+                if (item.jobStatus) return false;
+                if (item.urgency) return false;
+                return true;
+            });
         
         const itemsWithRatings = await Promise.all(items.map(async (item) => {
             if (item.userId) {
@@ -1256,7 +1266,14 @@ function setupMarketplaceSearch() {
                     .where('status', '==', 'active')
                     .get();
                     
-                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const items = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(item => {
+                        if (item.isJob === true) return false;
+                        if (item.category === 'services') return false;
+                        if (item.originalServiceId) return false;
+                        return true;
+                    });
                 const filtered = items.filter(item => 
                     item.title?.toLowerCase().includes(searchTerm) || 
                     item.description?.toLowerCase().includes(searchTerm)
