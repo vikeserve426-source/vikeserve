@@ -2132,7 +2132,7 @@ async function decrementStock(itemId) {
 
 window.decrementStock = decrementStock;
 
-const FOUNDER_UID = 'DkxOTwZdMUMrz06VtzMuGPBzzx22';
+const FOUNDER_UID = 'qgF0dFYIXsVPI658pRvIYR3cArB2';
 
 function setupShowOnWebsiteToggle() {
     const user = firebase.auth().currentUser;
