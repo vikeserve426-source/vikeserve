@@ -317,21 +317,20 @@ div.innerHTML = `
         <div class="job-tags">${typeBadge}<span class="job-tag">${escapeHtml(job.category)}</span>${job.urgent ? '<span class="job-tag urgent">Urgent</span>' : ''}</div>
         <div style="display: flex; gap: 8px; margin-top: 8px;">
             <button class="btn btn-primary view-job-detail-btn" data-job-id="${job.id}">View Details</button>
-${job.userId === firebase.auth().currentUser?.uid ? `
-    <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="background: var(--warning); color: white; margin-top: 8px;">Manage Job</button>
-` : ''}
-<div class="job-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
-    <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
-    <button class="btn btn-sm btn-outline share-job-btn" data-channel="whatsapp" style="flex: 1; color: #25D366; border-color: #25D366;" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i></button>
-    <button class="btn btn-sm btn-outline share-job-btn" data-channel="facebook" style="flex: 1; color: #1877F2; border-color: #1877F2;" title="Share on Facebook"><i class="fab fa-facebook"></i></button>
-    <button class="btn btn-sm btn-outline share-job-btn" data-channel="instagram" style="flex: 1; color: #E1306C; border-color: #E1306C;" title="Share on Instagram"><i class="fab fa-instagram"></i></button>
-</div>
-`;
-        <button class="btn btn-outline book-job-btn" data-job-id="${job.id}" data-provider-id="${job.userId}" style="flex: 1;">
-            <i class="fas fa-calendar-check"></i> Book
-        </button>
-    `}
-</div>
+            ${job.userId === firebase.auth().currentUser?.uid ? `
+                <button class="btn btn-warning manage-job-btn" data-job-id="${job.id}" data-status="${job.jobStatus || 'open'}" style="background: var(--warning); color: white;">Manage Job</button>
+            ` : ''}
+            <button class="btn btn-outline book-job-btn" data-job-id="${job.id}" data-provider-id="${job.userId}" style="flex: 1;">
+                <i class="fas fa-calendar-check"></i> Book
+            </button>
+        </div>
+        <div class="job-share" style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+            <span style="font-size: 0.7rem; color: var(--text-tertiary); align-self: center; margin-right: 4px;">Share:</span>
+            <button class="btn btn-sm btn-outline share-job-btn" data-channel="whatsapp" style="flex: 1; color: #25D366; border-color: #25D366;" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i></button>
+            <button class="btn btn-sm btn-outline share-job-btn" data-channel="facebook" style="flex: 1; color: #1877F2; border-color: #1877F2;" title="Share on Facebook"><i class="fab fa-facebook"></i></button>
+            <button class="btn btn-sm btn-outline share-job-btn" data-channel="instagram" style="flex: 1; color: #E1306C; border-color: #E1306C;" title="Share on Instagram"><i class="fab fa-instagram"></i></button>
+        </div>
+    </div>
 `;
 
 const viewBtn = div.querySelector('.view-job-detail-btn');
