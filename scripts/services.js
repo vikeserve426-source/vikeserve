@@ -16,18 +16,19 @@ class ServicesManager {
             let query = this.servicesCollection
                 .where('category', '==', category)
                 .where('status', '==', 'active')
-                .orderBy('createdAt', 'desc');
-            
-            if (limit) query = query.limit(limit);
-            if (startAfter) query = query.startAfter(startAfter);
+                .limit(50);
             
             const snapshot = await query.get();
-            const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            const services = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                    const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                    const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                    return tb - ta;
+                })
+                .slice(0, limit);
             
-            return {
-                services: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-                lastVisible
-            };
+            return { services, lastVisible: null };
         } catch (error) {
             console.error('Error getting services:', error);
             return { services: [], lastVisible: null };
@@ -37,12 +38,18 @@ class ServicesManager {
 async getUrgentJobs(limit = 10) {
     try {
         const snapshot = await this.servicesCollection
-            .where('urgent', '==', true)
             .where('status', '==', 'active')
-            .orderBy('createdAt', 'desc')
-            .limit(limit)
+            .limit(50)
             .get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }));
+        return snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data(), isJob: doc.data().isJob || false }))
+            .filter(j => j.urgent === true || j.isJob === true)
+            .sort((a, b) => {
+                const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                return tb - ta;
+            })
+            .slice(0, limit);
     } catch (error) {
         console.warn('Primary urgent jobs query failed, using fallback:', error.message);
         try {
@@ -373,13 +380,17 @@ async function loadServices(category = null, limit = 20) {
         } else {
             const snapshot = await collections.services()
                 .where('status', '==', 'active')
-                .orderBy('createdAt', 'desc')
-                .limit(limit)
+                .limit(50)
                 .get();
-            result = {
-                services: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-                lastVisible: snapshot.docs[snapshot.docs.length - 1]
-            };
+            const services = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                    const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                    const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                    return tb - ta;
+                })
+                .slice(0, limit);
+            result = { services, lastVisible: null };
         }
         
         const services = result.services;
