@@ -1256,7 +1256,9 @@ setupSettingsContentListeners() {
             .limit(50)
             .get();
         
-        const conversations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const conversations = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(conv => !conv.hiddenFor || !conv.hiddenFor.includes(this.currentUser.uid));
         this.allConversations = conversations;
         
         if (conversations.length === 0) {
@@ -1313,6 +1315,10 @@ setupSettingsContentListeners() {
 renderConversations(conversations, userNames, unreadCounts) {
     const container = document.getElementById('conversations-list-container');
     if (!container) return;
+    if (!this.currentUser) {
+        container.innerHTML = '<div class="empty-state">Sign in to view messages</div>';
+        return;
+    }
     
     container.innerHTML = conversations.map(conv => {
         const isGroup = conv.isGroup === true;
@@ -1470,17 +1476,18 @@ renderConversations(conversations, userNames, unreadCounts) {
                     const participantNames = chatData.participantNames || {};
                     delete participantNames[this.currentUser.uid];
                     
-                    await chatRef.update({
-                        participants: newParticipants,
-                        participantNames: participantNames
-                    });
-                    
-                    if (chatData.admins) {
-                        const admins = chatData.admins.filter(uid => uid !== this.currentUser.uid);
-                        await chatRef.update({ admins: admins });
+                    // Add to hiddenFor list so only current user sees it as deleted
+                    const hiddenFor = chatData.hiddenFor || [];
+                    if (!hiddenFor.includes(this.currentUser.uid)) {
+                        hiddenFor.push(this.currentUser.uid);
                     }
                     
-                    this.showToast('Removed from chat', 'success');
+                    await chatRef.update({
+                        participantNames: participantNames,
+                        hiddenFor: hiddenFor
+                    });
+                    
+                    this.showToast('Chat removed from your list', 'success');
                 }
             }
             
@@ -1553,8 +1560,8 @@ renderConversations(conversations, userNames, unreadCounts) {
             }
             
             this.showChatWindow(chatId, chatData, otherParticipant);
-            await this.markMessagesAsRead(chatId);
             this.setupChatListener(chatId);
+            setTimeout(() => this.markMessagesAsRead(chatId), 500);
             
         } catch (error) {
             console.error('Error loading chat:', error);
@@ -2348,9 +2355,12 @@ async removeMemberFromGroup(chatId, userId) {
         const participantNames = chatData.participantNames || {};
         delete participantNames[userId];
         
+        const updatedAdmins = (chatData.admins || []).filter(uid => uid !== userId);
+        
         await chatRef.update({
             participants: newParticipants,
-            participantNames: participantNames
+            participantNames: participantNames,
+            admins: updatedAdmins
         });
         
         this.showToast('Member removed from group', 'success');
@@ -2602,9 +2612,17 @@ async leaveGroup(chatId) {
             });
             
             if (chatData.adminId === this.currentUser.uid && newParticipants.length > 0) {
+                const currentAdmins = (chatData.admins || []).filter(uid => uid !== this.currentUser.uid);
+                if (!currentAdmins.includes(newParticipants[0])) {
+                    currentAdmins.push(newParticipants[0]);
+                }
                 await chatRef.update({
-                    adminId: newParticipants[0]
+                    adminId: newParticipants[0],
+                    admins: currentAdmins
                 });
+            } else {
+                const currentAdmins = (chatData.admins || []).filter(uid => uid !== this.currentUser.uid);
+                await chatRef.update({ admins: currentAdmins });
             }
             
             this.showToast('You left the group', 'info');
@@ -2854,9 +2872,13 @@ async sendChatMessage(chatId) {
     }
     
     try {
+        const senderName = this.currentUser.displayName 
+            || (this.currentUser.email ? this.currentUser.email.split('@')[0] : null)
+            || 'User';
+        
         const messageData = {
             senderId: this.currentUser.uid,
-            senderName: this.currentUser.displayName || this.currentUser.email || 'User',
+            senderName: senderName,
             text: message,
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             read: false
@@ -2967,9 +2989,15 @@ setupChatListener(chatId) {
         this.currentChatUnsubscribe = null;
     }
     
+    let isFirstSnapshot = true;
+    
     this.currentChatUnsubscribe = this.db.collection('chats').doc(chatId).collection('messages')
         .orderBy('timestamp', 'asc')
         .onSnapshot((snapshot) => {
+            if (isFirstSnapshot) {
+                isFirstSnapshot = false;
+                return;
+            }
             snapshot.docChanges().forEach(change => {
                 if (change.type === 'added') {
                     const message = { id: change.doc.id, ...change.doc.data() };
@@ -2995,17 +3023,21 @@ setupChatListener(chatId) {
         this.typingUnsubscribe();
     }
     this.typingUnsubscribe = typingRef.onSnapshot((doc) => {
-        const typingStatus = document.getElementById('chat-typing-status');
-        if (typingStatus && doc.exists && doc.data().isTyping && doc.data().userId !== this.currentUser?.uid) {
-            typingStatus.textContent = 'typing...';
-            typingStatus.style.opacity = '0.7';
-            setTimeout(() => {
-                if (typingStatus.textContent === 'typing...') {
-                    typingStatus.textContent = '';
-                }
-            }, 1500);
-        } else if (typingStatus) {
-            typingStatus.textContent = '';
+        let indicator = document.getElementById('chat-typing-indicator');
+        const messagesContainer = document.getElementById('chat-messages-area');
+        if (!messagesContainer) return;
+        
+        const shouldShow = doc.exists && doc.data().isTyping && doc.data().userId !== this.currentUser?.uid;
+        
+        if (shouldShow && !indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'chat-typing-indicator';
+            indicator.className = 'chat-typing-indicator';
+            indicator.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:4px;">typing…</span>';
+            messagesContainer.appendChild(indicator);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else if (!shouldShow && indicator) {
+            indicator.remove();
         }
     });
 }

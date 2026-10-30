@@ -755,23 +755,25 @@ h6 {
 
 .more-section {
     position: fixed;
+    top: 0;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%) translateY(100%);
     width: 100%;
     max-width: var(--container-max-width);
     background: var(--more-menu-bg);
-    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
+    border-radius: 0;
     box-shadow: var(--shadow-xl);
-    max-height: var(--more-menu-max-height);
     z-index: 899;
     display: flex;
     flex-direction: column;
     transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
     overflow: hidden;
-    height: var(--more-menu-max-height);
+    height: 100vh;
+    height: 100dvh;
     visibility: hidden;
     pointer-events: none;
+    padding-top: env(safe-area-inset-top, 0px);
 }
 
 .more-section.active {
@@ -793,13 +795,12 @@ body.more-open .app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-lg) var(--space-lg) var(--space-md);
+    padding: calc(var(--space-lg) + env(safe-area-inset-top, 0px)) var(--space-lg) var(--space-md);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
     min-height: 56px;
     background: var(--more-menu-bg);
     z-index: 1;
-    border-radius: var(--more-menu-radius) var(--more-menu-radius) 0 0;
 }
 
 .btn {
@@ -1881,6 +1882,35 @@ select.form-input {
     font-size: var(--font-size-xs);
     margin-left: var(--space-xs);
 }
+
+.chat-typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+    max-width: 80%;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+.chat-typing-indicator .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-tertiary);
+    border-radius: 50%;
+    animation: typingDot 1.4s infinite ease-in-out;
+}
+.chat-typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
 .chat-message .message-attachment {
     margin: var(--space-xs) 0;
 }
@@ -2598,9 +2628,8 @@ body.more-open .app-header {
     overflow-y: auto;
     flex: 1 1 auto;
     -webkit-overflow-scrolling: touch;
-    height: 100%;
-    min-height: 200px;
-    max-height: calc(var(--more-menu-max-height) - 130px);
+    min-height: 0;
+    height: 0;
 }
 .more-tab-content.active {
     display: block;
@@ -2612,10 +2641,9 @@ body.more-open .app-header {
 #messages-content,
 #safety-content,
 #settings-content {
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
-    max-height: calc(var(--more-menu-max-height) - 130px) !important;
-    min-height: 200px !important;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: var(--space-lg);
     box-sizing: border-box;
 }
@@ -2813,6 +2841,9 @@ body.more-open .more-bottom-nav {
 
 body.more-open {
     position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     width: 100%;
     overflow: hidden;
     touch-action: none;
