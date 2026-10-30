@@ -576,6 +576,44 @@
                             </select>
                         </div>
                     </div>
+
+                    <div id="website-pricing-block" style="display: none; background: #F0FDFA; border: 1.5px dashed #0F766E; border-radius: 12px; padding: 16px; margin: 16px 0;">
+                        <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; color: #115E59; cursor: pointer; margin-bottom: 12px;">
+                            <input type="checkbox" id="market-show-on-website" style="width: 18px; height: 18px;">
+                            Show on website pricing page
+                        </label>
+                        <div id="website-pricing-details" style="display: none;">
+                            <p style="font-size: 0.75rem; color: #0F766E; margin: 0 0 12px 0;">
+                                Only items you tick here appear on the website. Regular user posts stay app-only.
+                            </p>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                                <div>
+                                    <label style="font-size: 0.75rem; font-weight: 600; color: #115E59; display: block; margin-bottom: 4px;">Buy part only (KSh)</label>
+                                    <input type="number" id="market-part-price" class="form-input" placeholder="e.g. 1200" min="0">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; font-weight: 600; color: #115E59; display: block; margin-bottom: 4px;">Fully fixed (KSh)</label>
+                                    <input type="number" id="market-fitted-price" class="form-input" placeholder="e.g. 2000" min="0">
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="font-size: 0.75rem; font-weight: 600; color: #115E59; display: block; margin-bottom: 4px;">Website category</label>
+                                <select id="market-pricing-category" class="form-input">
+                                    <option value="">Choose category</option>
+                                    <option value="phones">Phones</option>
+                                    <option value="electrical">Electrical</option>
+                                    <option value="motors">Motors</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; font-weight: 600; color: #115E59; display: block; margin-bottom: 4px;">Subcategory</label>
+                                <select id="market-subcategory" class="form-input">
+                                    <option value="">Choose subcategory</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Location *</label>
                         <input type="text" id="market-location" class="form-input" placeholder="Your location">

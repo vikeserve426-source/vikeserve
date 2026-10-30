@@ -1059,6 +1059,11 @@ async function submitMarketplaceItem() {
     const whatsapp = document.getElementById('market-whatsapp')?.value.trim();
     const negotiable = document.getElementById('market-negotiable')?.checked;
     const delivery = document.getElementById('market-delivery')?.checked;
+    const partPrice = document.getElementById('market-part-price')?.value;
+    const fittedPrice = document.getElementById('market-fitted-price')?.value;
+    const showOnWebsite = document.getElementById('market-show-on-website')?.checked || false;
+    const pricingCategory = document.getElementById('market-pricing-category')?.value;
+    const subcategory = document.getElementById('market-subcategory')?.value;
     
     const user = firebase.auth().currentUser;
     if (!user) {
@@ -1099,6 +1104,11 @@ async function submitMarketplaceItem() {
         window.showToast('Please enter a phone number', 'error');
         return;
     }
+
+    if (showOnWebsite && (!partPrice || !fittedPrice || !pricingCategory)) {
+        window.showToast('Website pricing requires part price, fitted price and category', 'error');
+        return;
+    }
     
     window.showToast('Saving item...', 'info');
     
@@ -1124,6 +1134,14 @@ async function submitMarketplaceItem() {
     userName: user.displayName || user.email || 'User',
     userEmail: user.email
 };
+
+if (showOnWebsite) {
+    itemData.showOnWebsite = true;
+    itemData.partPrice = parseInt(partPrice);
+    itemData.fittedPrice = parseInt(fittedPrice);
+    itemData.pricingCategory = pricingCategory;
+    if (subcategory) itemData.subcategory = subcategory;
+}
     
     try {
         const imageInput = document.getElementById('market-images');
@@ -1161,10 +1179,12 @@ resetMarketplaceForm();
 }
 
 function resetMarketplaceForm() {
-    const fields = ['market-category', 'market-title', 'market-description', 'market-price', 'market-condition', 'market-location', 'market-phone', 'market-whatsapp'];
+    const fields = ['market-category', 'market-title', 'market-description', 'market-price', 'market-condition', 'market-location', 'market-phone', 'market-whatsapp', 'market-part-price', 'market-fitted-price', 'market-pricing-category', 'market-subcategory'];
     fields.forEach(id => { const field = document.getElementById(id); if (field) field.value = ''; });
-    const checkboxes = ['market-negotiable', 'market-delivery'];
+    const checkboxes = ['market-negotiable', 'market-delivery', 'market-show-on-website'];
     checkboxes.forEach(id => { const cb = document.getElementById(id); if (cb) cb.checked = false; });
+    const detailsBlock = document.getElementById('website-pricing-details');
+    if (detailsBlock) detailsBlock.style.display = 'none';
     const previewContainer = document.getElementById('image-preview-container');
     if (previewContainer) previewContainer.innerHTML = '';
     const imageInput = document.getElementById('market-images');
@@ -1194,6 +1214,8 @@ function showMarketplacePostModal() {
                 });
             }
         }, 100);
+
+        setTimeout(setupShowOnWebsiteToggle, 150);
     } else {
         console.error('marketplace-post-modal not found');
         window.showToast('Form not available', 'error');
@@ -2092,3 +2114,56 @@ async function decrementStock(itemId) {
 }
 
 window.decrementStock = decrementStock;
+
+const FOUNDER_UID = 'DkxOTwZdMUMrz06VtzMuGPBzzx22';
+
+function setupShowOnWebsiteToggle() {
+    const user = firebase.auth().currentUser;
+    const block = document.getElementById('website-pricing-block');
+    const cb = document.getElementById('market-show-on-website');
+    if (!block || !cb) return;
+
+    if (!user || user.uid !== FOUNDER_UID) {
+        block.style.display = 'none';
+        return;
+    }
+
+    block.style.display = 'block';
+
+    const details = document.getElementById('website-pricing-details');
+    const catSelect = document.getElementById('market-pricing-category');
+    const subSelect = document.getElementById('market-subcategory');
+
+    const SUBCATS = {
+        phones: ['screens', 'batteries', 'cameras', 'ports', 'other'],
+        electrical: ['distribution-board', 'mcb', 'rcd', 'sockets', 'fans', 'other'],
+        motors: ['single-phase', 'three-phase', 'pumps', 'rewinding', 'other']
+    };
+
+    const refreshSubcats = () => {
+        if (!subSelect) return;
+        const cat = catSelect?.value;
+        const list = SUBCATS[cat] || [];
+        subSelect.innerHTML = '<option value="">Choose subcategory</option>' +
+            list.map(s => `<option value="${s}">${s.replace(/-/g, ' ')}</option>`).join('');
+    };
+
+    cb.onchange = () => {
+        if (details) details.style.display = cb.checked ? 'block' : 'none';
+    };
+
+    if (catSelect) catSelect.onchange = refreshSubcats;
+    refreshSubcats();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(setupShowOnWebsiteToggle, 500);
+});
+
+document.addEventListener('tabChanged', (e) => {
+    if (e.detail && e.detail.tabId === 'marketplace-tab') {
+        setTimeout(setupShowOnWebsiteToggle, 300);
+    }
+});
+
+window.setupShowOnWebsiteToggle = setupShowOnWebsiteToggle;
