@@ -476,3 +476,21 @@ if (typeof db !== 'undefined' && db) {
 }
 
 window.SearchManager = SearchManager;
+
+window.globalSearch = async function(term) {
+    if (!window.search) {
+        return { services: [], marketplace: [], alerts: [], housing: [] };
+    }
+    try {
+        const results = await window.search.searchAll(term);
+        return {
+            services: results.filter(r => r.type === 'service' || r.type === 'job'),
+            marketplace: results.filter(r => r.type === 'marketplace'),
+            housing: results.filter(r => r.type === 'housing'),
+            alerts: []
+        };
+    } catch (e) {
+        console.error('globalSearch error:', e);
+        return { services: [], marketplace: [], alerts: [], housing: [] };
+    }
+};
